@@ -59,21 +59,21 @@ const events = [
   }
 ];
 
-export default function Events() {
-  const [isCreateEventOpen, setIsCreateEventOpen] = useState(false);
-
-  const getStatusBadge = (status: string) => {
+const getStatusBadge = (status: string) => {
     switch (status) {
       case "Upcoming":
-        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100/80">Upcoming (1)</Badge>;
+        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100/80">Upcoming</Badge>;
       case "In progress":
-        return <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100/80">In progress (1)</Badge>;
+        return <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100/80">In progress</Badge>;
       case "Completed":
-        return <Badge className="bg-green-100 text-green-800 hover:bg-green-100/80">Completed (1)</Badge>;
+        return <Badge className="bg-green-100 text-green-800 hover:bg-green-100/80">Completed</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
   };
+
+export default function Events() {
+  const [isCreateEventOpen, setIsCreateEventOpen] = useState(false);
 
   return (
     <div className="flex h-screen bg-background">

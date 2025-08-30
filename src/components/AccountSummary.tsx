@@ -1,60 +1,53 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
+const getStatusBadge = (status: string) => {
+  switch (status) {
+    case "Active":
+      return <Badge className="bg-green-100 text-green-800 hover:bg-green-100/80 py-1 px-3">{status}</Badge>;
+    default:
+      return <Badge variant="secondary">{status}</Badge>;
+  }
+};
+
+const plans = [
+  { title: 'Plan Name', value: 'iCapture Unlimited (Expired)' },
+  { title: 'Start Date', value: '06/07/2024' },
+  { title: 'Teams Included', value: '0' },
+  { title: 'Business Card Transcriptions', value: '0 of 1,000' },
+  { title: 'End Date', value: '06/06/2025' },
+  { title: 'Device Licenses', value: '0' },
+  { title: 'Status', value: 'Active', isBadge: true },
+]
+
 export function AccountSummary() {
   return (
     <div className="p-6 space-y-6">
       <h1 className="text-2xl font-semibold text-foreground">Account Summary</h1>
-      
+
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg font-medium">Plan Details</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid grid-cols-2 gap-y-6">
-            <div>
-              <div className="text-sm text-muted-foreground mb-1">Plan Name</div>
-              <div className="text-foreground">iCapture Unlimited (Expired)</div>
-            </div>
-            
-            <div className="flex justify-end">
-              <Badge variant="success">Active</Badge>
-            </div>
-            
-            <div>
-              <div className="text-sm text-muted-foreground mb-1">Start Date</div>
-              <div className="text-foreground">06/07/2024</div>
-            </div>
-            
-            <div className="text-right">
-              <div className="text-sm text-muted-foreground mb-1">End Date</div>
-              <div className="text-foreground">06/06/2025</div>
-            </div>
-            
-            <div>
-              <div className="text-sm text-muted-foreground mb-1">Teams Included</div>
-              <div className="text-foreground">0</div>
-            </div>
-            
-            <div className="text-right">
-              <div className="text-sm text-muted-foreground mb-1">Device Licenses</div>
-              <div className="text-foreground">0</div>
-            </div>
-            
-            <div className="col-span-2">
-              <div className="text-sm text-muted-foreground mb-1">Business Card Transcriptions</div>
-              <div className="text-foreground">0 of 1,000</div>
-            </div>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-muted/30">
+                <tr>
+                  <th colSpan={2} className="text-left py-3 px-4 text-xl font-medium text-black">Plan Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                {plans.map((plan, index) => {
+                  return (
+                    <tr key={index} className="border-b hover:bg-muted/20">
+                      <td className="py-3 px-4 text-muted-foreground">{plan.title}</td>
+                      <td className="py-3 px-4 text-right text-foreground">{plan?.isBadge ? getStatusBadge(plan.value) : plan.value}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
         </CardContent>
       </Card>
-      
-      <div>
-        <h2 className="text-lg font-medium text-foreground mb-4">Add-ons</h2>
-        <div className="text-sm text-muted-foreground">
-          Searching "All Mailboxes"
-        </div>
-      </div>
     </div>
   );
 }

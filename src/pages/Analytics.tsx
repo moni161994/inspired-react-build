@@ -53,7 +53,7 @@ export default function Analytics() {
         <main className="flex-1 overflow-auto p-6 space-y-6">
           <Tabs defaultValue="analytics-overview" className="w-full">
             <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="analytics-overview" className="text-primary border-b-2 border-primary">
+              <TabsTrigger value="analytics-overview">
                 Analytics Overview
               </TabsTrigger>
               <TabsTrigger value="team-analytics">Team Analytics</TabsTrigger>
