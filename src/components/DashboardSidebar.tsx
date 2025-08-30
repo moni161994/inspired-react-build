@@ -1,16 +1,19 @@
-import { BarChart3, Calendar, Users, Settings, FileText, HelpCircle } from "lucide-react";
+import { LayoutGrid, Calendar, Clock, Users, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const navigationItems = [
-  { icon: BarChart3, label: "Dashboard", active: false },
-  { icon: Calendar, label: "Events", active: true },
-  { icon: Users, label: "Teams", active: false },
-  { icon: FileText, label: "Reports", active: false },
-  { icon: Settings, label: "Settings", active: false },
-  { icon: HelpCircle, label: "Help", active: false },
+  { icon: LayoutGrid, label: "Dashboard", path: "/" },
+  { icon: Calendar, label: "Events", path: "/events" },
+  { icon: Clock, label: "Analytics", path: "/analytics" },
+  { icon: Users, label: "Teams", path: "/teams" },
+  { icon: User, label: "Users", path: "/users" },
 ];
 
 export function DashboardSidebar() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
   return (
     <div className="flex flex-col w-16 bg-card border-r border-border min-h-screen">
       <div className="flex items-center justify-center h-16 border-b border-border">
@@ -25,9 +28,10 @@ export function DashboardSidebar() {
         {navigationItems.map((item, index) => (
           <button
             key={index}
+            onClick={() => navigate(item.path)}
             className={cn(
               "flex items-center justify-center w-12 h-12 rounded-lg transition-colors",
-              item.active 
+              location.pathname === item.path 
                 ? "bg-primary text-primary-foreground" 
                 : "text-muted-foreground hover:bg-secondary hover:text-foreground"
             )}
