@@ -1,6 +1,7 @@
-import { Search, Plus } from "lucide-react";
+import { Search, Plus, LogIn } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 
 export function DashboardHeader() {
   return (
@@ -22,6 +23,13 @@ export function DashboardHeader() {
         <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
           <Plus className="w-4 h-4 mr-2" />
           Add New Event
+        </Button>
+        
+        <Button asChild variant="outline">
+          <Link to="/login">
+            <LogIn className="w-4 h-4 mr-2" />
+            Login
+          </Link>
         </Button>
       </div>
     </header>
