@@ -1,9 +1,16 @@
 import { Search, Plus, LogIn } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { logout } from "@/hooks/auth";
 
 export function DashboardHeader() {
+  const navigate = useNavigate();
+  const handleLogout = () => {
+
+    logout();
+    navigate("/login");
+  };
   return (
     <header className="flex items-center justify-between h-16 px-6 bg-card border-b border-border">
       <div className="flex items-center space-x-4">
@@ -25,12 +32,9 @@ export function DashboardHeader() {
           Add New Event
         </Button>
         
-        <Button asChild variant="outline">
-          <Link to="/login">
-            <LogIn className="w-4 h-4 mr-2" />
-            Login
-          </Link>
-        </Button>
+        <Button variant="outline" onClick={handleLogout}>
+        LogOut
+      </Button>
       </div>
     </header>
   );
