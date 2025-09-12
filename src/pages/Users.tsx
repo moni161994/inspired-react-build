@@ -19,21 +19,37 @@ type UserData = {
 
 export default function Users() {
   const { request, loading, error } = useApi<any>();
-  const [user, setUser] = useState<UserData | null>(null);
+  const [user, setUser]:any = useState<UserData | null>(null);
 
   const fetchUser = async () => {
     const email = localStorage.getItem("email");
     if (!email) return;
   
     const res = await request(
-      `/get_user_details?email=${email}`,
+      `/get_users`,
       "GET"
-    );
-  
+    );    
     if (res && res.status_code === 200 && res.data) {
       setUser(res.data);
     }
   };
+
+  const sendCode = async(email:any) =>{
+    if (!email) {
+      alert("Please enter your email");
+      return;
+    }
+
+    const res = await request("/generate_otp", "POST", {
+      email_id: email,
+    });
+
+    if (res?.message === 'OTP sent successfully') {
+      alert("OTP sent to user email!");
+    } else {
+      alert(res?.msg || "Failed to send OTP");
+    }
+  }
   
   useEffect(() => {
     fetchUser();
@@ -84,22 +100,24 @@ export default function Users() {
                           <th className="text-left py-3 text-sm font-medium text-muted-foreground">Teams</th>
                           <th className="text-left py-3 text-sm font-medium text-muted-foreground">Parent</th>
                           <th className="text-left py-3 text-sm font-medium text-muted-foreground">Status</th>
+                          <th className="text-left py-3 text-sm font-medium text-muted-foreground">Generate Code</th>
                         </tr>
                       </thead>
                       <tbody>
-                        <tr className="border-b hover:bg-muted/50">
-                          <td className="py-3 text-foreground">{user.employee_id}</td>
-                          <td className="py-3 text-foreground">{user.user_name}</td>
-                          <td className="py-3 text-foreground">{user.email_address}</td>
+                        {user.map((data: any, index: any) => (<tr className="border-b hover:bg-muted/50">
+                          <td className="py-3 text-foreground">{data.employee_id}</td>
+                          <td className="py-3 text-foreground">{data.user_name}</td>
+                          <td className="py-3 text-foreground">{data.email_address}</td>
                           <td className="py-3">
-                            <Badge variant="outline">{user.profile}</Badge>
+                            <Badge variant="outline">{data.profile}</Badge>
                           </td>
-                          <td className="py-3 text-foreground">{user.teams}</td>
-                          <td className="py-3 text-foreground">{user.parent_id}</td>
+                          <td className="py-3 text-foreground">{data.teams}</td>
+                          <td className="py-3 text-foreground">{data.parent_id}</td>
                           <td className="py-3 text-foreground">
-                            {user.status === 1 ? "Active" : "Inactive"}
+                            {data.status === 1 ? "Active" : "Inactive"}
                           </td>
-                        </tr>
+                          <td className="py-3 text-foreground"><button onClick={()=>sendCode(data.email_address)}>Generate Code</button></td>
+                        </tr>))}
                       </tbody>
                     </table>
                   </div>
