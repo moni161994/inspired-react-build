@@ -27,7 +27,7 @@ export default function Users() {
       if (!email) return;
 
       const res = await request(
-        `/get_user_details?email=${encodeURIComponent(email)}`,
+        `/get_user_details?email=${(email)}`,
         "GET"
       );
 
