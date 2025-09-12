@@ -21,21 +21,21 @@ export default function Users() {
   const { request, loading, error } = useApi<any>();
   const [user, setUser] = useState<UserData | null>(null);
 
+  const fetchUser = async () => {
+    const email = localStorage.getItem("email");
+    if (!email) return;
+  
+    const res = await request(
+      `/get_user_details?email=${email}`,
+      "GET"
+    );
+  
+    if (res && res.status_code === 200 && res.data) {
+      setUser(res.data);
+    }
+  };
+  
   useEffect(() => {
-    const fetchUser = async () => {
-      const email = localStorage.getItem("email");
-      if (!email) return;
-
-      const res = await request(
-        `/get_user_details?email=${(email)}`,
-        "GET"
-      );
-
-      if (res && res.status_code === 200 && res.data) {
-        setUser(res.data);
-      }
-    };
-
     fetchUser();
   }, []);
 
@@ -107,7 +107,7 @@ export default function Users() {
               </CardContent>
             </Card>
 
-            <AddUser />
+            <AddUser onUserAdded={fetchUser}/>
           </div>
         </main>
       </div>

@@ -12,7 +12,11 @@ const initialState = {
     parent_id: "",
 }
 
-const AddUser = () => {
+type AddUserProps = {
+    onUserAdded?: () => void; // 👈 new
+  };
+
+const AddUser = ({ onUserAdded }: AddUserProps) => {
     const [userInfo, setUserInfo] = useState(initialState);
 
     const [message, setMessage] = useState<string | null>(null);
@@ -28,18 +32,14 @@ const AddUser = () => {
 
     const handleSubmit = async () => {
         const data = await request("/user_details", "POST", userInfo);
-
+    
         if (data) {
-            setMessage("✅ User added successfully!");
-            setUserInfo({
-                user_name: "",
-                email_address: "",
-                profile: "",
-                teams: "",
-                parent_id: "",
-            });
+          setMessage("✅ User added successfully!");
+          setUserInfo(initialState);
+          if (onUserAdded) onUserAdded(); // 👈 trigger refresh
         }
-    };
+      };
+    
 
     const isDisabled = Object.values(userInfo).some((val) => val.trim() === "");
 
