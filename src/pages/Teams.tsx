@@ -3,6 +3,8 @@ import { DashboardHeader } from "@/components/DashboardHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useEffect, useState } from "react";
+import { useApi } from "@/hooks/useApi";
 
 const teamsData = {
   totalEvents: 265,
@@ -12,24 +14,42 @@ const teamsData = {
   priorityPercentage: "5.74%"
 };
 
-const teams = [
-  {
-    name: "PHC",
-    color: "bg-purple-400",
-    totalEvents: 141,
-    totalLeads: 594,
-    priorityLeads: 297
-  },
-  {
-    name: "epredia", 
-    color: "bg-gray-400",
-    totalEvents: 124,
-    totalLeads: 4582,
-    priorityLeads: 0
-  }
-];
-
 export default function Teams() {
+  const { request, loading, error } = useApi<any>();
+  const [leadData, setLeadData] = useState<any>(null);
+
+  const fetchLeadData = async () => {
+    const res = await request(
+      `/get_all_leads`,
+      "GET"
+    );
+    if (res && res.success === true && res.data) {
+      setLeadData(res.data);
+    }
+  };
+  
+  useEffect(() => {
+    fetchLeadData();
+  }, []);
+
+    const handleDelete = async (lead_id: any) => {
+      try {
+        const res = await request(
+          `/delete_lead?lead_id=${lead_id}`,
+          "DELETE"
+        );
+    
+        if (res && res.success === true) {
+          setLeadData((prev: any[]) => prev.filter((lead:any) => lead.lead_id !== lead_id));
+        } else {
+          alert("Failed to delete lead");
+        }
+      } catch (err) {
+        alert("Something went wrong while deleting");
+      }
+    
+  }
+
   return (
     <div className="flex h-screen bg-background">
       <DashboardSidebar />
@@ -40,19 +60,7 @@ export default function Teams() {
         <main className="flex-1 overflow-auto p-6 space-y-6">
           <div>
             <h1 className="text-2xl font-semibold text-foreground mb-2">epredia</h1>
-            <p className="text-muted-foreground mb-4">Here is a quick snapshot of your teams.</p>
-            
-            <div className="flex items-center space-x-2 mb-6">
-              <span className="text-sm text-muted-foreground">Your key stats for the</span>
-              <Select defaultValue="all-time">
-                <SelectTrigger className="w-32 h-auto py-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all-time">all Time</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <p className="text-muted-foreground mb-4">Here is your Lead Data</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -82,7 +90,7 @@ export default function Teams() {
               <CardContent>
                 <div className="flex items-end space-x-4">
                   <div>
-                    <div className="text-3xl font-bold text-foreground">{teamsData.totalLeads}</div>
+                    <div className="text-3xl font-bold text-foreground">{leadData?.length}</div>
                     <div className="text-sm text-muted-foreground mt-1">
                       Avg. {teamsData.avgLeadsPerEvent} leads per event
                     </div>
@@ -114,7 +122,47 @@ export default function Teams() {
             </Card>
           </div>
 
-          <Card>
+           <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-muted/30">
+                    <tr>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Name</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Company Name</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Designation</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Phone Number</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Email</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground"></th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leadData?.map((lead: any) => (
+                      <tr key={lead?.lead_id} className="border-b hover:bg-muted/20">
+                        <td className="py-3 px-4">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-foreground font-medium">{lead?.name}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-foreground">{lead?.company}</td>
+                        <td className="py-3 px-4 text-foreground">{lead?.designation}</td>
+                        <td className="py-3 px-4 text-foreground">{lead?.phone_numbers[0]}</td>
+                        <td className="py-3 px-4 text-foreground">{lead?.emails[0]}</td>
+                        <td className="py-3 px-4">
+                          <Button onClick={()=> handleDelete(lead?.lead_id)} variant="link" className="text-primary p-0 h-auto">
+                            Delete
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card> 
+
+          {/* <Card>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -156,7 +204,7 @@ export default function Teams() {
                 </table>
               </div>
             </CardContent>
-          </Card>
+          </Card> */}
 
           <div className="text-center py-8">
             <p className="text-sm text-muted-foreground">© iCapture 2025</p>
