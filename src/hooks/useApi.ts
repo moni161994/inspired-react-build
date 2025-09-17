@@ -1,7 +1,7 @@
 // hooks/useApi.ts
 import { useState } from "react";
 
-const BASE_URL = "http://localhost:3002";
+const BASE_URL = "https://astro.moongamespro.site";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
 
