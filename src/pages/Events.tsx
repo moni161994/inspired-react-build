@@ -66,6 +66,11 @@ export default function Events() {
   const [events, setEvents] = useState<Event[]>([]);
   const [isCreateEventOpen, setIsCreateEventOpen] = useState(false);
 
+  const handleAddEvent = () => {
+    console.log("Add Event button clicked!");
+    setIsCreateEventOpen(true);
+  };
+
   useEffect(() => {
     const fetchEvents = async () => {
       const data = await request("/get_all_event_details", "GET");
@@ -82,7 +87,7 @@ export default function Events() {
       <DashboardSidebar />
 
       <div className="flex flex-col flex-1">
-        <DashboardHeader onAddEvent={() => setIsCreateEventOpen(true)} />
+        <DashboardHeader onAddEvent={handleAddEvent} />
 
         <main className="flex-1 overflow-auto p-6 space-y-6">
           <div className="flex justify-between items-center">
