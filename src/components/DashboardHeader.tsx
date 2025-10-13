@@ -4,7 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
 import { logout } from "@/hooks/auth";
 
-export function DashboardHeader() {
+type DashboardHeaderProps = {
+  onAddEvent?: () => void;
+};
+
+export function DashboardHeader({ onAddEvent }: DashboardHeaderProps) {
   const navigate = useNavigate();
   const handleLogout = () => {
 
@@ -27,7 +31,7 @@ export function DashboardHeader() {
           />
         </div>
         
-        <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
+        <Button className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={onAddEvent}>
           <Plus className="w-4 h-4 mr-2" />
           Add New Event
         </Button>
