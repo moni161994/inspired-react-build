@@ -1,7 +1,7 @@
 // hooks/useApi.ts
 import { useState } from "react";
 
-const BASE_URL = "https://astro.moongamespro.site";
+const BASE_URL = "https://api.inditechit.com";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
 
