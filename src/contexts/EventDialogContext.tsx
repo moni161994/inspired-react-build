@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useApi } from "@/hooks/useApi";
 
 type EventDialogContextType = {
   openEventDialog: () => void;
@@ -27,6 +28,46 @@ const EventDialogContext = createContext<EventDialogContextType | undefined>(
 
 export function EventDialogProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
+  const { request, loading, error } = useApi<any>();
+  // ✅ Centralized Form State
+  const [formData, setFormData] = useState({
+    status: "Upcoming",
+    team: "",
+    eventName: "",
+    startDate: "",
+    endDate: "",
+    location: "",
+    totalLeads: 0,
+    priorityLeads: 0,
+    budget: 0,
+    eventSize: "",
+  });
+
+  const handleChange = (field: string, value: string | number) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+  
+  const handleSubmit = async () => {
+    const res = await request("/create_events", "POST", {
+      event_status:formData.status,
+      event_name:formData.eventName,
+      start_date:formData.startDate,
+      end_date:formData.endDate,
+      location:formData.location,
+      team:formData.team,
+      total_leads:formData.totalLeads,
+      priority_leads:formData.priorityLeads,
+      budget:formData.budget,
+      event_size: formData.eventSize
+    });
+
+    if (res?.message === 'Event updated successfully') {
+      alert("Event Created");
+    } else {
+      alert(res?.msg || "Failed to submit the details");
+    }
+    closeEventDialog();
+  };
 
   const openEventDialog = () => setIsOpen(true);
   const closeEventDialog = () => setIsOpen(false);
@@ -34,7 +75,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
   return (
     <EventDialogContext.Provider value={{ openEventDialog, closeEventDialog }}>
       {children}
-      
+
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -42,9 +83,13 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
           </DialogHeader>
 
           <div className="space-y-4">
+            {/* Event Status */}
             <div>
-              <Label htmlFor="event-status">Event Status *</Label>
-              <Select defaultValue="Upcoming">
+              <Label>Event Status *</Label>
+              <Select
+                defaultValue="Upcoming"
+                onValueChange={(v) => handleChange("status", v)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select Status" />
                 </SelectTrigger>
@@ -56,9 +101,10 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
               </Select>
             </div>
 
+            {/* Team */}
             <div>
-              <Label htmlFor="select-team">Select Team *</Label>
-              <Select>
+              <Label>Select Team *</Label>
+              <Select onValueChange={(v) => handleChange("team", v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select Team" />
                 </SelectTrigger>
@@ -70,51 +116,76 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
               </Select>
             </div>
 
+            {/* Event Name */}
             <div>
-              <Label htmlFor="event-name">Event Name *</Label>
-              <Input id="event-name" placeholder="Enter event name" />
+              <Label>Event Name *</Label>
+              <Input
+                placeholder="Enter event name"
+                onChange={(e) => handleChange("eventName", e.target.value)}
+              />
             </div>
 
+            {/* Dates */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="start-date">Start Date *</Label>
-                <Input id="start-date" type="date" />
+                <Label>Start Date *</Label>
+                <Input type="date" onChange={(e) => handleChange("startDate", e.target.value)} />
               </div>
               <div>
-                <Label htmlFor="end-date">End Date *</Label>
-                <Input id="end-date" type="date" />
+                <Label>End Date *</Label>
+                <Input type="date" onChange={(e) => handleChange("endDate", e.target.value)} />
               </div>
             </div>
 
+            {/* Location */}
             <div>
-              <Label htmlFor="event-location">Event Location *</Label>
-              <Input id="event-location" placeholder="Enter location" />
+              <Label>Event Location *</Label>
+              <Input
+                placeholder="Enter location"
+                onChange={(e) => handleChange("location", e.target.value)}
+              />
             </div>
 
+            {/* Leads */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="total-leads">Total Leads</Label>
-                <Input id="total-leads" type="number" defaultValue={0} />
+                <Label>Total Leads</Label>
+                <Input
+                  type="number"
+                  defaultValue={0}
+                  onChange={(e) => handleChange("totalLeads", Number(e.target.value))}
+                />
               </div>
               <div>
-                <Label htmlFor="priority-leads">Priority Leads</Label>
-                <Input id="priority-leads" type="number" defaultValue={0} />
+                <Label>Priority Leads</Label>
+                <Input
+                  type="number"
+                  defaultValue={0}
+                  onChange={(e) => handleChange("priorityLeads", Number(e.target.value))}
+                />
               </div>
             </div>
 
+            {/* Budget */}
             <div>
-              <Label htmlFor="budget">Approximate Budget (USD)</Label>
+              <Label>Approximate Budget (USD)</Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
                   $
                 </span>
-                <Input id="budget" type="number" className="pl-6" placeholder="0" />
+                <Input
+                  type="number"
+                  className="pl-6"
+                  placeholder="0"
+                  onChange={(e) => handleChange("budget", Number(e.target.value))}
+                />
               </div>
             </div>
 
+            {/* Event Size */}
             <div>
-              <Label htmlFor="event-size">Event Size</Label>
-              <Select>
+              <Label>Event Size</Label>
+              <Select onValueChange={(v) => handleChange("eventSize", v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select Event Size" />
                 </SelectTrigger>
@@ -126,13 +197,12 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
               </Select>
             </div>
 
+            {/* Buttons */}
             <div className="flex justify-end space-x-2 pt-4">
               <Button variant="outline" onClick={closeEventDialog}>
                 Cancel
               </Button>
-              <Button onClick={closeEventDialog}>
-                Create Event
-              </Button>
+              <Button type="button" onClick={handleSubmit}>Create Event</Button>
             </div>
           </div>
         </DialogContent>
