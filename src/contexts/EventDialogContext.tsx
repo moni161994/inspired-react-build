@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { useEffect, useState, createContext, useContext, ReactNode } from "react";
 import {
   Dialog,
   DialogContent,
@@ -29,6 +29,7 @@ const EventDialogContext = createContext<EventDialogContextType | undefined>(
 export function EventDialogProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const { request, loading, error } = useApi<any>();
+
   // ✅ Centralized Form State
   const [formData, setFormData] = useState({
     status: "Upcoming",
@@ -46,22 +47,22 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
   const handleChange = (field: string, value: string | number) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
-  
+
   const handleSubmit = async () => {
     const res = await request("/create_events", "POST", {
-      event_status:formData.status,
-      event_name:formData.eventName,
-      start_date:formData.startDate,
-      end_date:formData.endDate,
-      location:formData.location,
-      team:formData.team,
-      total_leads:formData.totalLeads,
-      priority_leads:formData.priorityLeads,
-      budget:formData.budget,
-      event_size: formData.eventSize
+      event_status: formData.status,
+      event_name: formData.eventName,
+      start_date: formData.startDate,
+      end_date: formData.endDate,
+      location: formData.location,
+      team: formData.team,
+      total_leads: formData.totalLeads,
+      priority_leads: formData.priorityLeads,
+      budget: formData.budget,
+      event_size: formData.eventSize,
     });
 
-    if (res?.message === 'Event updated successfully') {
+    if (res?.message === "Event updated successfully") {
       alert("Event Created");
     } else {
       alert(res?.msg || "Failed to submit the details");
@@ -125,15 +126,21 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
               />
             </div>
 
-            {/* Dates */}
+            {/* Dates - Two fields in a row */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Start Date *</Label>
-                <Input type="date" onChange={(e) => handleChange("startDate", e.target.value)} />
+                <Input
+                  type="date"
+                  onChange={(e) => handleChange("startDate", e.target.value)}
+                />
               </div>
               <div>
                 <Label>End Date *</Label>
-                <Input type="date" onChange={(e) => handleChange("endDate", e.target.value)} />
+                <Input
+                  type="date"
+                  onChange={(e) => handleChange("endDate", e.target.value)}
+                />
               </div>
             </div>
 
@@ -146,7 +153,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
               />
             </div>
 
-            {/* Leads */}
+            {/* Leads - Two fields in a row */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Total Leads</Label>
@@ -161,7 +168,9 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 <Input
                   type="number"
                   defaultValue={0}
-                  onChange={(e) => handleChange("priorityLeads", Number(e.target.value))}
+                  onChange={(e) =>
+                    handleChange("priorityLeads", Number(e.target.value))
+                  }
                 />
               </div>
             </div>
@@ -202,7 +211,9 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
               <Button variant="outline" onClick={closeEventDialog}>
                 Cancel
               </Button>
-              <Button type="button" onClick={handleSubmit}>Create Event</Button>
+              <Button type="button" onClick={handleSubmit}>
+                Create Event
+              </Button>
             </div>
           </div>
         </DialogContent>

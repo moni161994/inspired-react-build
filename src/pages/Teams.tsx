@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useEffect, useState } from "react";
 import { useApi } from "@/hooks/useApi";
 
+
 const teamsData = {
   totalEvents: 265,
   totalLeads: 5176,
@@ -14,9 +15,13 @@ const teamsData = {
   priorityPercentage: "5.74%"
 };
 
+
 export default function Teams() {
   const { request, loading, error } = useApi<any>();
-  const [leadData, setLeadData] = useState<any>(null);
+  const [leadData, setLeadData] = useState<any[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  const [eventNameFilter, setEventNameFilter] = useState("");
 
   const fetchLeadData = async () => {
     const res = await request(
@@ -32,23 +37,53 @@ export default function Teams() {
     fetchLeadData();
   }, []);
 
-    const handleDelete = async (lead_id: any) => {
-      try {
-        const res = await request(
-          `/delete_lead?lead_id=${lead_id}`,
-          "DELETE"
-        );
-    
-        if (res && res.success === true) {
-          setLeadData((prev: any[]) => prev.filter((lead:any) => lead.lead_id !== lead_id));
-        } else {
-          alert("Failed to delete lead");
+  const handleDelete = async (lead_id: any) => {
+    try {
+      const res = await request(
+        `/delete_lead?lead_id=${lead_id}`,
+        "DELETE"
+      );
+  
+      if (res && res.success === true) {
+        setLeadData((prev: any[]) => prev.filter((lead:any) => lead.lead_id !== lead_id));
+        // Adjust current page if necessary
+        const totalPages = Math.ceil((leadData.length - 1) / itemsPerPage);
+        if (currentPage > totalPages) {
+          setCurrentPage(totalPages);
         }
-      } catch (err) {
-        alert("Something went wrong while deleting");
+      } else {
+        alert("Failed to delete lead");
       }
-    
+    } catch (err) {
+      alert("Something went wrong while deleting");
+    }
   }
+
+  // Filter leads based on event name filter (case-insensitive)
+  const filteredLeads = leadData.filter((lead) =>
+    lead.event_name?.toLowerCase().includes(eventNameFilter.toLowerCase())
+  );
+
+  // Calculate pagination variables based on filtered data
+  const totalLeads = filteredLeads.length;
+  const totalPages = Math.ceil(totalLeads / itemsPerPage);
+
+  // Slice filtered leads for current page
+  const paginatedLeads = filteredLeads.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const goToPage = (page: number) => {
+    if (page < 1 || page > totalPages) return;
+    setCurrentPage(page);
+  };
+
+  // Reset to page 1 when filter changes
+  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEventNameFilter(e.target.value);
+    setCurrentPage(1);
+  };
 
   return (
     <div className="flex h-screen bg-background">
@@ -61,6 +96,16 @@ export default function Teams() {
           <div>
             <h1 className="text-2xl font-semibold text-foreground mb-2">epredia</h1>
             <p className="text-muted-foreground mb-4">Here is your Lead Data</p>
+          </div>
+
+          <div className="mb-4">
+            <input
+              type="text"
+              placeholder="Filter by Event Name"
+              value={eventNameFilter}
+              onChange={handleFilterChange}
+              className="w-full max-w-xs p-2 border rounded"
+            />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -90,7 +135,7 @@ export default function Teams() {
               <CardContent>
                 <div className="flex items-end space-x-4">
                   <div>
-                    <div className="text-3xl font-bold text-foreground">{leadData?.length}</div>
+                    <div className="text-3xl font-bold text-foreground">{totalLeads}</div>
                     <div className="text-sm text-muted-foreground mt-1">
                       Avg. {teamsData.avgLeadsPerEvent} leads per event
                     </div>
@@ -122,7 +167,7 @@ export default function Teams() {
             </Card>
           </div>
 
-           <Card>
+          <Card>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -133,12 +178,12 @@ export default function Teams() {
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Designation</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Phone Number</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Email</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground"></th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Event Name</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground"></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {leadData?.map((lead: any) => (
+                    {paginatedLeads.map((lead: any) => (
                       <tr key={lead?.lead_id} className="border-b hover:bg-muted/20">
                         <td className="py-3 px-4">
                           <div className="flex items-center space-x-2">
@@ -149,62 +194,50 @@ export default function Teams() {
                         <td className="py-3 px-4 text-foreground">{lead?.designation}</td>
                         <td className="py-3 px-4 text-foreground">{lead?.phone_numbers[0]}</td>
                         <td className="py-3 px-4 text-foreground">{lead?.emails[0]}</td>
+                        <td className="py-3 px-4 text-foreground">{lead?.event_name || "Active Event"}</td>
                         <td className="py-3 px-4">
-                          <Button onClick={()=> handleDelete(lead?.lead_id)} variant="link" className="text-primary p-0 h-auto">
+                          <Button onClick={() => handleDelete(lead?.lead_id)} variant="link" className="text-primary p-0 h-auto">
                             Delete
                           </Button>
                         </td>
                       </tr>
                     ))}
+                    {paginatedLeads.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="py-6 text-center text-muted-foreground">
+                          No leads found for the filter.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
             </CardContent>
           </Card> 
 
-          {/* <Card>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-muted/30">
-                    <tr>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Team Name</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Total Events</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Total Leads</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Priority Leads</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground"></th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {teams.map((team, index) => (
-                      <tr key={index} className="border-b hover:bg-muted/20">
-                        <td className="py-3 px-4">
-                          <div className="flex items-center space-x-2">
-                            <div className={`w-3 h-3 rounded-full ${team.color}`}></div>
-                            <span className="text-foreground font-medium">{team.name}</span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-foreground">{team.totalEvents}</td>
-                        <td className="py-3 px-4 text-foreground">{team.totalLeads}</td>
-                        <td className="py-3 px-4 text-foreground">{team.priorityLeads}</td>
-                        <td className="py-3 px-4">
-                          <Button variant="link" className="text-primary p-0 h-auto">
-                            Analytics
-                          </Button>
-                        </td>
-                        <td className="py-3 px-4">
-                          <Button variant="link" className="text-primary p-0 h-auto">
-                            Log In
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card> */}
+          {/* Pagination Controls */}
+          <div className="flex justify-center items-center space-x-4 mt-4">
+            <Button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}>
+              Previous
+            </Button>
+
+            {[...Array(totalPages)].map((_, idx) => {
+              const pageNum = idx + 1;
+              return (
+                <Button
+                  key={pageNum}
+                  variant={pageNum === currentPage ? "default" : "outline"}
+                  onClick={() => goToPage(pageNum)}
+                >
+                  {pageNum}
+                </Button>
+              );
+            })}
+
+            <Button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages}>
+              Next
+            </Button>
+          </div>
 
           <div className="text-center py-8">
             <p className="text-sm text-muted-foreground">© iCapture 2025</p>
@@ -213,4 +246,9 @@ export default function Teams() {
       </div>
     </div>
   );
+
+  // function goToPage(page: number) {
+  //   if (page < 1 || page > totalPages) return;
+  //   setCurrentPage(page);
+  // }
 }

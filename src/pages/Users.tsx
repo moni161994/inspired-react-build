@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import AddUser from "@/components/AddUser";
 import { useApi } from "@/hooks/useApi";
+import { Button } from "@/components/ui/button";
 
 type UserData = {
   employee_id: number;
@@ -116,7 +117,7 @@ export default function Users() {
                           <td className="py-3 text-foreground">
                             {data.status === 1 ? "Active" : "Inactive"}
                           </td>
-                          <td className="py-3 text-foreground"><button onClick={()=>sendCode(data.email_address)}>Generate Code</button></td>
+                          <td className="py-3 text-foreground"><Button className="bg-primary hover:bg-primary/90" onClick={()=>sendCode(data.email_address)}>Generate Code</Button></td>
                         </tr>))}
                       </tbody>
                     </table>
