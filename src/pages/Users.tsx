@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import AddUser from "@/components/AddUser";
 import { useApi } from "@/hooks/useApi";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
 
 type UserData = {
   employee_id: number;
@@ -20,24 +21,32 @@ type UserData = {
 
 export default function Users() {
   const { request, loading, error } = useApi<any>();
-  const [user, setUser]:any = useState<UserData | null>(null);
+  const [user, setUser]: any = useState<UserData[] | null>(null);
+  const { toast } = useToast();
 
   const fetchUser = async () => {
     const email = localStorage.getItem("email");
     if (!email) return;
-  
-    const res = await request(
-      `/get_users`,
-      "GET"
-    );    
+
+    const res = await request(`/get_users`, "GET");
     if (res && res.status_code === 200 && res.data) {
       setUser(res.data);
+    } else {
+      toast({
+        title: "Failed to fetch users",
+        description: "An error occurred while fetching user data.",
+        variant: "destructive",
+      });
     }
   };
 
-  const sendCode = async(email:any) =>{
+  const sendCode = async (email: any) => {
     if (!email) {
-      alert("Please enter your email");
+      toast({
+        title: "Missing email",
+        description: "Please provide a valid email address.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -45,13 +54,20 @@ export default function Users() {
       email_id: email,
     });
 
-    if (res?.message === 'OTP sent successfully') {
-      alert("OTP sent to user email!");
+    if (res?.message === "OTP sent successfully") {
+      toast({
+        title: "Success",
+        description: "OTP has been sent to the user’s email!",
+      });
     } else {
-      alert(res?.msg || "Failed to send OTP");
+      toast({
+        title: "Failed",
+        description: res?.msg || "Something went wrong while sending OTP.",
+        variant: "destructive",
+      });
     }
-  }
-  
+  };
+
   useEffect(() => {
     fetchUser();
   }, []);
@@ -81,44 +97,88 @@ export default function Users() {
                   <span className="text-sm text-muted-foreground">
                     Search Users:
                   </span>
-                  <Input className="w-64" />
+                  <Input className="w-64" placeholder="Search..." />
                 </div>
               </CardHeader>
 
               <CardContent>
                 {loading && <p>Loading user...</p>}
-                {error && <p className="text-red-500">{error}</p>}
+                {error && (
+                  <p className="text-red-500">
+                    {typeof error === "string" ? error : "Something went wrong"}
+                  </p>
+                )}
 
                 {!loading && !error && user && (
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-3 text-sm font-medium text-muted-foreground">ID</th>
-                          <th className="text-left py-3 text-sm font-medium text-muted-foreground">Name</th>
-                          <th className="text-left py-3 text-sm font-medium text-muted-foreground">Email</th>
-                          <th className="text-left py-3 text-sm font-medium text-muted-foreground">Profile</th>
-                          <th className="text-left py-3 text-sm font-medium text-muted-foreground">Teams</th>
-                          <th className="text-left py-3 text-sm font-medium text-muted-foreground">Parent</th>
-                          <th className="text-left py-3 text-sm font-medium text-muted-foreground">Status</th>
-                          <th className="text-left py-3 text-sm font-medium text-muted-foreground">Generate Code</th>
+                        <tr className="border-b bg-muted/30">
+                          <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                            ID
+                          </th>
+                          <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                            Name
+                          </th>
+                          <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                            Email
+                          </th>
+                          <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                            Profile
+                          </th>
+                          <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                            Teams
+                          </th>
+                          <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                            Parent
+                          </th>
+                          <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                            Status
+                          </th>
+                          <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                            Generate Code
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
-                        {user.map((data: any, index: any) => (<tr className="border-b hover:bg-muted/50">
-                          <td className="py-3 text-foreground">{data.employee_id}</td>
-                          <td className="py-3 text-foreground">{data.user_name}</td>
-                          <td className="py-3 text-foreground">{data.email_address}</td>
-                          <td className="py-3">
-                            <Badge variant="outline">{data.profile}</Badge>
-                          </td>
-                          <td className="py-3 text-foreground">{data.teams}</td>
-                          <td className="py-3 text-foreground">{data.parent_id}</td>
-                          <td className="py-3 text-foreground">
-                            {data.status === 1 ? "Active" : "Inactive"}
-                          </td>
-                          <td className="py-3 text-foreground"><Button className="bg-primary hover:bg-primary/90" onClick={()=>sendCode(data.email_address)}>Generate Code</Button></td>
-                        </tr>))}
+                        {user.map((data: any) => (
+                          <tr
+                            key={data.employee_id}
+                            className="border-b hover:bg-muted/50 transition-colors"
+                          >
+                            <td className="py-3 px-4 text-foreground">
+                              {data.employee_id}
+                            </td>
+                            <td className="py-3 px-4 text-foreground">
+                              {data.user_name}
+                            </td>
+                            <td className="py-3 px-4 text-foreground">
+                              {data.email_address}
+                            </td>
+                            <td className="py-3 px-4">
+                              <Badge variant="outline">{data.profile}</Badge>
+                            </td>
+                            <td className="py-3 px-4 text-foreground">
+                              {data.teams}
+                            </td>
+                            <td className="py-3 px-4 text-foreground">
+                              {data.parent_id}
+                            </td>
+                            <td className="py-3 px-4 text-foreground">
+                              {data.status === 1 ? "Active" : "Inactive"}
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              <div className="flex justify-center">
+                                <Button
+                                  className="bg-primary hover:bg-primary/90"
+                                  onClick={() => sendCode(data.email_address)}
+                                >
+                                  Generate Code
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>
@@ -126,7 +186,13 @@ export default function Users() {
               </CardContent>
             </Card>
 
-            <AddUser onUserAdded={fetchUser}/>
+            {/* Right-side Add User card */}
+            <AddUser onUserAdded={fetchUser} />
+          </div>
+
+          {/* Footer */}
+          <div className="text-center py-8">
+            <p className="text-sm text-muted-foreground">© iCapture 2025</p>
           </div>
         </main>
       </div>

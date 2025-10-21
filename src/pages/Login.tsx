@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { useApi } from "@/hooks/useApi";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "@/components/ui/use-toast"; // ✅ Import toast
 
 const initialState = {
   email: "",
@@ -14,6 +15,7 @@ export default function LoginPage() {
   const [message, setMessage] = useState(null);
   const navigate = useNavigate();
   const { request, loading } = useApi();
+  const { toast } = useToast(); // ✅ Initialize toast
 
   const handleChange = (e) => {
     setLoginInfo((prev) => ({
@@ -26,6 +28,15 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (!loginInfo.email.trim() || !loginInfo.code.trim()) {
+      toast({
+        variant: "destructive",
+        title: "❌ Missing Fields",
+        description: "Please enter both email and code to continue.",
+      });
+      return;
+    }
+
     const data = await request("/login", "POST", {
       email: loginInfo.email,
       code: loginInfo.code,
@@ -36,13 +47,23 @@ export default function LoginPage() {
 
       if (data.auth_token) {
         localStorage.setItem("token", data.auth_token);
-        localStorage.setItem("isLoggedIn", "true"); // ✅ important
-        localStorage.setItem("email", loginInfo.email)
+        localStorage.setItem("isLoggedIn", "true");
+        localStorage.setItem("email", loginInfo.email);
       }
+
+      toast({
+        title: "✅ Login Successful",
+        description: "Redirecting to Analytics...",
+      });
 
       navigate("/analytics");
       setLoginInfo(initialState);
     } else {
+      toast({
+        variant: "destructive",
+        title: "❌ Login Failed",
+        description: data?.msg || "Invalid email or code. Please try again.",
+      });
       setMessage(data?.msg || "Login failed");
     }
   };
@@ -50,7 +71,11 @@ export default function LoginPage() {
   // ✅ GENERATE OTP
   const handleGenerateCode = async () => {
     if (!loginInfo.email) {
-      alert("Please enter your email");
+      toast({
+        variant: "destructive",
+        title: "⚠️ Email Required",
+        description: "Please enter your email before requesting OTP.",
+      });
       return;
     }
 
@@ -58,11 +83,17 @@ export default function LoginPage() {
       email_id: loginInfo.email,
     });
 
-    if (res?.message === 'OTP sent successfully') {
-      alert("OTP sent to your email!");
-      console.log("OTP Response:", res);
+    if (res?.message === "OTP sent successfully") {
+      toast({
+        title: "✅ OTP Sent",
+        description: "An OTP has been sent to your email address.",
+      });
     } else {
-      alert(res?.msg || "Failed to send OTP");
+      toast({
+        variant: "destructive",
+        title: "❌ Failed to Send OTP",
+        description: res?.msg || "Please check your email and try again.",
+      });
     }
   };
 
@@ -126,11 +157,14 @@ export default function LoginPage() {
           >
             {loading ? "Logging in..." : "Login"}
           </Button>
-          <p className="text-black-500 text-center text-sm">Copyright Eprevent. All rights reserved worldwide</p>
+
+          <p className="text-black-500 text-center text-sm">
+            Copyright Eprevent. All rights reserved worldwide
+          </p>
         </form>
 
         {message && (
-          <p className="text-red-500 text-center text-2xl">{message}</p>
+          <p className="text-green-600 text-center text-sm mt-2">{message}</p>
         )}
       </div>
     </div>

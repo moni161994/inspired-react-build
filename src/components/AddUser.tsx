@@ -3,101 +3,109 @@ import { Button } from "./ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
 import { Input } from "./ui/input";
 import { useApi } from "@/hooks/useApi";
+import { useToast } from "@/components/ui/use-toast";
 
 const initialState = {
-    user_name: "",
-    email_address: "",
-    profile: "",
-    teams: "",
-    parent_id: "",
-}
+  user_name: "",
+  email_address: "",
+  profile: "",
+  teams: "",
+  parent_id: "",
+};
 
 type AddUserProps = {
-    onUserAdded?: () => void; // 👈 new
-  };
+  onUserAdded?: () => void;
+};
 
 const AddUser = ({ onUserAdded }: AddUserProps) => {
-    const [userInfo, setUserInfo] = useState(initialState);
+  const [userInfo, setUserInfo] = useState(initialState);
+  const { request, loading, error } = useApi();
+  const { toast } = useToast();
 
-    const [message, setMessage] = useState<string | null>(null);
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUserInfo((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
+  };
 
-    const { request, loading, error } = useApi();
+  const handleSubmit = async () => {
+    if (Object.values(userInfo).some((val) => val.trim() === "")) {
+      toast({
+        title: "Missing Fields",
+        description: "Please fill in all the required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setUserInfo((prev) => ({
-            ...prev,
-            [e.target.name]: e.target.value,
-        }));
-    };
+    const data = await request("/user_details", "POST", userInfo);
 
-    const handleSubmit = async () => {
-        const data = await request("/user_details", "POST", userInfo);
-    
-        if (data) {
-          setMessage("✅ User added successfully!");
-          setUserInfo(initialState);
-          if (onUserAdded) onUserAdded(); // 👈 trigger refresh
-        }
-      };
-    
+    if (data && data.status_code === 200) {
+      toast({
+        title: "User Added Successfully",
+        description: "The new user has been added to the system.",
+      });
+      setUserInfo(initialState);
+      if (onUserAdded) onUserAdded();
+    } else {
+      toast({
+        title: "Failed to Add User",
+        description: data?.msg || "Something went wrong while adding the user.",
+        variant: "destructive",
+      });
+    }
+  };
 
-    const isDisabled = Object.values(userInfo).some((val) => val.trim() === "");
+  const isDisabled = Object.values(userInfo).some((val) => val.trim() === "");
 
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Add New User</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <Input
-                    placeholder="Enter here..."
-                    onChange={handleChange}
-                    value={userInfo.user_name}
-                    name="user_name"
-                    label="Username"
-                />
-                <Input
-                    placeholder="Enter here..."
-                    onChange={handleChange}
-                    value={userInfo.email_address}
-                    name="email_address"
-                    label="Email Address"
-                />
-                <Input
-                    placeholder="Enter here..."
-                    onChange={handleChange}
-                    value={userInfo.profile}
-                    name="profile"
-                    label="Profile"
-                />
-                <Input
-                    placeholder="Enter here..."
-                    onChange={handleChange}
-                    value={userInfo.teams}
-                    name="teams"
-                    label="Teams"
-                />
-                <Input
-                    placeholder="Enter here..."
-                    onChange={handleChange}
-                    value={userInfo.parent_id}
-                    name="parent_id"
-                    label="Parent ID"
-                />
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Add New User</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Input
+          placeholder="Enter username..."
+          onChange={handleChange}
+          value={userInfo.user_name}
+          name="user_name"
+        />
+        <Input
+          placeholder="Enter email..."
+          onChange={handleChange}
+          value={userInfo.email_address}
+          name="email_address"
+        />
+        <Input
+          placeholder="Enter profile..."
+          onChange={handleChange}
+          value={userInfo.profile}
+          name="profile"
+        />
+        <Input
+          placeholder="Enter team..."
+          onChange={handleChange}
+          value={userInfo.teams}
+          name="teams"
+        />
+        <Input
+          placeholder="Enter parent ID..."
+          onChange={handleChange}
+          value={userInfo.parent_id}
+          name="parent_id"
+        />
 
-                <Button
-                    className="bg-primary hover:bg-primary/90"
-                    onClick={handleSubmit}
-                    disabled={isDisabled}
-                >
-                    {loading ? "Submitting..." : "Submit"}
-                </Button>
-
-                {message && <p className="text-sm mt-2">{message}</p>}
-                {error && <p className="text-sm mt-2 text-red-500">{error}</p>}
-            </CardContent>
-        </Card>
-    );
+        <Button
+          className="bg-primary hover:bg-primary/90 w-full"
+          onClick={handleSubmit}
+          disabled={isDisabled || loading}
+        >
+          {loading ? "Submitting..." : "Submit"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
 };
 
 export default AddUser;

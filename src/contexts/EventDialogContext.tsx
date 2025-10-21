@@ -1,4 +1,4 @@
-import { useEffect, useState, createContext, useContext, ReactNode } from "react";
+import { createContext, useContext, useState, ReactNode } from "react";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useApi } from "@/hooks/useApi";
+import { useToast } from "@/components/ui/use-toast";
 
 type EventDialogContextType = {
   openEventDialog: () => void;
@@ -27,10 +28,12 @@ const EventDialogContext = createContext<EventDialogContextType | undefined>(
 );
 
 export function EventDialogProvider({ children }: { children: ReactNode }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const { request, loading, error } = useApi<any>();
+  const { toast } = useToast();
+  const today = new Date().toISOString().split("T")[0];
 
-  // ✅ Centralized Form State
+  const [isOpen, setIsOpen] = useState(false);
+  const { request } = useApi<any>();
+
   const [formData, setFormData] = useState({
     status: "Upcoming",
     team: "",
@@ -44,11 +47,57 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     eventSize: "",
   });
 
-  const handleChange = (field: string, value: string | number) => {
+  const handleChange = (e: any) => {
+    const { id, value } = e.target;
+    setFormData((prev) => ({ ...prev, [id]: value }));
+  };
+
+  const handleSelectChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSubmit = async () => {
+    // ✅ Required field validation
+    const requiredFields = [
+      { field: "status", label: "Event Status" },
+      { field: "team", label: "Team" },
+      { field: "eventName", label: "Event Name" },
+      { field: "startDate", label: "Start Date" },
+      { field: "endDate", label: "End Date" },
+      { field: "location", label: "Event Location" },
+    ];
+
+    for (const { field, label } of requiredFields) {
+      if (!formData[field as keyof typeof formData]) {
+        toast({
+          variant: "destructive",
+          title: "⚠️ Missing Required Field",
+          description: `${label} is required.`,
+        });
+        return;
+      }
+    }
+
+    // ✅ Date validation
+    if (formData.startDate < today || formData.endDate < today) {
+      toast({
+        variant: "destructive",
+        title: "❌ Invalid Date",
+        description: "Start and End dates cannot be earlier than today.",
+      });
+      return;
+    }
+
+    if (formData.endDate < formData.startDate) {
+      toast({
+        variant: "destructive",
+        title: "⚠️ Invalid Range",
+        description: "End date cannot be before the start date.",
+      });
+      return;
+    }
+
+    // ✅ API request
     const res = await request("/create_events", "POST", {
       event_status: formData.status,
       event_name: formData.eventName,
@@ -62,11 +111,20 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
       event_size: formData.eventSize,
     });
 
+    // ✅ Toast feedback
     if (res?.message === "Event updated successfully") {
-      alert("Event Created");
+      toast({
+        title: "✅ Event Created",
+        description: "Your event has been created successfully.",
+      });
     } else {
-      alert(res?.msg || "Failed to submit the details");
+      toast({
+        variant: "destructive",
+        title: "❌ Failed",
+        description: res?.msg || "Failed to submit the details.",
+      });
     }
+
     closeEventDialog();
   };
 
@@ -78,18 +136,18 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
       {children}
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Create a New Event</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-6 mt-4">
             {/* Event Status */}
             <div>
               <Label>Event Status *</Label>
               <Select
                 defaultValue="Upcoming"
-                onValueChange={(v) => handleChange("status", v)}
+                onValueChange={(val) => handleSelectChange("status", val)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select Status" />
@@ -102,10 +160,10 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
               </Select>
             </div>
 
-            {/* Team */}
+            {/* Select Team */}
             <div>
               <Label>Select Team *</Label>
-              <Select onValueChange={(v) => handleChange("team", v)}>
+              <Select onValueChange={(val) => handleSelectChange("team", val)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select Team" />
                 </SelectTrigger>
@@ -119,82 +177,20 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
 
             {/* Event Name */}
             <div>
-              <Label>Event Name *</Label>
+              <Label htmlFor="eventName">Event Name *</Label>
               <Input
+                id="eventName"
                 placeholder="Enter event name"
-                onChange={(e) => handleChange("eventName", e.target.value)}
+                onChange={handleChange}
               />
-            </div>
-
-            {/* Dates - Two fields in a row */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Start Date *</Label>
-                <Input
-                  type="date"
-                  onChange={(e) => handleChange("startDate", e.target.value)}
-                />
-              </div>
-              <div>
-                <Label>End Date *</Label>
-                <Input
-                  type="date"
-                  onChange={(e) => handleChange("endDate", e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* Location */}
-            <div>
-              <Label>Event Location *</Label>
-              <Input
-                placeholder="Enter location"
-                onChange={(e) => handleChange("location", e.target.value)}
-              />
-            </div>
-
-            {/* Leads - Two fields in a row */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Total Leads</Label>
-                <Input
-                  type="number"
-                  defaultValue={0}
-                  onChange={(e) => handleChange("totalLeads", Number(e.target.value))}
-                />
-              </div>
-              <div>
-                <Label>Priority Leads</Label>
-                <Input
-                  type="number"
-                  defaultValue={0}
-                  onChange={(e) =>
-                    handleChange("priorityLeads", Number(e.target.value))
-                  }
-                />
-              </div>
-            </div>
-
-            {/* Budget */}
-            <div>
-              <Label>Approximate Budget (USD)</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
-                  $
-                </span>
-                <Input
-                  type="number"
-                  className="pl-6"
-                  placeholder="0"
-                  onChange={(e) => handleChange("budget", Number(e.target.value))}
-                />
-              </div>
             </div>
 
             {/* Event Size */}
             <div>
-              <Label>Event Size</Label>
-              <Select onValueChange={(v) => handleChange("eventSize", v)}>
+              <Label htmlFor="eventSize">Event Size</Label>
+              <Select
+                onValueChange={(val) => handleSelectChange("eventSize", val)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select Event Size" />
                 </SelectTrigger>
@@ -206,15 +202,55 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
               </Select>
             </div>
 
-            {/* Buttons */}
-            <div className="flex justify-end space-x-2 pt-4">
-              <Button variant="outline" onClick={closeEventDialog}>
-                Cancel
-              </Button>
-              <Button type="button" onClick={handleSubmit}>
-                Create Event
-              </Button>
+            {/* Start Date */}
+            <div>
+              <Label htmlFor="startDate">Start Date *</Label>
+              <Input id="startDate" type="date" min={today} onChange={handleChange} />
             </div>
+
+            {/* End Date */}
+            <div>
+              <Label htmlFor="endDate">End Date *</Label>
+              <Input id="endDate" type="date" min={today} onChange={handleChange} />
+            </div>
+
+            {/* Location */}
+            <div>
+              <Label htmlFor="location">Event Location *</Label>
+              <Input
+                id="location"
+                placeholder="Enter location"
+                onChange={handleChange}
+              />
+            </div>
+
+            {/* Budget */}
+            <div>
+              <Label htmlFor="budget">Approximate Budget (USD)</Label>
+              <Input id="budget" type="number" placeholder="0" onChange={handleChange} />
+            </div>
+
+            {/* Total Leads */}
+            <div>
+              <Label htmlFor="totalLeads">Total Leads</Label>
+              <Input id="totalLeads" type="number" placeholder="0" onChange={handleChange} />
+            </div>
+
+            {/* Priority Leads */}
+            <div>
+              <Label htmlFor="priorityLeads">Priority Leads</Label>
+              <Input id="priorityLeads" type="number" placeholder="0" onChange={handleChange} />
+            </div>
+          </div>
+
+          {/* Buttons */}
+          <div className="flex justify-center space-x-2 pt-6">
+            <Button variant="outline" onClick={closeEventDialog}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleSubmit}>
+              Create Event
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
