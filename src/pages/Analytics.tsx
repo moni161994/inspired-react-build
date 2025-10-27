@@ -3,25 +3,9 @@ import { DashboardHeader } from "@/components/DashboardHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Filter, Download } from "lucide-react";
-import Teams from "./Teams";
 import { useEffect, useState } from "react";
 import { useApi } from "@/hooks/useApi";
-
-const analyticsData = {
-  totalEvents: 37,
-  totalLeads: 271,
-  priorityLeads: 62,
-  avgLeadsPerEvent: 7,
-  priorityPercentage: "23%",
-};
+import { useToast } from "@/hooks/use-toast";
 
 const topEvents = [
   {
@@ -51,38 +35,101 @@ const topMembers = [
   },
 ];
 
-// const teams = [{
-//   name:"monika",
-//   company:"tradeindia",
-//   designation: "developer",
-//   phone_no:"9176657835",
-// email:"dcjbdickjf"
-// },
-// {
-//   name:"monika",
-//   company:"tradeindia",
-//   designation: "developer",
-//   phone_no:"9176657835",
-// email:"dcjbdickjf"
-// }]
+type Member = {
+  user_name: string;
+  email_address: string;
+};
+
+type Team = {
+  team_id: string;
+  manager_name: string;
+  team_name: string;
+  members: Member[];
+};
+
+type EventSummary = {
+  total_events: number;
+  active_events: string;
+};
 
 export default function Analytics() {
-  const [teams, setTeams] = useState<Event[]>([]);
-  const { request, loading, error } = useApi<Event[]>();
+  const [teams, setTeams] = useState<Team[]>([]);
+  const { request, loading } = useApi();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedMembers, setSelectedMembers] = useState<any[]>([]);
+  const [selectedMembers, setSelectedMembers] = useState<Member[]>([]);
   const [selectedTeamName, setSelectedTeamName] = useState("");
+  const [analyticsData, setAnalyticsData] = useState<EventSummary | null>(null);
+  const { toast } = useToast();
+
+  // ✅ Fetch all teams
+  const fetchTeams = async () => {
+    const res = await request("/get_all_teams", "GET");
+  
+    if (Array.isArray(res)) {
+      // Case 1: valid response (array)
+      if (res.length > 0) {
+        setTeams(res);
+      } else {
+        // Case 2: valid response but no data
+        setTeams([]);
+        toast({
+          title: "No Teams Found",
+          description: "No team data is available at the moment.",
+          variant: "default",
+        });
+      }
+    } else if (res?.success && Array.isArray(res.data)) {
+      // Case 3: API wrapped response like { success: true, data: [...] }
+      if (res.data.length > 0) {
+        setTeams(res.data);
+      } else {
+        setTeams([]);
+        toast({
+          title: "No Teams Found",
+          description: "No team data is available at the moment.",
+          variant: "default",
+        });
+      }
+    } else {
+      // Case 4: unexpected / failed response
+      toast({
+        title: "Failed to load teams",
+        description: res?.msg || "Could not fetch team data from server.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  
+
+  // ✅ Fetch event summary (total + active)
+  const fetchEventSummary = async () => {
+    const res = await request("/event_summary", "GET");
+
+    if (res?.success) {
+      setAnalyticsData({
+        total_events: res.data.total_events,
+        active_events: res.data.active_events,
+      });
+    } else {
+      toast({
+        title: "Failed to load analytics",
+        description:
+          res?.msg || "Something went wrong while fetching event summary.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // ✅ Initialize both APIs together
+  const initializeData = async () => {
+    await Promise.all([fetchTeams(), fetchEventSummary()]);
+  };
 
   useEffect(() => {
-    const fetchEvents = async () => {
-      const data = await request("/get_all_teams", "GET");
-      if (data) {
-        setTeams(data);
-      }
-    };
-
-    fetchEvents();
+    initializeData();
   }, []);
+
   return (
     <div className="flex h-screen bg-background">
       <DashboardSidebar />
@@ -92,47 +139,23 @@ export default function Analytics() {
 
         <main className="flex-1 overflow-auto p-6 space-y-6">
           <Tabs defaultValue="analytics-overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="analytics-overview">
                 Analytics Overview
               </TabsTrigger>
               <TabsTrigger value="team-analytics">Team Analytics</TabsTrigger>
-              <TabsTrigger value="events-overview">Events Overview</TabsTrigger>
-              {/* <TabsTrigger value="team-performance">
-                Team Performance
-              </TabsTrigger> */}
             </TabsList>
 
+            {/* ✅ Overview Tab */}
             <TabsContent value="analytics-overview" className="space-y-6">
               <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-semibold text-foreground">
                   All Teams Analytics Overview
                 </h1>
-
-                <div className="flex items-center space-x-4">
-                  <Select defaultValue="last-3-months">
-                    <SelectTrigger className="w-40">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="last-3-months">
-                        Last 3 Months
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <Button variant="outline">
-                    <Filter className="w-4 h-4 mr-2" />
-                  </Button>
-
-                  <Button variant="outline">
-                    <Download className="w-4 h-4 mr-2" />
-                    Download Data
-                  </Button>
-                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* ✅ Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -143,10 +166,7 @@ export default function Analytics() {
                     <div className="flex items-end space-x-4">
                       <div>
                         <div className="text-3xl font-bold text-foreground">
-                          {analyticsData.totalEvents}
-                        </div>
-                        <div className="text-sm text-muted-foreground mt-1">
-                          Including 20 events with no leads
+                          {analyticsData?.total_events ?? 0}
                         </div>
                       </div>
                       <div className="flex-1 h-16 bg-gradient-to-r from-blue-200 to-blue-400 rounded-sm relative overflow-hidden">
@@ -158,58 +178,28 @@ export default function Analytics() {
 
                 <Card>
                   <CardHeader className="pb-2">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                      <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Total Leads
-                      </CardTitle>
-                    </div>
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      Active Events
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-end space-x-4">
                       <div>
                         <div className="text-3xl font-bold text-foreground">
-                          {analyticsData.totalLeads}
-                        </div>
-                        <div className="text-sm text-muted-foreground mt-1">
-                          Avg. {analyticsData.avgLeadsPerEvent} leads per event
-                        </div>
-                      </div>
-                      <div className="flex-1 h-16 bg-gradient-to-r from-blue-200 to-blue-400 rounded-sm relative overflow-hidden">
-                        <div className="absolute bottom-0 right-0 w-1/3 h-12 bg-blue-500 rounded-sm"></div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                      <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Priority Leads
-                      </CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-end space-x-4">
-                      <div>
-                        <div className="text-3xl font-bold text-foreground">
-                          {analyticsData.priorityLeads}
-                        </div>
-                        <div className="text-sm text-muted-foreground mt-1">
-                          {analyticsData.priorityPercentage} of all leads
+                          {analyticsData?.active_events ?? 0}
                         </div>
                       </div>
                       <div className="flex-1 h-16 bg-gradient-to-r from-green-200 to-green-400 rounded-sm relative overflow-hidden">
-                        <div className="absolute bottom-0 right-0 w-1/4 h-10 bg-green-500 rounded-sm"></div>
+                        <div className="absolute bottom-0 right-0 w-1/3 h-12 bg-green-500 rounded-sm"></div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               </div>
 
+              {/* ✅ Top Events + Members */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Top Performing Events */}
                 <Card>
                   <CardHeader>
                     <CardTitle>Top Performing Events</CardTitle>
@@ -239,13 +229,8 @@ export default function Analytics() {
                               <td className="py-2 text-foreground">
                                 {event.name}
                               </td>
-                              <td className="py-2">
-                                <div className="flex items-center space-x-2">
-                                  <div className="w-3 h-3 rounded-full bg-gray-400"></div>
-                                  <span className="text-foreground">
-                                    {event.team}
-                                  </span>
-                                </div>
+                              <td className="py-2 text-foreground">
+                                {event.team}
                               </td>
                               <td className="py-2 text-foreground">
                                 {event.totalLeads}
@@ -261,6 +246,7 @@ export default function Analytics() {
                   </CardContent>
                 </Card>
 
+                {/* Top Performing Members */}
                 <Card>
                   <CardHeader>
                     <CardTitle>Top Performing Team Members</CardTitle>
@@ -315,6 +301,7 @@ export default function Analytics() {
               </div>
             </TabsContent>
 
+            {/* ✅ Team Analytics */}
             <TabsContent value="team-analytics">
               <div className="py-12">
                 <Card>
@@ -341,32 +328,28 @@ export default function Analytics() {
                           </tr>
                         </thead>
                         <tbody>
-                          {teams?.map((lead: any) => (
+                          {teams?.map((lead: Team) => (
                             <tr
-                              key={lead?.lead_id}
+                              key={lead.team_id}
                               className="border-b hover:bg-muted/20"
                             >
+                              <td className="py-3 px-4 text-foreground">
+                                {lead.team_id}
+                              </td>
+                              <td className="py-3 px-4 text-foreground">
+                                {lead.manager_name}
+                              </td>
+                              <td className="py-3 px-4 text-foreground">
+                                {lead.team_name}
+                              </td>
+                              <td className="py-3 px-4 text-foreground">
+                                {lead.members.length}
+                              </td>
                               <td className="py-3 px-4">
-                                <div className="flex items-center space-x-2">
-                                  <span className="text-foreground font-medium">
-                                    {lead?.team_id}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="py-3 px-4 text-foreground">
-                                {lead?.manager_name}
-                              </td>
-                              <td className="py-3 px-4 text-foreground">
-                                {lead?.team_name}
-                              </td>
-                              <td className="py-3 px-4 text-foreground">
-                                {lead?.members.length}
-                              </td>
-                              <td className="py-3 px-4 text-foreground">
                                 <Button
                                   onClick={() => {
-                                    setSelectedMembers(lead?.members);
-                                    setSelectedTeamName(lead?.team_name);
+                                    setSelectedMembers(lead.members);
+                                    setSelectedTeamName(lead.team_name);
                                     setIsModalOpen(true);
                                   }}
                                 >
@@ -382,6 +365,8 @@ export default function Analytics() {
                 </Card>
               </div>
             </TabsContent>
+
+            {/* ✅ Modal for Team Members */}
             {isModalOpen && (
               <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50">
                 <div className="bg-white p-6 rounded-lg shadow-xl w-[400px]">
@@ -414,28 +399,6 @@ export default function Analytics() {
                 </div>
               </div>
             )}
-
-            <TabsContent value="events-overview">
-              <div className="text-center py-12">
-                <h3 className="text-lg font-medium text-muted-foreground">
-                  Events Overview
-                </h3>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Content coming soon...
-                </p>
-              </div>
-            </TabsContent>
-
-            {/* <TabsContent value="team-performance">
-              <div className="text-center py-12">
-                <h3 className="text-lg font-medium text-muted-foreground">
-                  Team Performance
-                </h3>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Content coming soon...
-                </p>
-              </div>
-            </TabsContent> */}
           </Tabs>
         </main>
       </div>

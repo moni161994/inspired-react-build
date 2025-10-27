@@ -5,7 +5,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 const navigationItems = [
   { icon: LayoutGrid, label: "Dashboard", path: "/" },
   { icon: Calendar, label: "Events", path: "/events" },
-  { icon: Clock, label: "Analytics", path: "/analytics" },
+  // { icon: Clock, label: "Analytics", path: "/analytics" },
   { icon: Users, label: "Teams", path: "/teams" },
   { icon: User, label: "Users", path: "/users" },
 ];

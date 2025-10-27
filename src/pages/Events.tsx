@@ -79,9 +79,7 @@ function UpdateEventPopup({
     setUpdatedEvent((prev) => ({
       ...prev!,
       [name]:
-        name === "total_leads" ||
-        name === "priority_leads" ||
-        name === "budget"
+        name === "total_leads" || name === "priority_leads" || name === "budget"
           ? Number(value)
           : value,
     }));
@@ -291,16 +289,39 @@ export default function Events() {
   const [events, setEvents] = useState<Event[]>([]);
   const [popupOpen, setPopupOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [status, setStatus] = useState("All");
 
   useEffect(() => {
     const fetchEvents = async () => {
-      const data: any = await request("/get_all_event_details", "GET");
-      if (data.data) {
+      let url = "/get_all_event_details";
+  
+      if (status !== "All") {
+        // 👇 convert human label → API param
+        const filterValue =
+          status === "Upcoming"
+            ? "upcoming"
+            : status === "Completed"
+            ? "completed"
+            : status === "In progress"
+            ? "in_progress"
+            : "";
+  
+        if (filterValue) url += `?filter=${filterValue}`;
+      }
+  
+      const data: any = await request(url, "GET");
+  
+      if (data?.data) {
         setEvents(data.data);
+      } else {
+        setEvents([]);
       }
     };
+  
     fetchEvents();
-  }, []);
+  }, [status]);
+  
+
 
   const openUpdatePopup = (event: Event) => {
     setSelectedEvent(event);
@@ -330,39 +351,28 @@ export default function Events() {
 
         <main className="flex-1 overflow-auto p-6 space-y-6">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-semibold text-foreground">Your Events</h1>
+            <h1 className="text-2xl font-semibold text-foreground">
+              Your Events
+            </h1>
 
             <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-muted-foreground">Show:</span>
-                <Select defaultValue="all-teams">
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all-teams">All Teams</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <Select  defaultValue="All"
+  onValueChange={(value) => setStatus(value)}>
 
-              <Select defaultValue="all-statuses">
+              <span className="text-sm text-muted-foreground">Show Events:</span>
                 <SelectTrigger className="w-40">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all-statuses">All Event Statuses</SelectItem>
+                  
+                  <SelectItem value="All">
+                    All
+                  </SelectItem>
+                  <SelectItem value="Upcoming">Upcoming</SelectItem>
+                  <SelectItem value="In progress">In Progress</SelectItem>
+                  <SelectItem value="Completed">Completed</SelectItem>
                 </SelectContent>
               </Select>
-
-              <Button variant="outline">
-                <Calendar className="w-4 h-4 mr-2" />
-                Calendar
-              </Button>
-
-              <Button className="bg-primary hover:bg-primary/90">
-                <List className="w-4 h-4 mr-2" />
-                List View
-              </Button>
             </div>
           </div>
 
@@ -404,24 +414,38 @@ export default function Events() {
                   <tbody>
                     {events.map((event, index) => (
                       <tr key={index} className="border-b hover:bg-muted/20">
-                        <td className="py-3 px-4">{getStatusBadge(event.event_status)}</td>
-                        <td className="py-3 px-4 text-foreground">{event.event_name}</td>
+                        <td className="py-3 px-4">
+                          {getStatusBadge(event.event_status)}
+                        </td>
+                        <td className="py-3 px-4 text-foreground">
+                          {event.event_name}
+                        </td>
                         <td className="py-3 px-4 text-foreground">
                           {event.start_date} - {event.end_date}
                         </td>
-                        <td className="py-3 px-4 text-foreground">{event.location}</td>
+                        <td className="py-3 px-4 text-foreground">
+                          {event.location}
+                        </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center space-x-2">
                             <div
                               className={`w-3 h-3 rounded-full ${
-                                event.team === "epredia" ? "bg-gray-400" : "bg-purple-400"
+                                event.team === "epredia"
+                                  ? "bg-gray-400"
+                                  : "bg-purple-400"
                               }`}
                             ></div>
-                            <span className="text-foreground">{event.team}</span>
+                            <span className="text-foreground">
+                              {event.team}
+                            </span>
                           </div>
                         </td>
-                        <td className="py-3 px-4 text-foreground">{event.total_leads}</td>
-                        <td className="py-3 px-4 text-foreground">{event.priority_leads}</td>
+                        <td className="py-3 px-4 text-foreground">
+                          {event.total_leads}
+                        </td>
+                        <td className="py-3 px-4 text-foreground">
+                          {event.priority_leads}
+                        </td>
                         <td className="py-3 px-4">
                           <Button
                             variant="outline"

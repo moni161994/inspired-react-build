@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "./ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
 import { Input } from "./ui/input";
@@ -13,14 +13,43 @@ const initialState = {
   parent_id: "",
 };
 
-type AddUserProps = {
-  onUserAdded?: () => void;
+type UserData = {
+  employee_id: number;
+  email_address: string;
+  user_name: string;
+  profile: string;
+  parent_id: number;
+  teams: number | string;
+  status?: number;
 };
 
-const AddUser = ({ onUserAdded }: AddUserProps) => {
+type AddUserProps = {
+  onUserAdded?: () => void;
+  editingUser?: UserData | null;
+  clearEditingUser?: () => void;
+};
+
+const AddUser = ({ onUserAdded, editingUser, clearEditingUser }: AddUserProps) => {
   const [userInfo, setUserInfo] = useState(initialState);
-  const { request, loading, error } = useApi();
+  const { request, loading } = useApi();
   const { toast } = useToast();
+
+  const isEditMode = !!editingUser;
+
+  // 🟢 Prefill when editingUser changes
+  useEffect(() => {
+    if (editingUser) {
+      setUserInfo({
+        user_name: editingUser.user_name || "",
+        email_address: editingUser.email_address || "",
+        profile: editingUser.profile || "",
+        teams: editingUser.teams?.toString() || "",
+        parent_id: editingUser.parent_id?.toString() || "",
+      });
+    } else {
+      setUserInfo(initialState);
+    }
+  }, [editingUser]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setUserInfo((prev) => ({
@@ -39,22 +68,53 @@ const AddUser = ({ onUserAdded }: AddUserProps) => {
       return;
     }
 
-    const data = await request("/user_details", "POST", userInfo);
+    let data;
 
-    if (data && data.status_code === 200) {
-      toast({
-        title: "User Added Successfully",
-        description: "The new user has been added to the system.",
+    if (isEditMode && editingUser) {
+      // 🟢 Update user
+      data = await request("/update_user", "POST", {
+        employee_id: editingUser.employee_id,
+        ...userInfo,
       });
-      setUserInfo(initialState);
-      if (onUserAdded) onUserAdded();
+
+      if (data && data.status_code === 200) {
+        toast({
+          title: "User Updated Successfully",
+          description: "The user details have been updated.",
+        });
+        clearEditingUser?.();
+      } else {
+        toast({
+          title: "Failed to Update User",
+          description: data?.msg || "Something went wrong while updating user.",
+          variant: "destructive",
+        });
+      }
     } else {
-      toast({
-        title: "Failed to Add User",
-        description: data?.msg || "Something went wrong while adding the user.",
-        variant: "destructive",
-      });
+      // 🟢 Add new user
+      data = await request("/user_details", "POST", userInfo);
+
+      if (data && data.status_code === 200) {
+        toast({
+          title: "User Added Successfully",
+          description: "The new user has been added to the system.",
+        });
+        setUserInfo(initialState);
+      } else {
+        toast({
+          title: "Failed to Add User",
+          description: data?.msg || "Something went wrong while adding user.",
+          variant: "destructive",
+        });
+      }
     }
+
+    if (onUserAdded) onUserAdded();
+  };
+
+  const handleCancel = () => {
+    setUserInfo(initialState);
+    clearEditingUser?.();
   };
 
   const isDisabled = Object.values(userInfo).some((val) => val.trim() === "");
@@ -62,7 +122,9 @@ const AddUser = ({ onUserAdded }: AddUserProps) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Add New User</CardTitle>
+        <CardTitle>
+          {isEditMode ? "Edit User" : "Add New User"}
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <Input
@@ -76,6 +138,7 @@ const AddUser = ({ onUserAdded }: AddUserProps) => {
           onChange={handleChange}
           value={userInfo.email_address}
           name="email_address"
+          disabled={isEditMode} // prevent changing email in edit mode if needed
         />
         <Input
           placeholder="Enter profile..."
@@ -96,13 +159,30 @@ const AddUser = ({ onUserAdded }: AddUserProps) => {
           name="parent_id"
         />
 
-        <Button
-          className="bg-primary hover:bg-primary/90 w-full"
-          onClick={handleSubmit}
-          disabled={isDisabled || loading}
-        >
-          {loading ? "Submitting..." : "Submit"}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            className="bg-primary hover:bg-primary/90 w-full"
+            onClick={handleSubmit}
+            disabled={isDisabled || loading}
+          >
+            {loading
+              ? "Submitting..."
+              : isEditMode
+              ? "Update User"
+              : "Add User"}
+          </Button>
+
+          {isEditMode && (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={handleCancel}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

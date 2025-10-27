@@ -21,14 +21,15 @@ type UserData = {
 
 export default function Users() {
   const { request, loading, error } = useApi<any>();
-  const [user, setUser]: any = useState<UserData[] | null>(null);
+  const [user, setUser] = useState<UserData[] | null>(null);
+  const [editingUser, setEditingUser] = useState<UserData | null>(null); // 🟢 NEW
   const { toast } = useToast();
 
   const fetchUser = async () => {
     const email = localStorage.getItem("email");
     if (!email) return;
 
-    const res = await request(`/get_users`, "GET");
+    const res = await request("/get_users", "GET");
     if (res && res.status_code === 200 && res.data) {
       setUser(res.data);
     } else {
@@ -50,9 +51,7 @@ export default function Users() {
       return;
     }
 
-    const res = await request("/generate_otp", "POST", {
-      email_id: email,
-    });
+    const res = await request("/generate_otp", "POST", { email_id: email });
 
     if (res?.message === "OTP sent successfully") {
       toast({
@@ -66,6 +65,11 @@ export default function Users() {
         variant: "destructive",
       });
     }
+  };
+
+  // 🟢 NEW: handle edit click
+  const handleEditUser = (user: UserData) => {
+    setEditingUser(user);
   };
 
   useEffect(() => {
@@ -114,61 +118,41 @@ export default function Users() {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b bg-muted/30">
-                          <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                            ID
-                          </th>
-                          <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                            Name
-                          </th>
-                          <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                            Email
-                          </th>
-                          <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                            Profile
-                          </th>
-                          <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                            Teams
-                          </th>
-                          <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                            Parent
-                          </th>
-                          <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                            Status
-                          </th>
-                          <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                            Generate Code
-                          </th>
+                          <th className="py-3 px-4 text-left">ID</th>
+                          <th className="py-3 px-4 text-left">Name</th>
+                          <th className="py-3 px-4 text-left">Email</th>
+                          <th className="py-3 px-4 text-left">Profile</th>
+                          <th className="py-3 px-4 text-left">Teams</th>
+                          <th className="py-3 px-4 text-left">Parent</th>
+                          <th className="py-3 px-4 text-left">Status</th>
+                          <th className="py-3 px-4 text-center">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {user.map((data: any) => (
+                        {user.map((data) => (
                           <tr
                             key={data.employee_id}
                             className="border-b hover:bg-muted/50 transition-colors"
                           >
-                            <td className="py-3 px-4 text-foreground">
-                              {data.employee_id}
-                            </td>
-                            <td className="py-3 px-4 text-foreground">
-                              {data.user_name}
-                            </td>
-                            <td className="py-3 px-4 text-foreground">
-                              {data.email_address}
-                            </td>
+                            <td className="py-3 px-4">{data.employee_id}</td>
+                            <td className="py-3 px-4">{data.user_name}</td>
+                            <td className="py-3 px-4">{data.email_address}</td>
                             <td className="py-3 px-4">
                               <Badge variant="outline">{data.profile}</Badge>
                             </td>
-                            <td className="py-3 px-4 text-foreground">
-                              {data.teams}
-                            </td>
-                            <td className="py-3 px-4 text-foreground">
-                              {data.parent_id}
-                            </td>
-                            <td className="py-3 px-4 text-foreground">
+                            <td className="py-3 px-4">{data.teams}</td>
+                            <td className="py-3 px-4">{data.parent_id}</td>
+                            <td className="py-3 px-4">
                               {data.status === 1 ? "Active" : "Inactive"}
                             </td>
                             <td className="py-3 px-4 text-center">
-                              <div className="flex justify-center">
+                              <div className="flex gap-2 justify-center">
+                                <Button
+                                  variant="outline"
+                                  onClick={() => handleEditUser(data)}
+                                >
+                                  Edit
+                                </Button>
                                 <Button
                                   className="bg-primary hover:bg-primary/90"
                                   onClick={() => sendCode(data.email_address)}
@@ -186,11 +170,14 @@ export default function Users() {
               </CardContent>
             </Card>
 
-            {/* Right-side Add User card */}
-            <AddUser onUserAdded={fetchUser} />
+            {/* 🟢 Pass editingUser to AddUser */}
+            <AddUser
+              onUserAdded={fetchUser}
+              editingUser={editingUser}
+              clearEditingUser={() => setEditingUser(null)}
+            />
           </div>
 
-          {/* Footer */}
           <div className="text-center py-8">
             <p className="text-sm text-muted-foreground">© iCapture 2025</p>
           </div>
