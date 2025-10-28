@@ -18,7 +18,7 @@ type UserData = {
   email_address: string;
   user_name: string;
   profile: string;
-  parent_id: number;
+  parent_id: number | string;
   teams: number | string;
   status?: number;
 };
@@ -36,7 +36,7 @@ const AddUser = ({ onUserAdded, editingUser, clearEditingUser }: AddUserProps) =
 
   const isEditMode = !!editingUser;
 
-  // 🟢 Prefill when editingUser changes
+  // 🟢 Prefill form when editing
   useEffect(() => {
     if (editingUser) {
       setUserInfo({
@@ -58,6 +58,7 @@ const AddUser = ({ onUserAdded, editingUser, clearEditingUser }: AddUserProps) =
     }));
   };
 
+  // 🟣 Handle form submit (Add or Edit)
   const handleSubmit = async () => {
     if (Object.values(userInfo).some((val) => val.trim() === "")) {
       toast({
@@ -68,48 +69,52 @@ const AddUser = ({ onUserAdded, editingUser, clearEditingUser }: AddUserProps) =
       return;
     }
 
-    let data;
+    let res;
 
     if (isEditMode && editingUser) {
-      // 🟢 Update user
-      data = await request("/update_user", "POST", {
+      // ✅ Update user using your provided API
+      res = await request("/update_user_details", "POST", {
         employee_id: editingUser.employee_id,
-        ...userInfo,
+        email_address: userInfo.email_address,
+        user_name: userInfo.user_name,
+        profile: userInfo.profile,
+        teams: userInfo.teams,
+        parent_id: userInfo.parent_id,
       });
 
-      if (data && data.status_code === 200) {
+      if (res && res.message) {
         toast({
-          title: "User Updated Successfully",
-          description: "The user details have been updated.",
+          title: "User updated successfully",
+          description: "User details have been updated successfully.",
         });
         clearEditingUser?.();
+        if (onUserAdded) onUserAdded();
       } else {
         toast({
           title: "Failed to Update User",
-          description: data?.msg || "Something went wrong while updating user.",
+          description: res?.msg || "Something went wrong while updating user.",
           variant: "destructive",
         });
       }
     } else {
-      // 🟢 Add new user
-      data = await request("/user_details", "POST", userInfo);
+      // ✅ Add new user
+      res = await request("/user_details", "POST", userInfo);
 
-      if (data && data.status_code === 200) {
+      if (res && res.status_code === 200) {
         toast({
           title: "User Added Successfully",
           description: "The new user has been added to the system.",
         });
         setUserInfo(initialState);
+        if (onUserAdded) onUserAdded();
       } else {
         toast({
           title: "Failed to Add User",
-          description: data?.msg || "Something went wrong while adding user.",
+          description: res?.msg || "Something went wrong while adding user.",
           variant: "destructive",
         });
       }
     }
-
-    if (onUserAdded) onUserAdded();
   };
 
   const handleCancel = () => {
@@ -122,9 +127,7 @@ const AddUser = ({ onUserAdded, editingUser, clearEditingUser }: AddUserProps) =
   return (
     <Card>
       <CardHeader>
-        <CardTitle>
-          {isEditMode ? "Edit User" : "Add New User"}
-        </CardTitle>
+        <CardTitle>{isEditMode ? "Edit User" : "Add New User"}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <Input
@@ -138,7 +141,6 @@ const AddUser = ({ onUserAdded, editingUser, clearEditingUser }: AddUserProps) =
           onChange={handleChange}
           value={userInfo.email_address}
           name="email_address"
-          disabled={isEditMode} // prevent changing email in edit mode if needed
         />
         <Input
           placeholder="Enter profile..."
