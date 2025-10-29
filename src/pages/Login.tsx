@@ -56,7 +56,7 @@ export default function LoginPage() {
         description: "Redirecting to Analytics...",
       });
 
-      navigate("/analytics");
+      navigate("/");
       setLoginInfo(initialState);
     } else {
       toast({

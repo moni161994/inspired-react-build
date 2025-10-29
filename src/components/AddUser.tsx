@@ -4,6 +4,13 @@ import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
 import { Input } from "./ui/input";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const initialState = {
   user_name: "",
@@ -24,13 +31,14 @@ type UserData = {
 };
 
 type AddUserProps = {
-  onUserAdded?: () => void;
+  onUserAdded?: () => void; // ✅ now returns user list
   editingUser?: UserData | null;
   clearEditingUser?: () => void;
 };
 
 const AddUser = ({ onUserAdded, editingUser, clearEditingUser }: AddUserProps) => {
   const [userInfo, setUserInfo] = useState(initialState);
+  const [allUsers, setAllUsers] = useState<any>([]);
   const { request, loading } = useApi();
   const { toast } = useToast();
 
@@ -51,10 +59,36 @@ const AddUser = ({ onUserAdded, editingUser, clearEditingUser }: AddUserProps) =
     }
   }, [editingUser]);
 
+  // 🟣 Get user list for Parent dropdown from parent component
+ // 🟣 Fetch all users for Parent dropdown
+useEffect(() => {
+  const fetchParentUsers = async () => {
+    try {
+      const res = await request("/get_users", "GET");
+      if (res?.status_code === 200 && Array.isArray(res.data)) {
+        setAllUsers(res.data);
+      } else {
+        console.error("Failed to fetch users:", res?.msg);
+      }
+    } catch (err) {
+      console.error("Error fetching users:", err);
+    }
+  };
+  fetchParentUsers();
+}, []);
+
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setUserInfo((prev) => ({
       ...prev,
       [e.target.name]: e.target.value,
+    }));
+  };
+
+  const handleParentSelect = (value: string) => {
+    setUserInfo((prev) => ({
+      ...prev,
+      parent_id: value,
     }));
   };
 
@@ -72,7 +106,7 @@ const AddUser = ({ onUserAdded, editingUser, clearEditingUser }: AddUserProps) =
     let res;
 
     if (isEditMode && editingUser) {
-      // ✅ Update user using your provided API
+      // ✅ Update user
       res = await request("/update_user_details", "POST", {
         employee_id: editingUser.employee_id,
         email_address: userInfo.email_address,
@@ -88,7 +122,7 @@ const AddUser = ({ onUserAdded, editingUser, clearEditingUser }: AddUserProps) =
           description: "User details have been updated successfully.",
         });
         clearEditingUser?.();
-        if (onUserAdded) onUserAdded();
+        onUserAdded?.(); // refresh list after update
       } else {
         toast({
           title: "Failed to Update User",
@@ -106,7 +140,7 @@ const AddUser = ({ onUserAdded, editingUser, clearEditingUser }: AddUserProps) =
           description: "The new user has been added to the system.",
         });
         setUserInfo(initialState);
-        if (onUserAdded) onUserAdded();
+        onUserAdded?.(); // refresh list after add
       } else {
         toast({
           title: "Failed to Add User",
@@ -123,6 +157,7 @@ const AddUser = ({ onUserAdded, editingUser, clearEditingUser }: AddUserProps) =
   };
 
   const isDisabled = Object.values(userInfo).some((val) => val.trim() === "");
+console.log("user", allUsers);
 
   return (
     <Card>
@@ -154,12 +189,20 @@ const AddUser = ({ onUserAdded, editingUser, clearEditingUser }: AddUserProps) =
           value={userInfo.teams}
           name="teams"
         />
-        <Input
-          placeholder="Enter parent ID..."
-          onChange={handleChange}
-          value={userInfo.parent_id}
-          name="parent_id"
-        />
+
+        {/* 🟩 Parent ID Dropdown */}
+        <Select value={userInfo.parent_id} onValueChange={handleParentSelect}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select Parent User" />
+          </SelectTrigger>
+          <SelectContent>
+            {allUsers.map((user) => (
+              <SelectItem key={user.employee_id} value={String(user.employee_id)}>
+                {user.user_name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         <div className="flex gap-2">
           <Button
