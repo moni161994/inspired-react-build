@@ -157,7 +157,7 @@ useEffect(() => {
   };
 
   const isDisabled = Object.values(userInfo).some((val) => val.trim() === "");
-console.log("user", allUsers);
+
 
   return (
     <Card>
