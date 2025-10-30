@@ -22,7 +22,7 @@ type UserData = {
 export default function Users() {
   const { request, loading, error } = useApi<any>();
   const [user, setUser] = useState<UserData[] | null>(null);
-  const [editingUser, setEditingUser] = useState<UserData | null>(null); // 🟢 NEW
+  const [editingUser, setEditingUser] = useState<UserData | null>(null);
   const { toast } = useToast();
 
   const fetchUser = async () => {
@@ -67,7 +67,6 @@ export default function Users() {
     }
   };
 
-  // 🟢 NEW: handle edit click
   const handleEditUser = (user: UserData) => {
     setEditingUser(user);
   };
@@ -134,18 +133,30 @@ export default function Users() {
                             key={data.employee_id}
                             className="border-b hover:bg-muted/50 transition-colors"
                           >
-                            <td className="py-3 px-4">{data.employee_id}</td>
-                            <td className="py-3 px-4">{data.user_name}</td>
-                            <td className="py-3 px-4">{data.email_address}</td>
-                            <td className="py-3 px-4">
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              {data.employee_id}
+                            </td>
+                            {/* ✅ Name no-wrap */}
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              {data.user_name}
+                            </td>
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              {data.email_address}
+                            </td>
+                            {/* ✅ Profile no-wrap */}
+                            <td className="py-3 px-4 whitespace-nowrap">
                               <Badge variant="outline">{data.profile}</Badge>
                             </td>
-                            <td className="py-3 px-4">{data.teams}</td>
-                            <td className="py-3 px-4">{data.parent_id}</td>
-                            <td className="py-3 px-4">
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              {data.teams}
+                            </td>
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              {data.parent_id}
+                            </td>
+                            <td className="py-3 px-4 whitespace-nowrap">
                               {data.status === 1 ? "Active" : "Inactive"}
                             </td>
-                            <td className="py-3 px-4 text-center">
+                            <td className="py-3 px-4 text-center whitespace-nowrap">
                               <div className="flex gap-2 justify-center">
                                 <Button
                                   variant="outline"
@@ -170,7 +181,6 @@ export default function Users() {
               </CardContent>
             </Card>
 
-            {/* 🟢 Pass editingUser to AddUser */}
             <AddUser
               onUserAdded={fetchUser}
               editingUser={editingUser}

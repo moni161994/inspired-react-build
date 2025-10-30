@@ -11,8 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, List, Edit } from "lucide-react";
-
+import { Edit } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
 
 type Event = {
@@ -27,6 +26,11 @@ type Event = {
   priority_leads: number;
   budget?: number;
   event_size?: string;
+};
+
+type Team = {
+  team_id: number;
+  team_name: string;
 };
 
 function UpdateEventPopup({
@@ -52,8 +56,37 @@ function UpdateEventPopup({
     event_size: "medium",
     ...event,
   });
-  const [loading, setLoading] = useState(false);
+
+  const [teams, setTeams] = useState<string[]>([]);
+  const [loadingTeams, setLoadingTeams] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // ✅ Fetch team list dynamically like create event
+  useEffect(() => {
+    const fetchTeams = async () => {
+      try {
+        const response = await fetch("https://api.inditechit.com/get_all_teams");
+        const data = await response.json();
+  
+        // Ensure type safety: check if `data?.data` is an array
+        if (Array.isArray(data)) {
+          // Extract team names safely
+          const teamNames = data
+            .map((t: any) => t.team_name)
+            .filter((name: any): name is string => typeof name === "string");
+  
+          setTeams(teamNames);
+        } else {
+          setTeams([]);
+        }
+      } catch (err) {
+        console.error("Error fetching teams:", err);
+        setTeams([]);
+      }
+    };
+  
+    fetchTeams();
+  }, []);
 
   useEffect(() => {
     setUpdatedEvent({
@@ -79,7 +112,9 @@ function UpdateEventPopup({
     setUpdatedEvent((prev) => ({
       ...prev!,
       [name]:
-        name === "total_leads" || name === "priority_leads" || name === "budget"
+        name === "total_leads" ||
+        name === "priority_leads" ||
+        name === "budget"
           ? Number(value)
           : value,
     }));
@@ -87,7 +122,6 @@ function UpdateEventPopup({
 
   const handleSave = async () => {
     if (!updatedEvent) return;
-    setLoading(true);
     setError(null);
     try {
       const response = await fetch(
@@ -109,14 +143,11 @@ function UpdateEventPopup({
           }),
         }
       );
-      if (!response.ok) {
-        throw new Error("Failed to update event");
-      }
+
+      if (!response.ok) throw new Error("Failed to update event");
       onSave(updatedEvent);
     } catch (err: any) {
-      setError(err.message || "An error occurred");
-    } finally {
-      setLoading(false);
+      setError(err.message || "An error occurred while saving.");
     }
   };
 
@@ -126,8 +157,8 @@ function UpdateEventPopup({
         <h2 className="text-lg font-semibold mb-6">Update Event</h2>
         {error && <p className="text-red-500 mb-4">{error}</p>}
 
-        {/* Grid layout for two fields per row on desktop */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Event Status */}
           <label className="block">
             <span className="text-sm font-medium">Event Status</span>
             <select
@@ -142,6 +173,7 @@ function UpdateEventPopup({
             </select>
           </label>
 
+          {/* Event Name */}
           <label className="block">
             <span className="text-sm font-medium">Event Name</span>
             <input
@@ -153,6 +185,7 @@ function UpdateEventPopup({
             />
           </label>
 
+          {/* Dates */}
           <label className="block">
             <span className="text-sm font-medium">Start Date</span>
             <input
@@ -175,6 +208,7 @@ function UpdateEventPopup({
             />
           </label>
 
+          {/* Location */}
           <label className="block">
             <span className="text-sm font-medium">Location</span>
             <input
@@ -186,17 +220,28 @@ function UpdateEventPopup({
             />
           </label>
 
+          {/* ✅ Team dropdown with fetched list */}
           <label className="block">
             <span className="text-sm font-medium">Team</span>
-            <input
+            <select
               name="team"
               value={updatedEvent.team}
               onChange={handleChange}
               className="w-full border p-2 rounded"
-              type="text"
-            />
+            >
+              <option value="">
+                {loadingTeams ? "Loading teams..." : "Select a team"}
+              </option>
+              {teams.length > 0 &&
+                teams.map((teamName, idx) => (
+                  <option key={idx} value={teamName}>
+                    {teamName}
+                  </option>
+                ))}
+            </select>
           </label>
 
+          {/* Leads */}
           <label className="block">
             <span className="text-sm font-medium">Total Leads</span>
             <input
@@ -221,6 +266,7 @@ function UpdateEventPopup({
             />
           </label>
 
+          {/* Budget */}
           <label className="block">
             <span className="text-sm font-medium">Budget</span>
             <input
@@ -234,6 +280,7 @@ function UpdateEventPopup({
             />
           </label>
 
+          {/* Event Size */}
           <label className="block">
             <span className="text-sm font-medium">Event Size</span>
             <input
@@ -246,13 +293,12 @@ function UpdateEventPopup({
           </label>
         </div>
 
+        {/* Footer buttons */}
         <div className="flex justify-end space-x-3 mt-6">
-          <Button variant="outline" onClick={onClose} disabled={loading}>
+          <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={loading}>
-            {loading ? "Saving..." : "Save"}
-          </Button>
+          <Button onClick={handleSave}>Save</Button>
         </div>
       </div>
     </div>
@@ -294,9 +340,7 @@ export default function Events() {
   useEffect(() => {
     const fetchEvents = async () => {
       let url = "/get_all_event_details";
-  
       if (status !== "All") {
-        // 👇 convert human label → API param
         const filterValue =
           status === "Upcoming"
             ? "upcoming"
@@ -305,23 +349,15 @@ export default function Events() {
             : status === "In progress"
             ? "in_progress"
             : "";
-  
         if (filterValue) url += `?filter=${filterValue}`;
       }
-  
       const data: any = await request(url, "GET");
-  
-      if (data?.data) {
-        setEvents(data.data);
-      } else {
-        setEvents([]);
-      }
+      if (data?.data) setEvents(data.data);
+      else setEvents([]);
     };
-  
+
     fetchEvents();
   }, [status]);
-  
-
 
   const openUpdatePopup = (event: Event) => {
     setSelectedEvent(event);
@@ -345,29 +381,21 @@ export default function Events() {
   return (
     <div className="flex h-screen bg-background">
       <DashboardSidebar />
-
       <div className="flex flex-col flex-1">
         <DashboardHeader />
-
         <main className="flex-1 overflow-auto p-6 space-y-6">
           <div className="flex justify-between items-center">
             <h1 className="text-2xl font-semibold text-foreground">
               Your Events
             </h1>
-
             <div className="flex items-center space-x-4">
-              <Select  defaultValue="All"
-  onValueChange={(value) => setStatus(value)}>
-
-              <span className="text-sm text-muted-foreground">Show Events:</span>
+              <Select defaultValue="All" onValueChange={(value) => setStatus(value)}>
+                <span className="text-sm text-muted-foreground">Show Events:</span>
                 <SelectTrigger className="w-40">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  
-                  <SelectItem value="All">
-                    All
-                  </SelectItem>
+                  <SelectItem value="All">All</SelectItem>
                   <SelectItem value="Upcoming">Upcoming</SelectItem>
                   <SelectItem value="In progress">In Progress</SelectItem>
                   <SelectItem value="Completed">Completed</SelectItem>
@@ -414,19 +442,17 @@ export default function Events() {
                   <tbody>
                     {events.map((event, index) => (
                       <tr key={index} className="border-b hover:bg-muted/20">
-                        <td className="py-3 px-4">
-                          {getStatusBadge(event.event_status)}
-                        </td>
-                        <td className="py-3 px-4 text-foreground">
+                        <td className="py-3 px-4">{getStatusBadge(event.event_status)}</td>
+                        <td className="py-3 px-4 text-foreground whitespace-nowrap">
                           {event.event_name}
                         </td>
-                        <td className="py-3 px-4 text-foreground">
+                        <td className="py-3 px-4 text-foreground whitespace-nowrap">
                           {event.start_date} - {event.end_date}
                         </td>
-                        <td className="py-3 px-4 text-foreground">
+                        <td className="py-3 px-4 text-foreground whitespace-nowrap">
                           {event.location}
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="py-3 px-4 whitespace-nowrap">
                           <div className="flex items-center space-x-2">
                             <div
                               className={`w-3 h-3 rounded-full ${
@@ -435,15 +461,13 @@ export default function Events() {
                                   : "bg-purple-400"
                               }`}
                             ></div>
-                            <span className="text-foreground">
-                              {event.team}
-                            </span>
+                            <span className="text-foreground">{event.team}</span>
                           </div>
                         </td>
-                        <td className="py-3 px-4 text-foreground">
+                        <td className="py-3 px-4 text-foreground whitespace-nowrap">
                           {event.total_leads}
                         </td>
-                        <td className="py-3 px-4 text-foreground">
+                        <td className="py-3 px-4 text-foreground whitespace-nowrap">
                           {event.priority_leads}
                         </td>
                         <td className="py-3 px-4">
@@ -468,11 +492,7 @@ export default function Events() {
       </div>
 
       {popupOpen && (
-        <UpdateEventPopup
-          event={selectedEvent}
-          onClose={closeUpdatePopup}
-          onSave={handleSave}
-        />
+        <UpdateEventPopup event={selectedEvent} onClose={closeUpdatePopup} onSave={handleSave} />
       )}
     </div>
   );

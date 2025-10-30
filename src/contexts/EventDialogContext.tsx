@@ -1,4 +1,10 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +25,7 @@ import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/components/ui/use-toast";
 
 type EventDialogContextType = {
-  openEventDialog: () => void;
+  openEventDialog: (event?: any) => void;
   closeEventDialog: () => void;
 };
 
@@ -30,9 +36,11 @@ const EventDialogContext = createContext<EventDialogContextType | undefined>(
 export function EventDialogProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const today = new Date().toISOString().split("T")[0];
+  const { request } = useApi<any>();
 
   const [isOpen, setIsOpen] = useState(false);
-  const { request } = useApi<any>();
+  const [teams, setTeams] = useState<any[]>([]);
+  const [editingEvent, setEditingEvent] = useState<any | null>(null);
 
   const [formData, setFormData] = useState({
     status: "Upcoming",
@@ -47,6 +55,52 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     eventSize: "",
   });
 
+  // ✅ Fetch Teams from API
+  useEffect(() => {
+    const fetchTeams = async () => {
+      try {
+        const res = await request("/get_all_teams", "GET");
+        if (res?.length > 0) {
+          const teamNames = Array.from(
+            new Set(res.map((team: any) => team.team_name).filter(Boolean))
+          );
+          setTeams(teamNames);
+        } else {
+          toast({
+            variant: "destructive",
+            title: "❌ Failed to Fetch Teams",
+            description: res?.msg || "Unable to load team list.",
+          });
+        }
+      } catch {
+        toast({
+          variant: "destructive",
+          title: "⚠️ Network Error",
+          description: "Could not fetch team list. Please try again later.",
+        });
+      }
+    };
+    fetchTeams();
+  }, []);
+
+  // ✅ Prefill data when editing event
+  useEffect(() => {
+    if (editingEvent) {
+      setFormData({
+        status: editingEvent.event_status || "Upcoming",
+        team: editingEvent.team || "",
+        eventName: editingEvent.event_name || "",
+        startDate: editingEvent.start_date || "",
+        endDate: editingEvent.end_date || "",
+        location: editingEvent.location || "",
+        totalLeads: editingEvent.total_leads || 0,
+        priorityLeads: editingEvent.priority_leads || 0,
+        budget: editingEvent.budget || 0,
+        eventSize: editingEvent.event_size || "",
+      });
+    }
+  }, [editingEvent]);
+
   const handleChange = (e: any) => {
     const { id, value } = e.target;
     setFormData((prev) => ({ ...prev, [id]: value }));
@@ -57,7 +111,6 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
   };
 
   const handleSubmit = async () => {
-    // ✅ Required field validation
     const requiredFields = [
       { field: "status", label: "Event Status" },
       { field: "team", label: "Team" },
@@ -78,16 +131,6 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // ✅ Date validation
-    if (formData.startDate < today || formData.endDate < today) {
-      toast({
-        variant: "destructive",
-        title: "❌ Invalid Date",
-        description: "Start and End dates cannot be earlier than today.",
-      });
-      return;
-    }
-
     if (formData.endDate < formData.startDate) {
       toast({
         variant: "destructive",
@@ -97,8 +140,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // ✅ API request
-    const res = await request("/create_events", "POST", {
+    const payload = {
       event_status: formData.status,
       event_name: formData.eventName,
       start_date: formData.startDate,
@@ -109,27 +151,61 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
       priority_leads: formData.priorityLeads,
       budget: formData.budget,
       event_size: formData.eventSize,
+    };
+
+    const endpoint = editingEvent ? "/update_event" : "/create_events";
+    const res = await request(endpoint, "POST", {
+      ...(editingEvent && { event_id: editingEvent.event_id }),
+      ...payload,
     });
 
-    // ✅ Toast feedback
-    if (res?.message === "Event updated successfully") {
+    if (
+      res?.message === "Event updated successfully" ||
+      res?.message === "Event created successfully"
+    ) {
       toast({
-        title: "✅ Event Created",
-        description: "Your event has been created successfully.",
+        title: editingEvent ? "✅ Event Updated" : "✅ Event Created",
+        description: `Event has been ${
+          editingEvent ? "updated" : "created"
+        } successfully.`,
       });
     } else {
       toast({
         variant: "destructive",
         title: "❌ Failed",
-        description: res?.msg || "Failed to submit the details.",
+        description: res?.msg || "Failed to save event details.",
       });
     }
 
     closeEventDialog();
   };
 
-  const openEventDialog = () => setIsOpen(true);
-  const closeEventDialog = () => setIsOpen(false);
+  // 🟢 Open Dialog (with or without edit data)
+  const openEventDialog = (event?: any) => {
+    if (event) {
+      setEditingEvent(event);
+    } else {
+      setEditingEvent(null);
+      setFormData({
+        status: "Upcoming",
+        team: "",
+        eventName: "",
+        startDate: "",
+        endDate: "",
+        location: "",
+        totalLeads: 0,
+        priorityLeads: 0,
+        budget: 0,
+        eventSize: "",
+      });
+    }
+    setIsOpen(true);
+  };
+
+  const closeEventDialog = () => {
+    setIsOpen(false);
+    setEditingEvent(null);
+  };
 
   return (
     <EventDialogContext.Provider value={{ openEventDialog, closeEventDialog }}>
@@ -138,7 +214,9 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Create a New Event</DialogTitle>
+            <DialogTitle>
+              {editingEvent ? "Edit Event" : "Create a New Event"}
+            </DialogTitle>
           </DialogHeader>
 
           <div className="grid grid-cols-2 gap-6 mt-4">
@@ -146,7 +224,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
             <div>
               <Label>Event Status *</Label>
               <Select
-                defaultValue="Upcoming"
+                value={formData.status}
                 onValueChange={(val) => handleSelectChange("status", val)}
               >
                 <SelectTrigger>
@@ -163,14 +241,25 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
             {/* Select Team */}
             <div>
               <Label>Select Team *</Label>
-              <Select onValueChange={(val) => handleSelectChange("team", val)}>
+              <Select
+                value={formData.team}
+                onValueChange={(val) => handleSelectChange("team", val)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select Team" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="epredia">epredia</SelectItem>
-                  <SelectItem value="Eprevent">Eprevent</SelectItem>
-                  <SelectItem value="phc">PHC</SelectItem>
+                  {teams.length > 0 ? (
+                    teams.map((team, idx) => (
+                      <SelectItem key={idx} value={team}>
+                        {team}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="none" disabled>
+                      No teams available
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -181,6 +270,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
               <Input
                 id="eventName"
                 placeholder="Enter event name"
+                value={formData.eventName}
                 onChange={handleChange}
               />
             </div>
@@ -189,6 +279,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
             <div>
               <Label htmlFor="eventSize">Event Size</Label>
               <Select
+                value={formData.eventSize}
                 onValueChange={(val) => handleSelectChange("eventSize", val)}
               >
                 <SelectTrigger>
@@ -205,13 +296,25 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
             {/* Start Date */}
             <div>
               <Label htmlFor="startDate">Start Date *</Label>
-              <Input id="startDate" type="date" min={today} onChange={handleChange} />
+              <Input
+                id="startDate"
+                type="date"
+                min={today}
+                value={formData.startDate}
+                onChange={handleChange}
+              />
             </div>
 
             {/* End Date */}
             <div>
               <Label htmlFor="endDate">End Date *</Label>
-              <Input id="endDate" type="date" min={today} onChange={handleChange} />
+              <Input
+                id="endDate"
+                type="date"
+                min={today}
+                value={formData.endDate}
+                onChange={handleChange}
+              />
             </div>
 
             {/* Location */}
@@ -220,6 +323,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
               <Input
                 id="location"
                 placeholder="Enter location"
+                value={formData.location}
                 onChange={handleChange}
               />
             </div>
@@ -227,19 +331,34 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
             {/* Budget */}
             <div>
               <Label htmlFor="budget">Approximate Budget (USD)</Label>
-              <Input id="budget" type="number" placeholder="0" onChange={handleChange} />
+              <Input
+                id="budget"
+                type="number"
+                value={formData.budget}
+                onChange={handleChange}
+              />
             </div>
 
             {/* Total Leads */}
             <div>
               <Label htmlFor="totalLeads">Total Leads</Label>
-              <Input id="totalLeads" type="number" placeholder="0" onChange={handleChange} />
+              <Input
+                id="totalLeads"
+                type="number"
+                value={formData.totalLeads}
+                onChange={handleChange}
+              />
             </div>
 
             {/* Priority Leads */}
             <div>
               <Label htmlFor="priorityLeads">Priority Leads</Label>
-              <Input id="priorityLeads" type="number" placeholder="0" onChange={handleChange} />
+              <Input
+                id="priorityLeads"
+                type="number"
+                value={formData.priorityLeads}
+                onChange={handleChange}
+              />
             </div>
           </div>
 
@@ -249,7 +368,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
               Cancel
             </Button>
             <Button type="button" onClick={handleSubmit}>
-              Create Event
+              {editingEvent ? "Update Event" : "Create Event"}
             </Button>
           </div>
         </DialogContent>
