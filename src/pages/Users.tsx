@@ -75,6 +75,13 @@ export default function Users() {
     fetchUser();
   }, []);
 
+  const [addUserOpen, setAddUserOpen] = useState(false);
+
+  const openAddUser = () => {
+    setEditingUser(null);
+    setAddUserOpen(true);
+  };
+
   return (
     <div className="flex h-screen bg-background">
       <DashboardSidebar />
@@ -92,7 +99,7 @@ export default function Users() {
             </p>
           </div>
 
-          <div className="grid grid-cols-[7fr_3fr] gap-4">
+          <div className="w-full">
             <Card>
               <CardHeader className="flex justify-between flex-row space-y-0 items-center">
                 <CardTitle>User Management</CardTitle>
@@ -101,6 +108,7 @@ export default function Users() {
                     Search Users:
                   </span>
                   <Input className="w-64" placeholder="Search..." />
+                  <Button onClick={openAddUser}>Add User</Button>
                 </div>
               </CardHeader>
 
@@ -182,6 +190,8 @@ export default function Users() {
             </Card>
 
             <AddUser
+              open={addUserOpen || !!editingUser}
+              onClose={() => { setAddUserOpen(false); setEditingUser(null); }}
               onUserAdded={fetchUser}
               editingUser={editingUser}
               clearEditingUser={() => setEditingUser(null)}

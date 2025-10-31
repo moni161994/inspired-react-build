@@ -24,27 +24,22 @@ import {
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/components/ui/use-toast";
 
-
 type EventDialogContextType = {
   openEventDialog: () => void;
   closeEventDialog: () => void;
 };
 
-
 const EventDialogContext = createContext<EventDialogContextType | undefined>(
   undefined
 );
-
 
 export function EventDialogProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const today = new Date().toISOString().split("T")[0];
   const { request } = useApi<any>();
 
-
   const [isOpen, setIsOpen] = useState(false);
   const [teams, setTeams] = useState<any[]>([]);
-
 
   const [formData, setFormData] = useState({
     status: "Upcoming",
@@ -58,7 +53,6 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     budget: 0,
     eventSize: "",
   });
-
 
   // ✅ Fetch Teams from API
   useEffect(() => {
@@ -88,17 +82,14 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     fetchTeams();
   }, []);
 
-
   const handleChange = (e: any) => {
     const { id, value } = e.target;
     setFormData((prev) => ({ ...prev, [id]: value }));
   };
 
-
   const handleSelectChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
-
 
   const handleSubmit = async () => {
     const requiredFields = [
@@ -109,7 +100,6 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
       { field: "endDate", label: "End Date" },
       { field: "location", label: "Event Location" },
     ];
-
 
     for (const { field, label } of requiredFields) {
       if (!formData[field as keyof typeof formData]) {
@@ -122,7 +112,6 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
       }
     }
 
-
     if (formData.endDate < formData.startDate) {
       toast({
         variant: "destructive",
@@ -131,7 +120,6 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
       });
       return;
     }
-
 
     const payload = {
       event_status: formData.status,
@@ -146,9 +134,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
       event_size: formData.eventSize,
     };
 
-
     const res = await request("/create_events", "POST", payload);
-
 
     if (res?.message === "Event updated successfully") {
       toast({
@@ -156,7 +142,6 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
         description: "Event has been created successfully.",
       });
       closeEventDialog();
-      // Optionally reset form after success
       setFormData({
         status: "Upcoming",
         team: "",
@@ -178,11 +163,9 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     }
   };
 
-
   // 🟢 Open Dialog for creating new event
   const openEventDialog = () => {
     setIsOpen(true);
-    // Reset form data whenever opening dialog
     setFormData({
       status: "Upcoming",
       team: "",
@@ -197,23 +180,25 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     });
   };
 
-
   const closeEventDialog = () => {
     setIsOpen(false);
   };
 
+  function toMMDDYYYY(dateStr: string) {
+    if (!dateStr) return "";
+    const [year, month, day] = dateStr.split("-");
+    return `${month}-${day}-${year}`;
+  }
 
   return (
     <EventDialogContext.Provider value={{ openEventDialog, closeEventDialog }}>
       {children}
-
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Create a New Event</DialogTitle>
           </DialogHeader>
-
 
           <div className="grid grid-cols-2 gap-6 mt-4">
             {/* Event Status */}
@@ -223,7 +208,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 value={formData.status}
                 onValueChange={(val) => handleSelectChange("status", val)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="border border-gray-300 rounded">
                   <SelectValue placeholder="Select Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -233,8 +218,6 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 </SelectContent>
               </Select>
             </div>
-
-
             {/* Select Team */}
             <div>
               <Label>Select Team *</Label>
@@ -242,7 +225,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 value={formData.team}
                 onValueChange={(val) => handleSelectChange("team", val)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="border border-gray-300 rounded">
                   <SelectValue placeholder="Select Team" />
                 </SelectTrigger>
                 <SelectContent>
@@ -260,8 +243,6 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 </SelectContent>
               </Select>
             </div>
-
-
             {/* Event Name */}
             <div>
               <Label htmlFor="eventName">Event Name *</Label>
@@ -270,10 +251,9 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 placeholder="Enter event name"
                 value={formData.eventName}
                 onChange={handleChange}
+                className="border border-gray-300 rounded"
               />
             </div>
-
-
             {/* Event Size */}
             <div>
               <Label htmlFor="eventSize">Event Size</Label>
@@ -281,7 +261,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 value={formData.eventSize}
                 onValueChange={(val) => handleSelectChange("eventSize", val)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="border border-gray-300 rounded">
                   <SelectValue placeholder="Select Event Size" />
                 </SelectTrigger>
                 <SelectContent>
@@ -291,8 +271,6 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 </SelectContent>
               </Select>
             </div>
-
-
             {/* Start Date */}
             <div>
               <Label htmlFor="startDate">Start Date *</Label>
@@ -302,10 +280,14 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 min={today}
                 value={formData.startDate}
                 onChange={handleChange}
+                className="border border-gray-300 rounded"
               />
+              {formData.startDate && (
+                <div className="text-xs text-muted-foreground mt-1">
+                  Selected: {toMMDDYYYY(formData.startDate)}
+                </div>
+              )}
             </div>
-
-
             {/* End Date */}
             <div>
               <Label htmlFor="endDate">End Date *</Label>
@@ -315,10 +297,14 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 min={today}
                 value={formData.endDate}
                 onChange={handleChange}
+                className="border border-gray-300 rounded"
               />
+              {formData.endDate && (
+                <div className="text-xs text-muted-foreground mt-1">
+                  Selected: {toMMDDYYYY(formData.endDate)}
+                </div>
+              )}
             </div>
-
-
             {/* Location */}
             <div>
               <Label htmlFor="location">Event Location *</Label>
@@ -327,10 +313,9 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 placeholder="Enter location"
                 value={formData.location}
                 onChange={handleChange}
+                className="border border-gray-300 rounded"
               />
             </div>
-
-
             {/* Budget */}
             <div>
               <Label htmlFor="budget">Approximate Budget (USD)</Label>
@@ -339,10 +324,9 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 type="number"
                 value={formData.budget}
                 onChange={handleChange}
+                className="border border-gray-300 rounded"
               />
             </div>
-
-
             {/* Total Leads */}
             <div>
               <Label htmlFor="totalLeads">Total Leads</Label>
@@ -351,10 +335,9 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 type="number"
                 value={formData.totalLeads}
                 onChange={handleChange}
+                className="border border-gray-300 rounded"
               />
             </div>
-
-
             {/* Priority Leads */}
             <div>
               <Label htmlFor="priorityLeads">Priority Leads</Label>
@@ -363,11 +346,10 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 type="number"
                 value={formData.priorityLeads}
                 onChange={handleChange}
+                className="border border-gray-300 rounded"
               />
             </div>
           </div>
-
-
           {/* Buttons */}
           <div className="flex justify-center space-x-2 pt-6">
             <Button variant="outline" onClick={closeEventDialog}>
@@ -382,7 +364,6 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     </EventDialogContext.Provider>
   );
 }
-
 
 export function useEventDialog() {
   const context = useContext(EventDialogContext);

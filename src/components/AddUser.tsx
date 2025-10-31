@@ -11,6 +11,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const initialState = {
   user_name: "",
@@ -18,7 +24,7 @@ const initialState = {
   profile: "",
   teams: "",
   parent_id: "",
-  status:""
+  status: "",
 };
 
 type UserData = {
@@ -32,20 +38,27 @@ type UserData = {
 };
 
 type AddUserProps = {
-  onUserAdded?: () => void; // ✅ now returns user list
+  open: boolean;
+  onClose: () => void;
+  onUserAdded?: () => void;
   editingUser?: UserData | null;
   clearEditingUser?: () => void;
 };
 
-const AddUser = ({ onUserAdded, editingUser, clearEditingUser }: AddUserProps) => {
+const AddUser = ({
+  open,
+  onClose,
+  onUserAdded,
+  editingUser,
+  clearEditingUser,
+}: AddUserProps) => {
   const [userInfo, setUserInfo] = useState(initialState);
-  const [allUsers, setAllUsers] = useState<any>([]);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
   const { request, loading } = useApi();
   const { toast } = useToast();
 
   const isEditMode = !!editingUser;
 
-  // 🟢 Prefill form when editing
   useEffect(() => {
     if (editingUser) {
       setUserInfo({
@@ -59,26 +72,19 @@ const AddUser = ({ onUserAdded, editingUser, clearEditingUser }: AddUserProps) =
     } else {
       setUserInfo(initialState);
     }
-  }, [editingUser]);
+  }, [editingUser, open]);
 
-  // 🟣 Get user list for Parent dropdown from parent component
- // 🟣 Fetch all users for Parent dropdown
-useEffect(() => {
-  const fetchParentUsers = async () => {
-    try {
-      const res = await request("/get_users", "GET");
-      if (res?.status_code === 200 && Array.isArray(res.data)) {
-        setAllUsers(res.data);
-      } else {
-        console.error("Failed to fetch users:", res?.msg);
-      }
-    } catch (err) {
-      console.error("Error fetching users:", err);
-    }
-  };
-  fetchParentUsers();
-}, []);
-
+  useEffect(() => {
+    const fetchParentUsers = async () => {
+      try {
+        const res = await request("/get_users", "GET");
+        if (res?.status_code === 200 && Array.isArray(res.data)) {
+          setAllUsers(res.data);
+        }
+      } catch (err) {}
+    };
+    fetchParentUsers();
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setUserInfo((prev) => ({
@@ -101,7 +107,6 @@ useEffect(() => {
     }));
   };
 
-  // 🟣 Handle form submit (Add or Edit)
   const handleSubmit = async () => {
     if (Object.values(userInfo).some((val) => val.trim() === "")) {
       toast({
@@ -115,7 +120,6 @@ useEffect(() => {
     let res;
 
     if (isEditMode && editingUser) {
-      // ✅ Update user
       res = await request("/update_user_details", "POST", {
         employee_id: editingUser.employee_id,
         email_address: userInfo.email_address,
@@ -132,7 +136,8 @@ useEffect(() => {
           description: "User details have been updated successfully.",
         });
         clearEditingUser?.();
-        onUserAdded?.(); // refresh list after update
+        onUserAdded?.();
+        onClose();
       } else {
         toast({
           title: "Failed to Update User",
@@ -141,7 +146,6 @@ useEffect(() => {
         });
       }
     } else {
-      // ✅ Add new user
       res = await request("/user_details", "POST", userInfo);
 
       if (res && res.status_code === 200) {
@@ -150,7 +154,8 @@ useEffect(() => {
           description: "The new user has been added to the system.",
         });
         setUserInfo(initialState);
-        onUserAdded?.(); // refresh list after add
+        onUserAdded?.();
+        onClose();
       } else {
         toast({
           title: "Failed to Add User",
@@ -164,59 +169,61 @@ useEffect(() => {
   const handleCancel = () => {
     setUserInfo(initialState);
     clearEditingUser?.();
+    onClose();
   };
 
   const isDisabled = Object.values(userInfo).some((val) => val.trim() === "");
 
-
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{isEditMode ? "Edit User" : "Add New User"}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <Input
-          placeholder="Enter username..."
-          onChange={handleChange}
-          value={userInfo.user_name}
-          name="user_name"
-        />
-        <Input
-          placeholder="Enter email..."
-          onChange={handleChange}
-          value={userInfo.email_address}
-          name="email_address"
-        />
-        <Input
-          placeholder="Enter profile..."
-          onChange={handleChange}
-          value={userInfo.profile}
-          name="profile"
-        />
-        <Input
-          placeholder="Enter team..."
-          onChange={handleChange}
-          value={userInfo.teams}
-          name="teams"
-        />
-
-        {/* 🟩 Parent ID Dropdown */}
-        <Select value={userInfo.parent_id} onValueChange={handleParentSelect}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select Parent User" />
-          </SelectTrigger>
-          <SelectContent>
-            {allUsers.map((user) => (
-              <SelectItem key={user.employee_id} value={String(user.employee_id)}>
-                {user.user_name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <div>
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{isEditMode ? "Edit User" : "Add New User"}</DialogTitle>
+        </DialogHeader>
+        <CardContent className="space-y-4 pt-4">
+          <Input
+            placeholder="Enter username..."
+            onChange={handleChange}
+            value={userInfo.user_name}
+            name="user_name"
+            className="border border-gray-300 rounded"
+          />
+          <Input
+            placeholder="Enter email..."
+            onChange={handleChange}
+            value={userInfo.email_address}
+            name="email_address"
+            className="border border-gray-300 rounded"
+          />
+          <Input
+            placeholder="Enter profile..."
+            onChange={handleChange}
+            value={userInfo.profile}
+            name="profile"
+            className="border border-gray-300 rounded"
+          />
+          <Input
+            placeholder="Enter team..."
+            onChange={handleChange}
+            value={userInfo.teams}
+            name="teams"
+            className="border border-gray-300 rounded"
+          />
+          {/* Parent ID Dropdown */}
+          <Select value={userInfo.parent_id} onValueChange={handleParentSelect}>
+            <SelectTrigger className="border border-gray-300 rounded">
+              <SelectValue placeholder="Select Parent User" />
+            </SelectTrigger>
+            <SelectContent>
+              {allUsers.map((user) => (
+                <SelectItem key={user.employee_id} value={String(user.employee_id)}>
+                  {user.user_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={userInfo.status} onValueChange={handleStatusChange}>
-            <SelectTrigger>
+            <SelectTrigger className="border border-gray-300 rounded">
               <SelectValue placeholder="Select Status" />
             </SelectTrigger>
             <SelectContent>
@@ -224,22 +231,18 @@ useEffect(() => {
               <SelectItem value="0">Inactive</SelectItem>
             </SelectContent>
           </Select>
-        </div>
-
-        <div className="flex gap-2">
-          <Button
-            className="bg-primary hover:bg-primary/90 w-full"
-            onClick={handleSubmit}
-            disabled={isDisabled || loading}
-          >
-            {loading
-              ? "Submitting..."
-              : isEditMode
-              ? "Update User"
-              : "Add User"}
-          </Button>
-
-          {isEditMode && (
+          <div className="flex gap-2 pt-2">
+            <Button
+              className="bg-primary hover:bg-primary/90 w-full"
+              onClick={handleSubmit}
+              disabled={isDisabled || loading}
+            >
+              {loading
+                ? "Submitting..."
+                : isEditMode
+                ? "Update User"
+                : "Add User"}
+            </Button>
             <Button
               variant="outline"
               className="w-full"
@@ -248,10 +251,10 @@ useEffect(() => {
             >
               Cancel
             </Button>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+          </div>
+        </CardContent>
+      </DialogContent>
+    </Dialog>
   );
 };
 
