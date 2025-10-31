@@ -11,7 +11,7 @@ const getStatusBadge = (status: string) => {
 };
 
 const plans = [
-  { title: 'Plan Name', value: 'iCapture Unlimited (Expired)' },
+  { title: 'Plan Name', value: 'Eprevent Unlimited (Expired)' },
   { title: 'Start Date', value: '06/07/2024' },
   { title: 'Teams Included', value: '0' },
   { title: 'Business Card Transcriptions', value: '0 of 1,000' },

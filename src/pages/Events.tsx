@@ -67,14 +67,14 @@ function UpdateEventPopup({
       try {
         const response = await fetch("https://api.inditechit.com/get_all_teams");
         const data = await response.json();
-  
+
         // Ensure type safety: check if `data?.data` is an array
         if (Array.isArray(data)) {
           // Extract team names safely
           const teamNames = data
             .map((t: any) => t.team_name)
             .filter((name: any): name is string => typeof name === "string");
-  
+
           setTeams(teamNames);
         } else {
           setTeams([]);
@@ -84,7 +84,7 @@ function UpdateEventPopup({
         setTeams([]);
       }
     };
-  
+
     fetchTeams();
   }, []);
 
@@ -113,8 +113,8 @@ function UpdateEventPopup({
       ...prev!,
       [name]:
         name === "total_leads" ||
-        name === "priority_leads" ||
-        name === "budget"
+          name === "priority_leads" ||
+          name === "budget"
           ? Number(value)
           : value,
     }));
@@ -336,33 +336,67 @@ export default function Events() {
   const [popupOpen, setPopupOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [status, setStatus] = useState("All");
-
   useEffect(() => {
     const fetchEvents = async () => {
-      let url = "/get_all_event_details";
-      if (status !== "All") {
-        const filterValue =
-          status === "Upcoming"
-            ? "upcoming"
-            : status === "Completed"
-            ? "completed"
-            : status === "In progress"
-            ? "in_progress"
-            : "";
-        if (filterValue) url += `?filter=${filterValue}`;
+      const data: any = await request("/get_all_event_details", "GET");
+      if (data?.data) {
+        const allEvents = data.data;
+  
+        if (status === "All") {
+          setEvents(allEvents);
+        } else {
+          setEvents(
+            allEvents.filter((event: Event) => 
+              getStatusFromDates(event.start_date, event.end_date) === status
+            )
+          );
+        }
+      } else {
+        setEvents([]);
       }
-      const data: any = await request(url, "GET");
-      if (data?.data) setEvents(data.data);
-      else setEvents([]);
     };
-
+  
     fetchEvents();
   }, [status]);
+  
+  // useEffect(() => {
+  //   const fetchEvents = async () => {
+  //     let url = "/get_all_event_details";
+  //     if (status !== "All") {
+  //       const filterValue =
+  //         status === "Upcoming"
+  //           ? "upcoming"
+  //           : status === "Completed"
+  //             ? "completed"
+  //             : status === "In progress"
+  //               ? "in_progress"
+  //               : "";
+  //       if (filterValue) url += `?filter=${filterValue}`;
+  //     }
+  //     const data: any = await request(url, "GET");
+  //     if (data?.data) setEvents(data.data);
+  //     else setEvents([]);
+  //   };
+
+  //   fetchEvents();
+  // }, [status]);
 
   const openUpdatePopup = (event: Event) => {
     setSelectedEvent(event);
     setPopupOpen(true);
   };
+
+  const getStatusFromDates = (startDate: string, endDate: string) => {
+    const now = new Date();
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    if (now < start) return "Upcoming";
+    else if (now >= start && now <= end) return "In progress";
+    else if (now > end) return "Completed";
+    else return "Unknown";
+  };
+
 
   const closeUpdatePopup = () => {
     setPopupOpen(false);
@@ -440,9 +474,12 @@ export default function Events() {
                     </tr>
                   </thead>
                   <tbody>
-                    {events.map((event, index) => (
+                    {events.reverse().map((event, index) => (
                       <tr key={index} className="border-b hover:bg-muted/20">
-                        <td className="py-3 px-4">{getStatusBadge(event.event_status)}</td>
+                        <td className="py-3 px-4">
+                          {getStatusBadge(getStatusFromDates(event.start_date, event.end_date))}
+                        </td>
+
                         <td className="py-3 px-4 text-foreground whitespace-nowrap">
                           {event.event_name}
                         </td>
@@ -455,11 +492,10 @@ export default function Events() {
                         <td className="py-3 px-4 whitespace-nowrap">
                           <div className="flex items-center space-x-2">
                             <div
-                              className={`w-3 h-3 rounded-full ${
-                                event.team === "epredia"
+                              className={`w-3 h-3 rounded-full ${event.team === "epredia"
                                   ? "bg-gray-400"
                                   : "bg-purple-400"
-                              }`}
+                                }`}
                             ></div>
                             <span className="text-foreground">{event.team}</span>
                           </div>

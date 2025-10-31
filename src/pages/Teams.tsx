@@ -1,17 +1,35 @@
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { DashboardHeader } from "@/components/DashboardHeader";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useEffect, useState } from "react";
 import { useApi } from "@/hooks/useApi";
-import { useToast } from "@/components/ui/use-toast"; // ✅ added toast
+import { useToast } from "@/components/ui/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
-const teamsData = {
-  totalEvents: 265,
-  totalLeads: 5176,
-  priorityLeads: 297,
-  avgLeadsPerEvent: 19.53,
-  priorityPercentage: "5.74%",
+// Helper to format ISO date to locale string
+const formatDate = (isoStr: string | null | undefined) => {
+  if (!isoStr) return "-";
+  const d = new Date(isoStr);
+  return d.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 };
 
 export default function Teams() {
@@ -19,10 +37,19 @@ export default function Teams() {
   const [leadData, setLeadData] = useState<any[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-  const [eventNameFilter, setEventNameFilter] = useState("");
-  const { toast } = useToast(); // ✅ initialize toast
 
-  // ✅ Fetch lead data
+  // Filters state
+  const [eventNameFilter, setEventNameFilter] = useState("");
+  const [leadNameFilter, setLeadNameFilter] = useState("");
+  const [startDateFilter, setStartDateFilter] = useState("");
+  const [endDateFilter, setEndDateFilter] = useState("");
+
+  // Popup state
+  const [selectedLead, setSelectedLead] = useState<any | null>(null);
+
+  const { toast } = useToast();
+
+  // Fetch lead data
   const fetchLeadData = async () => {
     const res = await request(`/get_all_leads`, "GET");
     if (res && res.success === true && res.data) {
@@ -40,7 +67,7 @@ export default function Teams() {
     fetchLeadData();
   }, []);
 
-  // ✅ Delete lead
+  // Delete lead handler (unchanged)
   const handleDelete = async (lead_id: any) => {
     try {
       const res = await request(`/delete_lead?lead_id=${lead_id}`, "DELETE");
@@ -75,10 +102,25 @@ export default function Teams() {
     }
   };
 
-  // ✅ Filtering and pagination
-  const filteredLeads = leadData.filter((lead) =>
-    lead.event_name?.toLowerCase().includes(eventNameFilter.toLowerCase())
-  );
+  // Filter & pagination logic with added filters
+  const filteredLeads = leadData.filter((lead) => {
+    // filter event name contains
+    const matchesEvent = lead.event_name
+      ?.toLowerCase()
+      .includes(eventNameFilter.toLowerCase());
+    // filter lead name contains
+    const matchesName = lead.name
+      ?.toLowerCase()
+      .includes(leadNameFilter.toLowerCase());
+
+    // filter start date & end date range - consider lead.created_at date
+    const leadDate = new Date(lead.created_at);
+    const afterStartDate =
+      !startDateFilter || leadDate >= new Date(startDateFilter);
+    const beforeEndDate = !endDateFilter || leadDate <= new Date(endDateFilter);
+
+    return matchesEvent && matchesName && afterStartDate && beforeEndDate;
+  });
 
   const totalLeads = filteredLeads.length;
   const totalPages = Math.ceil(totalLeads / itemsPerPage);
@@ -93,8 +135,21 @@ export default function Teams() {
     setCurrentPage(page);
   };
 
-  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handlers for filters
+  const handleEventNameFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEventNameFilter(e.target.value);
+    setCurrentPage(1);
+  };
+  const handleLeadNameFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLeadNameFilter(e.target.value);
+    setCurrentPage(1);
+  };
+  const handleStartDateFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setStartDateFilter(e.target.value);
+    setCurrentPage(1);
+  };
+  const handleEndDateFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEndDateFilter(e.target.value);
     setCurrentPage(1);
   };
 
@@ -110,10 +165,49 @@ export default function Teams() {
             <h1 className="text-2xl font-semibold text-foreground mb-2">
               epredia
             </h1>
-            <p className="text-muted-foreground mb-4">
-              Here is your Lead Data
-            </p>
+            <p className="text-muted-foreground mb-4">Here is your Lead Data</p>
           </div>
+
+          {/* Filters */}
+          <Card className="mb-4">
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <Label>Filter by Event Name</Label>
+                  <Input
+                    placeholder="Search event"
+                    value={eventNameFilter}
+                    onChange={handleEventNameFilterChange}
+                  />
+                </div>
+                <div>
+                  <Label>Filter by Lead Name</Label>
+                  <Input
+                    placeholder="Search lead"
+                    value={leadNameFilter}
+                    onChange={handleLeadNameFilterChange}
+                  />
+                </div>
+                {/* <div>
+                  <Label>Filter by Start Date</Label>
+                  <Input
+                    type="date"
+                    value={startDateFilter}
+                    onChange={handleStartDateFilterChange}
+                  />
+                </div>
+                <div>
+                  <Label>Filter by End Date</Label>
+                  <Input
+                    type="date"
+                    value={endDateFilter}
+                    onChange={handleEndDateFilterChange}
+                  />
+                </div> */}
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
@@ -138,10 +232,22 @@ export default function Teams() {
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
                         Event Name
                       </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground"></th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
+                    {paginatedLeads.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={7}
+                          className="py-6 text-center text-muted-foreground"
+                        >
+                          No leads found for the filter.
+                        </td>
+                      </tr>
+                    )}
                     {paginatedLeads.map((lead: any) => (
                       <tr
                         key={lead?.lead_id}
@@ -158,7 +264,7 @@ export default function Teams() {
                           {lead?.company}
                         </td>
                         <td className="py-3 px-4 text-foreground">
-                          {lead?.designation}
+                          {lead?.designation || "-"}
                         </td>
                         <td className="py-3 px-4 text-foreground">
                           {lead?.phone_numbers?.[0] || "-"}
@@ -170,26 +276,24 @@ export default function Teams() {
                           {lead?.event_name || "Active Event"}
                         </td>
                         <td className="py-3 px-4">
-                          <Button
-                            onClick={() => handleDelete(lead?.lead_id)}
-                            variant="link"
-                            className="text-primary p-0 h-auto"
-                          >
-                            Delete
-                          </Button>
+                          <div className="flex space-x-2 items-center">
+                            <Button
+                              variant="link"
+                              onClick={() => setSelectedLead(lead)}
+                            >
+                              View Lead Details
+                            </Button>
+                            <Button
+                              onClick={() => handleDelete(lead?.lead_id)}
+                              variant="link"
+                              className="text-primary p-0 h-auto"
+                            >
+                              Delete
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
-                    {paginatedLeads.length === 0 && (
-                      <tr>
-                        <td
-                          colSpan={7}
-                          className="py-6 text-center text-muted-foreground"
-                        >
-                          No leads found for the filter.
-                        </td>
-                      </tr>
-                    )}
                   </tbody>
                 </table>
               </div>
@@ -226,9 +330,77 @@ export default function Teams() {
             </Button>
           </div>
 
-          <div className="text-center py-8">
-            <p className="text-sm text-muted-foreground">© iCapture 2025</p>
-          </div>
+          {/* Lead Details Popup */}
+          <Dialog
+            open={selectedLead !== null}
+            onOpenChange={() => setSelectedLead(null)}
+          >
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Lead Details</DialogTitle>
+                <DialogDescription>
+                  Details of lead: <strong>{selectedLead?.name}</strong>
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4 my-4">
+                <div>
+                  <strong>Company:</strong> {selectedLead?.company || "-"}
+                </div>
+                <div>
+                  <strong>Designation:</strong> {selectedLead?.designation || "-"}
+                </div>
+                <div>
+                  <strong>Phone Numbers:</strong>{" "}
+                  {selectedLead?.phone_numbers?.length
+                    ? selectedLead.phone_numbers.join(", ")
+                    : "-"}
+                </div>
+                <div>
+                  <strong>Emails:</strong>{" "}
+                  {selectedLead?.emails?.length
+                    ? selectedLead.emails.join(", ")
+                    : "-"}
+                </div>
+                <div>
+                  <strong>Websites:</strong>{" "}
+                  {selectedLead?.websites?.length
+                    ? selectedLead.websites.join(", ")
+                    : "-"}
+                </div>
+                <div>
+                  <strong>Other Info:</strong>{" "}
+                  {selectedLead?.other?.length
+                    ? selectedLead.other.join(", ")
+                    : "-"}
+                </div>
+                <div>
+                  <strong>Created At:</strong> {formatDate(selectedLead?.created_at)}
+                </div>
+                <div>
+                  <strong>Event Name:</strong> {selectedLead?.event_name || "-"}
+                </div>
+                <div>
+                  <strong>QR Data:</strong> {selectedLead?.qr_data || "-"}
+                </div>
+                {selectedLead?.image_url && (
+                  <div className="mt-4 flex justify-center">
+                    <img
+                      src={selectedLead.image_url}
+                      alt={`Lead ${selectedLead.name}`}
+                      className="max-h-48 rounded-md object-contain"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setSelectedLead(null)}>
+                  Close
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </main>
       </div>
     </div>

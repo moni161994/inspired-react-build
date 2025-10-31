@@ -189,7 +189,7 @@ export default function Users() {
           </div>
 
           <div className="text-center py-8">
-            <p className="text-sm text-muted-foreground">© iCapture 2025</p>
+            <p className="text-sm text-muted-foreground">© Eprevent 2025</p>
           </div>
         </main>
       </div>

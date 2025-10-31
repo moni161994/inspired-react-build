@@ -29,7 +29,7 @@ const topMembers = [
     priorityLeads: "31%",
   },
   {
-    name: "Rachel iCapture",
+    name: "Rachel Eprevent",
     totalLeads: "7%",
     priorityLeads: "",
   },

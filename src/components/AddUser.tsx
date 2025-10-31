@@ -18,6 +18,7 @@ const initialState = {
   profile: "",
   teams: "",
   parent_id: "",
+  status:""
 };
 
 type UserData = {
@@ -53,6 +54,7 @@ const AddUser = ({ onUserAdded, editingUser, clearEditingUser }: AddUserProps) =
         profile: editingUser.profile || "",
         teams: editingUser.teams?.toString() || "",
         parent_id: editingUser.parent_id?.toString() || "",
+        status: editingUser.status?.toString() || "",
       });
     } else {
       setUserInfo(initialState);
@@ -92,6 +94,13 @@ useEffect(() => {
     }));
   };
 
+  const handleStatusChange = (value: string) => {
+    setUserInfo((prev) => ({
+      ...prev,
+      status: value,
+    }));
+  };
+
   // 🟣 Handle form submit (Add or Edit)
   const handleSubmit = async () => {
     if (Object.values(userInfo).some((val) => val.trim() === "")) {
@@ -114,6 +123,7 @@ useEffect(() => {
         profile: userInfo.profile,
         teams: userInfo.teams,
         parent_id: userInfo.parent_id,
+        status: userInfo.status,
       });
 
       if (res && res.message) {
@@ -203,6 +213,18 @@ useEffect(() => {
             ))}
           </SelectContent>
         </Select>
+
+        <div>
+          <Select value={userInfo.status} onValueChange={handleStatusChange}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1">Active</SelectItem>
+              <SelectItem value="0">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
         <div className="flex gap-2">
           <Button
