@@ -445,6 +445,38 @@ export default function Teams() {
                       <strong>QR Data:</strong> {selectedLead.qr_data}
                     </div>
                   )}
+                  {/* Add these inside your <div className="flex-1 space-y-3"> */}
+                  {selectedLead?.city && (
+                    <div>
+                      <strong>City:</strong> {selectedLead.city}
+                    </div>
+                  )}
+                  {selectedLead?.state && (
+                    <div>
+                      <strong>State:</strong> {selectedLead.state}
+                    </div>
+                  )}
+                  {selectedLead?.zip && (
+                    <div>
+                      <strong>ZIP:</strong> {selectedLead.zip}
+                    </div>
+                  )}
+                  {selectedLead?.country && (
+                    <div>
+                      <strong>Country:</strong> {selectedLead.country}
+                    </div>
+                  )}
+                  {selectedLead?.area_of_interest && (
+                    <div>
+                      <strong>Area of Interest:</strong> {selectedLead.area_of_interest}
+                    </div>
+                  )}
+                  {selectedLead?.disclaimer && (
+                    <div>
+                      <strong>Disclaimer:</strong> {selectedLead.disclaimer}
+                    </div>
+                  )}
+
                 </div>
                 {/* Right: Image */}
                 {/* Right: Image (larger, clickable to open in new tab) */}
