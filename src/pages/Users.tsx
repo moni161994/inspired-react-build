@@ -102,13 +102,15 @@ export default function Users() {
           <div className="w-full">
             <Card>
               <CardHeader className="flex justify-between flex-row space-y-0 items-center">
-                <CardTitle>User Management</CardTitle>
+                <div className="flex flex-row space-y-0 items-center gap-8">
+                <CardTitle>App User Management</CardTitle>
+                <Input className="w-64" placeholder="Search..." />
+                </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm text-muted-foreground">
+                  {/* <span className="text-sm text-muted-foreground">
                     Search Users:
-                  </span>
-                  <Input className="w-64" placeholder="Search..." />
-                  <Button onClick={openAddUser}>Add User</Button>
+                  </span> */}
+                  <Button onClick={openAddUser}>+ Add App User</Button>
                 </div>
               </CardHeader>
 

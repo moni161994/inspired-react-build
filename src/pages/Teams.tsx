@@ -71,20 +71,20 @@ export default function Teams() {
     const matchesName = lead.name
       ?.toLowerCase()
       .includes(leadNameFilter.toLowerCase());
-  
+
     // filter by type
     const matchesType =
       !leadTypeFilter || getLeadType(lead) === leadTypeFilter;
-  
+
     // filter start date & end date range - consider lead.created_at date
     const leadDate = new Date(lead.created_at);
     const afterStartDate =
       !startDateFilter || leadDate >= new Date(startDateFilter);
     const beforeEndDate = !endDateFilter || leadDate <= new Date(endDateFilter);
-  
+
     return matchesEvent && matchesName && afterStartDate && beforeEndDate && matchesType;
   });
-  
+
 
   // Fetch lead data
   const fetchLeadData = async () => {
@@ -397,61 +397,76 @@ export default function Teams() {
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="space-y-4 my-4">
-                {selectedLead?.company && (
-                  <div>
-                    <strong>Company:</strong> {selectedLead.company}
-                  </div>
-                )}
-                {selectedLead?.designation && (
-                  <div>
-                    <strong>Designation:</strong> {selectedLead.designation}
-                  </div>
-                )}
-                {selectedLead?.phone_numbers && selectedLead.phone_numbers.length > 0 && (
-                  <div>
-                    <strong>Phone Numbers:</strong> {selectedLead.phone_numbers.join(", ")}
-                  </div>
-                )}
-                {selectedLead?.emails && selectedLead.emails.length > 0 && (
-                  <div>
-                    <strong>Emails:</strong> {selectedLead.emails.join(", ")}
-                  </div>
-                )}
-                {selectedLead?.websites && selectedLead.websites.length > 0 && (
-                  <div>
-                    <strong>Websites:</strong> {selectedLead.websites.join(", ")}
-                  </div>
-                )}
-                {selectedLead?.other && selectedLead.other.length > 0 && (
-                  <div>
-                    <strong>Other Info:</strong> {selectedLead.other.join(", ")}
-                  </div>
-                )}
-                {selectedLead?.created_at && (
-                  <div>
-                    <strong>Created At:</strong> {formatDate(selectedLead.created_at)}
-                  </div>
-                )}
-                {selectedLead?.event_name && (
-                  <div>
-                    <strong>Event Name:</strong> {selectedLead.event_name}
-                  </div>
-                )}
-                {selectedLead?.qr_data && (
-                  <div>
-                    <strong>QR Data:</strong> {selectedLead.qr_data}
-                  </div>
-                )}
+              <div className="flex flex-col md:flex-row gap-6 my-4">
+                {/* Left: Text fields */}
+                <div className="flex-1 space-y-3">
+                  {selectedLead?.company && (
+                    <div>
+                      <strong>Company:</strong> {selectedLead.company}
+                    </div>
+                  )}
+                  {selectedLead?.designation && (
+                    <div>
+                      <strong>Designation:</strong> {selectedLead.designation}
+                    </div>
+                  )}
+                  {selectedLead?.phone_numbers && selectedLead.phone_numbers.length > 0 && (
+                    <div>
+                      <strong>Phone Numbers:</strong> {selectedLead.phone_numbers.join(", ")}
+                    </div>
+                  )}
+                  {selectedLead?.emails && selectedLead.emails.length > 0 && (
+                    <div>
+                      <strong>Emails:</strong> {selectedLead.emails.join(", ")}
+                    </div>
+                  )}
+                  {selectedLead?.websites && selectedLead.websites.length > 0 && (
+                    <div>
+                      <strong>Websites:</strong> {selectedLead.websites.join(", ")}
+                    </div>
+                  )}
+                  {selectedLead?.other && selectedLead.other.length > 0 && (
+                    <div>
+                      <strong>Other Info:</strong> {selectedLead.other.join(", ")}
+                    </div>
+                  )}
+                  {selectedLead?.created_at && (
+                    <div>
+                      <strong>Created At:</strong> {formatDate(selectedLead.created_at)}
+                    </div>
+                  )}
+                  {selectedLead?.event_name && (
+                    <div>
+                      <strong>Event Name:</strong> {selectedLead.event_name}
+                    </div>
+                  )}
+                  {selectedLead?.qr_data && (
+                    <div>
+                      <strong>QR Data:</strong> {selectedLead.qr_data}
+                    </div>
+                  )}
+                </div>
+                {/* Right: Image */}
+                {/* Right: Image (larger, clickable to open in new tab) */}
                 {selectedLead?.image_url && (
-                  <div className="mt-4 flex justify-center">
-                    <Button>
-                      <a href={selectedLead.image_url} target="_blank" rel="noopener noreferrer">View Image</a>
-                    </Button>
+                  <div className="flex justify-center items-start md:items-center">
+                    <a
+                      href={selectedLead.image_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      tabIndex={-1}
+                    >
+                      <img
+                        src={selectedLead.image_url}
+                        alt="lead"
+                        className="w-64 h-64 object-contain rounded border shadow-lg cursor-pointer transition-transform duration-150 hover:scale-105"
+                        style={{ maxWidth: 180, maxHeight: 180 }}
+                      />
+                    </a>
                   </div>
                 )}
-              </div>
 
+              </div>
 
               <DialogFooter>
                 <Button variant="outline" onClick={() => setSelectedLead(null)}>
@@ -460,6 +475,7 @@ export default function Teams() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+
         </main>
       </div>
     </div>
