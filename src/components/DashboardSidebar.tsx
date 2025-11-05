@@ -5,8 +5,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 const navigationItems = [
   { icon: LayoutGrid, label: "Dashboard", path: "/" },
   { icon: Calendar, label: "Events", path: "/events" },
-  // { icon: Clock, label: "Analytics", path: "/analytics" },
-  { icon: Users, label: "Teams", path: "/teams" },
+  { icon:  Clock, label: "Leads", path: "/lead" },
+  { icon: Users, label: "Team", path: "/team" },
   { icon: User, label: "Users", path: "/users" },
 ];
 
@@ -19,7 +19,7 @@ export function DashboardSidebar() {
       <div className="flex items-center justify-center h-16 border-b border-border">
         <div className="flex items-center space-x-2">
           <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center">
-            <span className="text-primary-foreground font-semibold text-sm">iC</span>
+            <span className="text-primary-foreground font-semibold text-sm">Ep</span>
           </div>
         </div>
       </div>

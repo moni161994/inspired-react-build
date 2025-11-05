@@ -170,10 +170,10 @@ export default function Analytics() {
 
         <main className="flex-1 overflow-auto p-6 space-y-6">
           <Tabs defaultValue="analytics-overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            {/* <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="analytics-overview">Analytics Overview</TabsTrigger>
               <TabsTrigger value="team-analytics">Team Analytics</TabsTrigger>
-            </TabsList>
+            </TabsList> */}
 
             <TabsContent value="analytics-overview" className="space-y-6">
               <div className="flex justify-between items-center">

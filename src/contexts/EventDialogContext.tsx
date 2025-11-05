@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/components/ui/use-toast";
+import { useNavigate } from "react-router-dom";
 
 type EventDialogContextType = {
   openEventDialog: () => void;
@@ -35,6 +36,7 @@ const EventDialogContext = createContext<EventDialogContextType | undefined>(
 
 export function EventDialogProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const today = new Date().toISOString().split("T")[0];
   const { request } = useApi<any>();
 
@@ -154,6 +156,8 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
         budget: 0,
         eventSize: "",
       });
+      navigate("/events");
+
     } else {
       toast({
         variant: "destructive",
