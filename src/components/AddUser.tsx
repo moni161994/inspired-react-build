@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label"; // <-- add this import
 
 const initialState = {
   user_name: "",
@@ -191,49 +192,66 @@ const AddUser = ({
           <DialogTitle>{isEditMode ? "Edit User" : "Add New User"}</DialogTitle>
         </DialogHeader>
         <CardContent className="space-y-4 pt-4">
-          <Input
-            placeholder="Enter username..."
-            onChange={handleChange}
-            value={userInfo.user_name}
-            name="user_name"
-            className="border border-gray-300 rounded"
-          />
-          <Input
-            placeholder="Enter email..."
-            onChange={handleChange}
-            value={userInfo.email_address}
-            name="email_address"
-            className="border border-gray-300 rounded"
-          />
-          <Input
-            placeholder="Enter profile..."
-            onChange={handleChange}
-            value={userInfo.profile}
-            name="profile"
-            className="border border-gray-300 rounded"
-          />
-          {/* Teams input removed, teams always 0 */}
-          <Select value={userInfo.parent_id} onValueChange={handleParentSelect}>
-            <SelectTrigger className="border border-gray-300 rounded">
-              <SelectValue placeholder="Select Parent User" />
-            </SelectTrigger>
-            <SelectContent>
-              {allUsers.map((user) => (
-                <SelectItem key={user.employee_id} value={String(user.employee_id)}>
-                  {user.user_name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={userInfo.status} onValueChange={handleStatusChange}>
-            <SelectTrigger className="border border-gray-300 rounded">
-              <SelectValue placeholder="Select Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="1">Active</SelectItem>
-              <SelectItem value="0">Inactive</SelectItem>
-            </SelectContent>
-          </Select>
+          <div>
+            <Label htmlFor="user_name">Username</Label>
+            <Input
+              id="user_name"
+              placeholder="Enter username..."
+              onChange={handleChange}
+              value={userInfo.user_name}
+              name="user_name"
+              className="border border-gray-300 rounded"
+            />
+          </div>
+          <div>
+            <Label htmlFor="email_address">Email</Label>
+            <Input
+              id="email_address"
+              placeholder="Enter email..."
+              onChange={handleChange}
+              value={userInfo.email_address}
+              name="email_address"
+              className="border border-gray-300 rounded"
+            />
+          </div>
+          <div>
+            <Label htmlFor="profile">Profile</Label>
+            <Input
+              id="profile"
+              placeholder="Enter profile..."
+              onChange={handleChange}
+              value={userInfo.profile}
+              name="profile"
+              className="border border-gray-300 rounded"
+            />
+          </div>
+          <div>
+            <Label htmlFor="parent_id">Parent User</Label>
+            <Select value={userInfo.parent_id} onValueChange={handleParentSelect}>
+              <SelectTrigger className="border border-gray-300 rounded">
+                <SelectValue placeholder="Select Parent User" />
+              </SelectTrigger>
+              <SelectContent>
+                {allUsers.map((user) => (
+                  <SelectItem key={user.employee_id} value={String(user.employee_id)}>
+                    {user.user_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="status">Status</Label>
+            <Select value={userInfo.status} onValueChange={handleStatusChange}>
+              <SelectTrigger className="border border-gray-300 rounded">
+                <SelectValue placeholder="Select Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">Active</SelectItem>
+                <SelectItem value="0">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="flex gap-2 pt-2">
             <Button
               className="bg-primary hover:bg-primary/90 w-full"

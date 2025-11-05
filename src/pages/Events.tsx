@@ -169,7 +169,7 @@ function UpdateEventPopup({
             >
               <option value="Upcoming">Upcoming</option>
               <option value="In progress">In progress</option>
-              <option value="Completed">Completed</option>
+              {/* <option value="Completed">Completed</option> */}
             </select>
           </label>
 
@@ -474,7 +474,7 @@ export default function Events() {
                     </tr>
                   </thead>
                   <tbody>
-                    {events.reverse().map((event, index) => (
+                    {events.map((event, index) => (
                       <tr key={index} className="border-b hover:bg-muted/20">
                         <td className="py-3 px-4">
                           {getStatusBadge(getStatusFromDates(event.start_date, event.end_date))}

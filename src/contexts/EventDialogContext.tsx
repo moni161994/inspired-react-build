@@ -214,7 +214,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 <SelectContent>
                   <SelectItem value="Upcoming">Upcoming</SelectItem>
                   <SelectItem value="In progress">In progress</SelectItem>
-                  <SelectItem value="Completed">Completed</SelectItem>
+                  {/* <SelectItem value="Completed">Completed</SelectItem> */}
                 </SelectContent>
               </Select>
             </div>

@@ -1,52 +1,31 @@
+import { useState, useEffect } from "react";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
+import { Badge } from "@/components/ui/badge";
+import { X } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/hooks/use-toast";
 
-const topEvents = [
-  {
-    name: "2025 JSCC66 Annual Meeting",
-    team: "epredia",
-    totalLeads: 48,
-    priorityLeads: "N/A",
-  },
-  {
-    name: "ADLM 2025",
-    team: "epredia",
-    totalLeads: 36,
-    priorityLeads: "N/A",
-  },
-];
-
-const topMembers = [
-  {
-    name: "Ashley Shih",
-    totalLeads: "7%",
-    priorityLeads: "31%",
-  },
-  {
-    name: "Rachel Eprevent",
-    totalLeads: "7%",
-    priorityLeads: "",
-  },
-];
-
 type Member = {
+  employee_id: string;
   user_name: string;
   email_address: string;
 };
-
 type Team = {
   team_id: string;
+  manager_id: string;
   manager_name: string;
   team_name: string;
   members: Member[];
 };
-
 type EventSummary = {
   total_events: number;
   active_events: string;
@@ -54,44 +33,42 @@ type EventSummary = {
 
 export default function Analytics() {
   const [teams, setTeams] = useState<Team[]>([]);
-  const { request, loading } = useApi();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedMembers, setSelectedMembers] = useState<Member[]>([]);
-  const [selectedTeamName, setSelectedTeamName] = useState("");
+  const [users, setUsers] = useState<Member[]>([]);
   const [analyticsData, setAnalyticsData] = useState<EventSummary | null>(null);
+
+  const { request, loading } = useApi();
   const { toast } = useToast();
 
-  // ✅ Fetch all teams
+  // Modal states
+  const [teamDialogOpen, setTeamDialogOpen] = useState(false);
+  const [editTeamObj, setEditTeamObj] = useState<Team | null>(null);
+
+  // Modal form state
+  const [formData, setFormData] = useState({
+    team_name: "",
+    manager_id: "",
+    employees_id: [] as string[], // array of strings
+  });
+
+  useEffect(() => {
+    fetchUsers();
+    fetchTeams();
+    fetchEventSummary();
+  }, []);
+
+  const fetchUsers = async () => {
+    const res = await request("/get_users", "GET");
+    setUsers(Array.isArray(res?.data) ? res.data : []);
+  };
+
   const fetchTeams = async () => {
     const res = await request("/get_all_teams", "GET");
-  
     if (Array.isArray(res)) {
-      // Case 1: valid response (array)
-      if (res.length > 0) {
-        setTeams(res);
-      } else {
-        // Case 2: valid response but no data
-        setTeams([]);
-        toast({
-          title: "No Teams Found",
-          description: "No team data is available at the moment.",
-          variant: "default",
-        });
-      }
+      setTeams(res);
     } else if (res?.success && Array.isArray(res.data)) {
-      // Case 3: API wrapped response like { success: true, data: [...] }
-      if (res.data.length > 0) {
-        setTeams(res.data);
-      } else {
-        setTeams([]);
-        toast({
-          title: "No Teams Found",
-          description: "No team data is available at the moment.",
-          variant: "default",
-        });
-      }
+      setTeams(res.data);
     } else {
-      // Case 4: unexpected / failed response
+      setTeams([]);
       toast({
         title: "Failed to load teams",
         description: res?.msg || "Could not fetch team data from server.",
@@ -99,13 +76,9 @@ export default function Analytics() {
       });
     }
   };
-  
-  
 
-  // ✅ Fetch event summary (total + active)
   const fetchEventSummary = async () => {
     const res = await request("/event_summary", "GET");
-
     if (res?.success) {
       setAnalyticsData({
         total_events: res.data.total_events,
@@ -114,53 +87,104 @@ export default function Analytics() {
     } else {
       toast({
         title: "Failed to load analytics",
-        description:
-          res?.msg || "Something went wrong while fetching event summary.",
+        description: res?.msg || "Something went wrong while fetching event summary.",
         variant: "destructive",
       });
     }
   };
 
-  // ✅ Initialize both APIs together
-  const initializeData = async () => {
-    await Promise.all([fetchTeams(), fetchEventSummary()]);
+  // Open edit modal and preload form
+  const openTeamDialog = (team?: Team) => {
+    setTeamDialogOpen(true);
+    setEditTeamObj(team || null);
+    if (team) {
+      setFormData({
+        team_name: team.team_name,
+        manager_id: String(team.manager_id),
+        employees_id: team.members.map((m) => String(m.employee_id)),
+      });
+    } else {
+      setFormData({ team_name: "", manager_id: "", employees_id: [] });
+    }
   };
 
-  useEffect(() => {
-    initializeData();
-  }, []);
+  // Toggle employee selection multi-select
+  const toggleEmployee = (id: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      employees_id: prev.employees_id.includes(id)
+        ? prev.employees_id.filter((eid) => eid !== id)
+        : [...prev.employees_id, id],
+    }));
+  };
+
+  // Handle inputs change in form
+  const handleChange = (e: any) => {
+    setFormData((prev) => ({
+      ...prev,
+      [e.target.id]: e.target.value,
+    }));
+  };
+
+  // Create or update submit handler
+  const handleCreateOrUpdateTeam = async () => {
+    if (!formData.team_name.trim() || !formData.manager_id || formData.employees_id.length === 0) {
+      toast({ title: "All fields are required", variant: "destructive" });
+      return;
+    }
+    let res;
+    if (editTeamObj) {
+      res = await request("/update_team", "POST", {
+        team_id: editTeamObj.team_id,
+        team_name: formData.team_name,
+        manager_id: formData.manager_id,
+        employee_ids: formData.employees_id,
+      });
+    } else {
+      // No create button inside UI, so unlikely to come here, but logic kept for completeness
+      res = await request("/create_team", "POST", {
+        team_name: formData.team_name,
+        manager_id: formData.manager_id,
+        employee_ids: formData.employees_id,
+      });
+    }
+    if (res?.success || res?.message?.includes("success")) {
+      toast({ title: editTeamObj ? "Team updated" : "Team created" });
+      setTeamDialogOpen(false);
+      setEditTeamObj(null);
+      fetchTeams();
+    } else {
+      toast({
+        title: "Operation failed",
+        description: res?.error || res?.msg || "Server error",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="flex h-screen bg-background">
       <DashboardSidebar />
-
       <div className="flex flex-col flex-1">
         <DashboardHeader />
 
         <main className="flex-1 overflow-auto p-6 space-y-6">
           <Tabs defaultValue="analytics-overview" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="analytics-overview">
-                Analytics Overview
-              </TabsTrigger>
+              <TabsTrigger value="analytics-overview">Analytics Overview</TabsTrigger>
               <TabsTrigger value="team-analytics">Team Analytics</TabsTrigger>
             </TabsList>
 
-            {/* ✅ Overview Tab */}
             <TabsContent value="analytics-overview" className="space-y-6">
               <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-semibold text-foreground">
-                  All Teams Analytics Overview
-                </h1>
+                <h1 className="text-2xl font-semibold text-foreground">All Teams Analytics Overview</h1>
               </div>
 
-              {/* ✅ Summary Cards */}
+              {/* Summary Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                      Total Events
-                    </CardTitle>
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Total Events</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-end space-x-4">
@@ -178,9 +202,7 @@ export default function Analytics() {
 
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                      Active Events
-                    </CardTitle>
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Active Events</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-end space-x-4">
@@ -196,110 +218,8 @@ export default function Analytics() {
                   </CardContent>
                 </Card>
               </div>
-
-              {/* ✅ Top Events + Members */}
-              {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Top Performing Events</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b">
-                            <th className="text-left py-2 text-sm font-medium text-muted-foreground">
-                              Event
-                            </th>
-                            <th className="text-left py-2 text-sm font-medium text-muted-foreground">
-                              Team
-                            </th>
-                            <th className="text-left py-2 text-sm font-medium text-muted-foreground">
-                              Total Leads
-                            </th>
-                            <th className="text-left py-2 text-sm font-medium text-muted-foreground">
-                              Priority Leads
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {topEvents.map((event, index) => (
-                            <tr key={index} className="border-b">
-                              <td className="py-2 text-foreground">
-                                {event.name}
-                              </td>
-                              <td className="py-2 text-foreground">
-                                {event.team}
-                              </td>
-                              <td className="py-2 text-foreground">
-                                {event.totalLeads}
-                              </td>
-                              <td className="py-2 text-foreground">
-                                {event.priorityLeads}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Top Performing Team Members</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b">
-                            <th className="text-left py-2 text-sm font-medium text-muted-foreground">
-                              Team Member
-                            </th>
-                            <th className="text-left py-2 text-sm font-medium text-muted-foreground">
-                              Total Leads
-                            </th>
-                            <th className="text-left py-2 text-sm font-medium text-muted-foreground">
-                              Priority Leads
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {topMembers.map((member, index) => (
-                            <tr key={index} className="border-b">
-                              <td className="py-2">
-                                <div className="flex items-center space-x-2">
-                                  <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                                    <span className="text-primary-foreground text-sm font-medium">
-                                      {member.name
-                                        .split(" ")
-                                        .map((n) => n[0])
-                                        .join("")}
-                                    </span>
-                                  </div>
-                                  <span className="text-foreground">
-                                    {member.name}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="py-2 text-foreground">
-                                {member.totalLeads}
-                              </td>
-                              <td className="py-2 text-foreground">
-                                {member.priorityLeads}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div> */}
             </TabsContent>
 
-            {/* ✅ Team Analytics */}
             <TabsContent value="team-analytics">
               <div className="py-12">
                 <Card>
@@ -308,50 +228,23 @@ export default function Analytics() {
                       <table className="w-full">
                         <thead className="bg-muted/30">
                           <tr>
-                            <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                              Team Id
-                            </th>
-                            <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                              Name
-                            </th>
-                            <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                              Team Name
-                            </th>
-                            <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                              Members
-                            </th>
-                            <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                              Show Members Name
-                            </th>
+                            <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Team Id</th>
+                            <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Manager</th>
+                            <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Team Name</th>
+                            <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Members</th>
+                            <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {teams?.map((lead: Team) => (
-                            <tr
-                              key={lead.team_id}
-                              className="border-b hover:bg-muted/20"
-                            >
-                              <td className="py-3 px-4 text-foreground">
-                                {lead.team_id}
-                              </td>
-                              <td className="py-3 px-4 text-foreground">
-                                {lead.manager_name}
-                              </td>
-                              <td className="py-3 px-4 text-foreground">
-                                {lead.team_name}
-                              </td>
-                              <td className="py-3 px-4 text-foreground">
-                                {lead.members.length}
-                              </td>
+                          {teams?.map((team) => (
+                            <tr key={team.team_id} className="border-b hover:bg-muted/20">
+                              <td className="py-3 px-4">{team.team_id}</td>
+                              <td className="py-3 px-4">{team.manager_name}</td>
+                              <td className="py-3 px-4">{team.team_name}</td>
+                              <td className="py-3 px-4">{team.members.length}</td>
                               <td className="py-3 px-4">
-                                <Button
-                                  onClick={() => {
-                                    setSelectedMembers(lead.members);
-                                    setSelectedTeamName(lead.team_name);
-                                    setIsModalOpen(true);
-                                  }}
-                                >
-                                  View Members
+                                <Button onClick={() => openTeamDialog(team)} variant="outline">
+                                  Edit Team
                                 </Button>
                               </td>
                             </tr>
@@ -363,43 +256,112 @@ export default function Analytics() {
                 </Card>
               </div>
             </TabsContent>
-
-            {/* ✅ Modal for Team Members */}
-            {isModalOpen && (
-              <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50">
-                <div className="bg-white p-6 rounded-lg shadow-xl w-[400px]">
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-lg font-semibold">
-                      Members of {selectedTeamName}
-                    </h2>
-                    <button
-                      onClick={() => setIsModalOpen(false)}
-                      className="text-gray-500 hover:text-black"
-                    >
-                      ✕
-                    </button>
-                  </div>
-
-                  {selectedMembers.length > 0 ? (
-                    <ul className="space-y-2">
-                      {selectedMembers.map((member, index) => (
-                        <li key={index} className="border p-2 rounded">
-                          <p className="font-medium">{member.user_name}</p>
-                          <p className="text-sm text-gray-500">
-                            {member.email_address}
-                          </p>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-sm text-gray-500">No members found.</p>
-                  )}
-                </div>
-              </div>
-            )}
           </Tabs>
         </main>
       </div>
+
+      {/* Single Team Edit Modal */}
+      <Dialog open={teamDialogOpen} onOpenChange={setTeamDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editTeamObj ? "Edit Team" : "Create a New Team"}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-4">
+            {/* Team Name */}
+            <div>
+              <Label htmlFor="team_name">Team Name *</Label>
+              <Input
+                id="team_name"
+                placeholder="Enter team name"
+                value={formData.team_name}
+                onChange={handleChange}
+              />
+            </div>
+
+            {/* Manager Selection */}
+            <div>
+              <Label>Manager *</Label>
+              <Select
+                value={formData.manager_id}
+                onValueChange={(val) =>
+                  setFormData((prev) => ({ ...prev, manager_id: val }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Manager" />
+                </SelectTrigger>
+                <SelectContent>
+                  {users.length > 0 ? (
+                    users.map((user) => (
+                      <SelectItem key={user.employee_id} value={String(user.employee_id)}>
+                        {user.user_name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="none" disabled>
+                      No users available
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Employees Multi-Select */}
+            <div>
+              <Label>Employees *</Label>
+              <Command className="border rounded-md">
+                <CommandInput placeholder="Search employees..." />
+                <CommandEmpty>No results found.</CommandEmpty>
+                <CommandGroup className="max-h-48 overflow-auto">
+                  {users.map((user) => (
+                    <CommandItem
+                      key={user.employee_id}
+                      onSelect={() => toggleEmployee(String(user.employee_id))}
+                    >
+                      <div
+                        className={`flex items-center justify-between w-full ${
+                          formData.employees_id.includes(String(user.employee_id))
+                            ? "font-semibold text-primary"
+                            : ""
+                        }`}
+                      >
+                        <span>{user.user_name}</span>
+                        {formData.employees_id.includes(String(user.employee_id)) && (
+                          <X className="w-4 h-4" />
+                        )}
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </Command>
+
+              {/* Selected Employees as Badges */}
+              <div className="flex flex-wrap gap-2 mt-2">
+                {formData.employees_id.map((id) => {
+                  const emp = users.find((u) => String(u.employee_id) === id);
+                  return (
+                    <Badge key={id} className="flex items-center space-x-1" variant="secondary">
+                      <span>{emp?.user_name || `User ${id}`}</span>
+                      <X className="w-3 h-3 cursor-pointer" onClick={() => toggleEmployee(id)} />
+                    </Badge>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Footer Buttons */}
+          <div className="flex justify-end space-x-3 pt-6">
+            <Button variant="outline" onClick={() => setTeamDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateOrUpdateTeam} disabled={loading}>
+              {loading ? (editTeamObj ? "Updating..." : "Creating...") : editTeamObj ? "Update" : "Create"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
