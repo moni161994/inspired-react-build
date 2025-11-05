@@ -25,6 +25,8 @@ export default function Users() {
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
   const { toast } = useToast();
 
+  const [searchQuery, setSearchQuery] = useState(""); // State for search input
+
   const fetchUser = async () => {
     const email = localStorage.getItem("email");
     if (!email) return;
@@ -82,6 +84,13 @@ export default function Users() {
     setAddUserOpen(true);
   };
 
+  // Filter users based on searchQuery
+  const filteredUsers = user
+    ? user.filter((u) =>
+        u.user_name.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : [];
+
   return (
     <div className="flex h-screen bg-background">
       <DashboardSidebar />
@@ -103,13 +112,16 @@ export default function Users() {
             <Card>
               <CardHeader className="flex justify-between flex-row space-y-0 items-center">
                 <div className="flex flex-row space-y-0 items-center gap-8">
-                <CardTitle>App User Management</CardTitle>
-                <Input className="w-64" placeholder="Search..." />
+                  <CardTitle>App User Management</CardTitle>
+                  {/* Search Input */}
+                  <Input
+                    className="w-64"
+                    placeholder="Search by name..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
                 </div>
                 <div className="flex items-center gap-3">
-                  {/* <span className="text-sm text-muted-foreground">
-                    Search Users:
-                  </span> */}
                   <Button onClick={openAddUser}>+ Add App User</Button>
                 </div>
               </CardHeader>
@@ -131,14 +143,14 @@ export default function Users() {
                           <th className="py-3 px-4 text-left">Name</th>
                           <th className="py-3 px-4 text-left">Email</th>
                           <th className="py-3 px-4 text-left">Profile</th>
-                          <th className="py-3 px-4 text-left">Teams</th>
+                          {/* <th className="py-3 px-4 text-left">Teams</th> */}
                           <th className="py-3 px-4 text-left">Parent</th>
                           <th className="py-3 px-4 text-left">Status</th>
                           <th className="py-3 px-4 text-center">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {user.map((data) => (
+                        {filteredUsers.map((data) => (
                           <tr
                             key={data.employee_id}
                             className="border-b hover:bg-muted/50 transition-colors"
@@ -146,20 +158,16 @@ export default function Users() {
                             <td className="py-3 px-4 whitespace-nowrap">
                               {data.employee_id}
                             </td>
-                            {/* ✅ Name no-wrap */}
                             <td className="py-3 px-4 whitespace-nowrap">
                               {data.user_name}
                             </td>
                             <td className="py-3 px-4 whitespace-nowrap">
                               {data.email_address}
                             </td>
-                            {/* ✅ Profile no-wrap */}
                             <td className="py-3 px-4 whitespace-nowrap">
                               <Badge variant="outline">{data.profile}</Badge>
                             </td>
-                            <td className="py-3 px-4 whitespace-nowrap">
-                              {data.teams}
-                            </td>
+                            {/* <td className="py-3 px-4 whitespace-nowrap">{data.teams}</td> */}
                             <td className="py-3 px-4 whitespace-nowrap">
                               {data.parent_id}
                             </td>
@@ -193,7 +201,10 @@ export default function Users() {
 
             <AddUser
               open={addUserOpen || !!editingUser}
-              onClose={() => { setAddUserOpen(false); setEditingUser(null); }}
+              onClose={() => {
+                setAddUserOpen(false);
+                setEditingUser(null);
+              }}
               onUserAdded={fetchUser}
               editingUser={editingUser}
               clearEditingUser={() => setEditingUser(null)}

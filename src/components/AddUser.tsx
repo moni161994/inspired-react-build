@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button } from "./ui/button";
-import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
+import { CardContent } from "./ui/card";
 import { Input } from "./ui/input";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/components/ui/use-toast";
@@ -22,7 +22,7 @@ const initialState = {
   user_name: "",
   email_address: "",
   profile: "",
-  teams: "",
+  teams: "0", // Always 0 by default
   parent_id: "",
   status: "",
 };
@@ -65,7 +65,7 @@ const AddUser = ({
         user_name: editingUser.user_name || "",
         email_address: editingUser.email_address || "",
         profile: editingUser.profile || "",
-        teams: editingUser.teams?.toString() || "",
+        teams: "0", // Always 0 in edit mode
         parent_id: editingUser.parent_id?.toString() || "",
         status: editingUser.status?.toString() || "",
       });
@@ -81,7 +81,9 @@ const AddUser = ({
         if (res?.status_code === 200 && Array.isArray(res.data)) {
           setAllUsers(res.data);
         }
-      } catch (err) {}
+      } catch (err) {
+        // Handle error if needed
+      }
     };
     fetchParentUsers();
   }, []);
@@ -125,7 +127,7 @@ const AddUser = ({
         email_address: userInfo.email_address,
         user_name: userInfo.user_name,
         profile: userInfo.profile,
-        teams: userInfo.teams,
+        teams: "0", // Always 0 in update
         parent_id: userInfo.parent_id,
         status: userInfo.status,
       });
@@ -146,7 +148,10 @@ const AddUser = ({
         });
       }
     } else {
-      res = await request("/user_details", "POST", userInfo);
+      res = await request("/user_details", "POST", {
+        ...userInfo,
+        teams: "0", // Always 0 in add
+      });
 
       if (res && res.status_code === 200) {
         toast({
@@ -172,7 +177,12 @@ const AddUser = ({
     onClose();
   };
 
-  const isDisabled = Object.values(userInfo).some((val) => val.trim() === "");
+  const isDisabled = Object.values(userInfo)
+    .filter((val, index) => {
+      // Ignore teams field in validation since always 0
+      return index !== 3;
+    })
+    .some((val) => val.trim() === "");
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -202,14 +212,7 @@ const AddUser = ({
             name="profile"
             className="border border-gray-300 rounded"
           />
-          <Input
-            placeholder="Enter team..."
-            onChange={handleChange}
-            value={userInfo.teams}
-            name="teams"
-            className="border border-gray-300 rounded"
-          />
-          {/* Parent ID Dropdown */}
+          {/* Teams input removed, teams always 0 */}
           <Select value={userInfo.parent_id} onValueChange={handleParentSelect}>
             <SelectTrigger className="border border-gray-300 rounded">
               <SelectValue placeholder="Select Parent User" />

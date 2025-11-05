@@ -198,8 +198,7 @@ export default function Analytics() {
               </div>
 
               {/* ✅ Top Events + Members */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Top Performing Events */}
+              {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader>
                     <CardTitle>Top Performing Events</CardTitle>
@@ -246,7 +245,6 @@ export default function Analytics() {
                   </CardContent>
                 </Card>
 
-                {/* Top Performing Members */}
                 <Card>
                   <CardHeader>
                     <CardTitle>Top Performing Team Members</CardTitle>
@@ -298,7 +296,7 @@ export default function Analytics() {
                     </div>
                   </CardContent>
                 </Card>
-              </div>
+              </div> */}
             </TabsContent>
 
             {/* ✅ Team Analytics */}
