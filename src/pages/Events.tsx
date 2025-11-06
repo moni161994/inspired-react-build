@@ -168,7 +168,7 @@ function UpdateEventPopup({
               className="w-full border p-2 rounded"
             >
               <option value="Upcoming">Upcoming</option>
-              <option value="In progress">In progress</option>
+              <option value="In progress">Active</option>
               {/* <option value="Completed">Completed</option> */}
             </select>
           </label>

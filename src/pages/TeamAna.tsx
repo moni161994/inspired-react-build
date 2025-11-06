@@ -174,6 +174,9 @@ export default function TeamAnalytics() {
       <div className="flex flex-col flex-1">
         <DashboardHeader />
         <main className="flex-1 overflow-auto p-6">
+        <div className="flex items-center space-x-4">
+          <h2 className="text-lg font-semibold text-foreground">All Teams</h2>
+        </div>
           <div className="py-12">
             <Card>
               <CardContent className="p-0">

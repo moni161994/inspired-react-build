@@ -136,14 +136,14 @@ export function DashboardHeader() {
 
         <div className="flex items-center space-x-4">
           {/* Search */}
-          <div className="relative">
+          {/* <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input
               type="text"
               placeholder="Team Search..."
               className="w-64 pl-10 bg-background border-border"
             />
-          </div>
+          </div> */}
 
           {/* Add New Team */}
           <Button
