@@ -200,7 +200,7 @@ export default function Teams() {
         <main className="flex-1 overflow-auto p-6 space-y-6">
           <div>
             <h1 className="text-2xl font-semibold text-foreground mb-2">
-              epredia
+            Lead Summary
             </h1>
             <p className="text-muted-foreground mb-4">Here is your Lead Data</p>
           </div>
@@ -340,7 +340,6 @@ export default function Teams() {
                             <Button
                               onClick={() => handleDelete(lead?.lead_id)}
                               variant="link"
-                              className="text-primary p-0 h-auto"
                             >
                               Delete
                             </Button>

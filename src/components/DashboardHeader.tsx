@@ -131,7 +131,7 @@ export function DashboardHeader() {
     <>
       <header className="flex items-center justify-between h-16 px-6 bg-card border-b border-border">
         <div className="flex items-center space-x-4">
-          <h2 className="text-lg font-semibold text-foreground">epredia • KT</h2>
+          <h2 className="text-lg font-semibold text-foreground">Eprevent Admin</h2>
         </div>
 
         <div className="flex items-center space-x-4">

@@ -103,7 +103,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="w-full max-w-md bg-white border rounded-lg shadow-md p-8 space-y-6">
         <div className="flex justify-center mb-4">
-          <h1 className="text-2xl font-bold text-blue-700">Eprevent</h1>
+          <h1 className="text-2xl font-bold text-blue-700">Eprevent Admin Login</h1>
         </div>
 
         <div className="bg-blue-50 text-blue-700 text-sm p-3 rounded border border-blue-200 text-center">
@@ -125,7 +125,7 @@ export default function LoginPage() {
           </div>
 
           {/* Generate Code Button */}
-          <div className="flex justify-end mt-2">
+          {/* <div className="flex justify-end mt-2">
             <button
               type="button"
               onClick={handleGenerateCode}
@@ -134,7 +134,7 @@ export default function LoginPage() {
             >
               {loading ? "Sending..." : "Generate Code"}
             </button>
-          </div>
+          </div> */}
 
           {/* OTP Code */}
           <div>
