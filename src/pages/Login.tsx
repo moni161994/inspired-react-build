@@ -106,7 +106,7 @@ export default function LoginPage() {
           <h1 className="text-2xl font-bold text-blue-700">Eprevent Admin Login</h1>
         </div>
 
-        <div className="bg-blue-50 text-blue-700 text-sm p-3 rounded border border-blue-200 text-center">
+        <div className="bg-blue-50 text-blue-700 text-sm p-3  text-center">
           Please enter your email and code to log in.
         </div>
 
@@ -121,6 +121,7 @@ export default function LoginPage() {
               onChange={handleChange}
               value={loginInfo.email}
               name="email"
+              className="border border-gray-300 rounded"
             />
           </div>
 
@@ -146,6 +147,7 @@ export default function LoginPage() {
               onChange={handleChange}
               value={loginInfo.code}
               name="code"
+              className="border border-gray-300 rounded"
             />
           </div>
 

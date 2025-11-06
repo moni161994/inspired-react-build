@@ -215,6 +215,7 @@ export default function Teams() {
                     placeholder="Search event"
                     value={eventNameFilter}
                     onChange={handleEventNameFilterChange}
+                    className="border border-gray-300 rounded"
                   />
                 </div>
                 <div>
@@ -223,6 +224,7 @@ export default function Teams() {
                     placeholder="Search lead"
                     value={leadNameFilter}
                     onChange={handleLeadNameFilterChange}
+                    className="border border-gray-300 rounded"
                   />
                 </div>
                 <div>

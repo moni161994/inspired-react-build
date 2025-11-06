@@ -313,10 +313,10 @@ const getStatusBadge = (status: string) => {
           Upcoming
         </Badge>
       );
-    case "In progress":
+    case "Active":
       return (
         <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100/80">
-          In progress
+          Active
         </Badge>
       );
     case "Completed":
@@ -347,7 +347,7 @@ export default function Events() {
         } else {
           setEvents(
             allEvents.filter((event: Event) =>
-              getStatusFromDates(event.start_date, event.end_date) === status
+              getStatusFromDates(event,event.start_date, event.end_date) === status
             )
           );
         }
@@ -386,13 +386,14 @@ export default function Events() {
     setPopupOpen(true);
   };
 
-  const getStatusFromDates = (startDate: string, endDate: string) => {
+  const getStatusFromDates = (event:any,startDate: string, endDate: string) => {
     const now = new Date();
     const start = new Date(startDate);
     const end = new Date(endDate);
-
-    if (now < start) return "Upcoming";
-    else if (now >= start && now <= end) return "In progress";
+    console.log(event.event_status == "Upcoming",event);
+    
+    if ((now >= start || event.event_status == "In progress") && now <= end) return "Active";
+    else if (now < start ) return "Upcoming";
     else if (now > end) return "Completed";
     else return "Unknown";
   };
@@ -479,7 +480,7 @@ export default function Events() {
                     )).map((event, index) => (
                       <tr key={index} className="border-b hover:bg-muted/20">
                         <td className="py-3 px-4">
-                          {getStatusBadge(getStatusFromDates(event.start_date, event.end_date))}
+                          {getStatusBadge(getStatusFromDates(event,event.start_date, event.end_date))}
                         </td>
 
                         <td className="py-3 px-4 text-foreground whitespace-nowrap">
