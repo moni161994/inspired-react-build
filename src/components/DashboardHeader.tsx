@@ -116,7 +116,8 @@ export function DashboardHeader() {
       });
       setTeamDialogOpen(false);
       setFormData({ team_name: "", manager_id: "", employees_id: [] });
-       navigate("/team");
+      //  navigate("");
+      window.location.href = "/team"
     } else {
       toast({
         variant: "destructive",

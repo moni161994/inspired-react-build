@@ -156,8 +156,8 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
         budget: 0,
         eventSize: "",
       });
-      navigate("/events");
-
+      // navigate("/events");
+      window.location.href = "/events"
     } else {
       toast({
         variant: "destructive",

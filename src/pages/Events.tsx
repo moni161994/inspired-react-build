@@ -341,12 +341,12 @@ export default function Events() {
       const data: any = await request("/get_all_event_details", "GET");
       if (data?.data) {
         const allEvents = data.data;
-  
+
         if (status === "All") {
           setEvents(allEvents);
         } else {
           setEvents(
-            allEvents.filter((event: Event) => 
+            allEvents.filter((event: Event) =>
               getStatusFromDates(event.start_date, event.end_date) === status
             )
           );
@@ -355,10 +355,10 @@ export default function Events() {
         setEvents([]);
       }
     };
-  
+
     fetchEvents();
   }, [status]);
-  
+
   // useEffect(() => {
   //   const fetchEvents = async () => {
   //     let url = "/get_all_event_details";
@@ -474,7 +474,9 @@ export default function Events() {
                     </tr>
                   </thead>
                   <tbody>
-                    {events.map((event, index) => (
+                    {([...events].sort((a, b) =>
+                      new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
+                    )).map((event, index) => (
                       <tr key={index} className="border-b hover:bg-muted/20">
                         <td className="py-3 px-4">
                           {getStatusBadge(getStatusFromDates(event.start_date, event.end_date))}
@@ -493,8 +495,8 @@ export default function Events() {
                           <div className="flex items-center space-x-2">
                             <div
                               className={`w-3 h-3 rounded-full ${event.team === "epredia"
-                                  ? "bg-gray-400"
-                                  : "bg-purple-400"
+                                ? "bg-gray-400"
+                                : "bg-purple-400"
                                 }`}
                             ></div>
                             <span className="text-foreground">{event.team}</span>

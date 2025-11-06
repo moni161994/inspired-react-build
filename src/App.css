@@ -12,10 +12,12 @@
   transition: filter 300ms;
 }
 .logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
+  /* Purple drop shadow */
+  filter: drop-shadow(0 0 2em #a020f0aa);
 }
 .logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+  /* Pinkish drop shadow */
+  filter: drop-shadow(0 0 2em #d6018caa);
 }
 
 @keyframes logo-spin {
@@ -35,8 +37,10 @@
 
 .card {
   padding: 2em;
+  /* Light purple card background for style */
+  background-color: #fff0fb;
 }
 
 .read-the-docs {
-  color: #888;
+  color: #b83280;
 }
