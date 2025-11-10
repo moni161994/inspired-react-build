@@ -24,6 +24,7 @@ import {
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/components/ui/use-toast";
 import { useNavigate } from "react-router-dom";
+import { DateInput } from "@/components/ui/DateInput";
 
 type EventDialogContextType = {
   openEventDialog: () => void;
@@ -56,7 +57,6 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     eventSize: "",
   });
 
-  // ✅ Fetch Teams from API
   useEffect(() => {
     const fetchTeams = async () => {
       try {
@@ -156,8 +156,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
         budget: 0,
         eventSize: "",
       });
-      // navigate("/events");
-      window.location.href = "/events"
+      window.location.href = "/events";
     } else {
       toast({
         variant: "destructive",
@@ -167,7 +166,6 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // 🟢 Open Dialog for creating new event
   const openEventDialog = () => {
     setIsOpen(true);
     setFormData({
@@ -187,12 +185,6 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
   const closeEventDialog = () => {
     setIsOpen(false);
   };
-
-  function toMMDDYYYY(dateStr: string) {
-    if (!dateStr) return "";
-    const [year, month, day] = dateStr.split("-");
-    return `${month}-${day}-${year}`;
-  }
 
   return (
     <EventDialogContext.Provider value={{ openEventDialog, closeEventDialog }}>
@@ -218,11 +210,11 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 <SelectContent>
                   <SelectItem value="Upcoming">Upcoming</SelectItem>
                   <SelectItem value="In progress">Active</SelectItem>
-                  {/* <SelectItem value="Completed">Completed</SelectItem> */}
                 </SelectContent>
               </Select>
             </div>
-            {/* Select Team */}
+
+            {/* Team */}
             <div>
               <Label>Select Team *</Label>
               <Select
@@ -247,6 +239,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 </SelectContent>
               </Select>
             </div>
+
             {/* Event Name */}
             <div>
               <Label htmlFor="eventName">Event Name *</Label>
@@ -255,9 +248,9 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 placeholder="Enter event name"
                 value={formData.eventName}
                 onChange={handleChange}
-                className="border border-gray-300 rounded"
               />
             </div>
+
             {/* Event Size */}
             <div>
               <Label htmlFor="eventSize">Event Size</Label>
@@ -275,40 +268,23 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 </SelectContent>
               </Select>
             </div>
-            {/* Start Date */}
-            <div>
-              <Label htmlFor="startDate">Start Date *</Label>
-              <Input
-                id="startDate"
-                type="date"
-                min={today}
-                value={formData.startDate}
-                onChange={handleChange}
-                className="border border-gray-300 rounded"
-              />
-              {formData.startDate && (
-                <div className="text-xs text-muted-foreground mt-1">
-                  Selected: {toMMDDYYYY(formData.startDate)}
-                </div>
-              )}
-            </div>
-            {/* End Date */}
-            <div>
-              <Label htmlFor="endDate">End Date *</Label>
-              <Input
-                id="endDate"
-                type="date"
-                min={today}
-                value={formData.endDate}
-                onChange={handleChange}
-                className="border border-gray-300 rounded"
-              />
-              {formData.endDate && (
-                <div className="text-xs text-muted-foreground mt-1">
-                  Selected: {toMMDDYYYY(formData.endDate)}
-                </div>
-              )}
-            </div>
+
+            <DateInput
+  label="Start Date *"
+  value={formData.startDate}
+  required
+  onChange={(val) => setFormData((prev) => ({ ...prev, startDate: val }))}
+/>
+
+<DateInput
+  label="End Date *"
+  value={formData.endDate}
+  required
+  minDate={formData.startDate ? new Date(formData.startDate) : new Date()}
+  onChange={(val) => setFormData((prev) => ({ ...prev, endDate: val }))}
+/>
+
+
             {/* Location */}
             <div>
               <Label htmlFor="location">Event Location *</Label>
@@ -317,9 +293,9 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 placeholder="Enter location"
                 value={formData.location}
                 onChange={handleChange}
-                className="border border-gray-300 rounded"
               />
             </div>
+
             {/* Budget */}
             <div>
               <Label htmlFor="budget">Approximate Budget (USD)</Label>
@@ -328,9 +304,9 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 type="number"
                 value={formData.budget}
                 onChange={handleChange}
-                className="border border-gray-300 rounded"
               />
             </div>
+
             {/* Total Leads */}
             <div>
               <Label htmlFor="totalLeads">Total Leads</Label>
@@ -339,9 +315,9 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 type="number"
                 value={formData.totalLeads}
                 onChange={handleChange}
-                className="border border-gray-300 rounded"
               />
             </div>
+
             {/* Priority Leads */}
             <div>
               <Label htmlFor="priorityLeads">Priority Leads</Label>
@@ -350,11 +326,10 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 type="number"
                 value={formData.priorityLeads}
                 onChange={handleChange}
-                className="border border-gray-300 rounded"
               />
             </div>
           </div>
-          {/* Buttons */}
+
           <div className="flex justify-center space-x-2 pt-6">
             <Button variant="outline" onClick={closeEventDialog}>
               Cancel

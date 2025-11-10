@@ -1,4 +1,4 @@
-import { LayoutGrid, Calendar, Clock, Users, User } from "lucide-react";
+import { LayoutGrid, Calendar, Clock, Users, User, Folder } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -14,6 +14,7 @@ const navigationItems = [
   { icon: Clock, label: "Leads", path: "/lead" },
   { icon: Users, label: "Team", path: "/team" },
   { icon: User, label: "Users", path: "/users" },
+  { icon: Folder, label: "Report", path: "/report" },
 ];
 
 export function DashboardSidebar() {

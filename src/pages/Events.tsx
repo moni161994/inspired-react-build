@@ -11,8 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Edit } from "lucide-react";
+import { Edit, Search } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
+import { DateInput } from "@/components/ui/DateInput";
 
 type Event = {
   event_id: number;
@@ -58,34 +59,20 @@ function UpdateEventPopup({
   });
 
   const [teams, setTeams] = useState<string[]>([]);
-  const [loadingTeams, setLoadingTeams] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ Fetch team list dynamically like create event
   useEffect(() => {
-    const fetchTeams = async () => {
-      try {
-        const response = await fetch("https://api.inditechit.com/get_all_teams");
-        const data = await response.json();
-
-        // Ensure type safety: check if `data?.data` is an array
+    fetch("https://api.inditechit.com/get_all_teams")
+      .then((res) => res.json())
+      .then((data) => {
         if (Array.isArray(data)) {
-          // Extract team names safely
           const teamNames = data
             .map((t: any) => t.team_name)
             .filter((name: any): name is string => typeof name === "string");
-
           setTeams(teamNames);
-        } else {
-          setTeams([]);
         }
-      } catch (err) {
-        console.error("Error fetching teams:", err);
-        setTeams([]);
-      }
-    };
-
-    fetchTeams();
+      })
+      .catch(() => setTeams([]));
   }, []);
 
   useEffect(() => {
@@ -105,16 +92,14 @@ function UpdateEventPopup({
     });
   }, [event]);
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setUpdatedEvent((prev) => ({
       ...prev!,
       [name]:
         name === "total_leads" ||
-          name === "priority_leads" ||
-          name === "budget"
+        name === "priority_leads" ||
+        name === "budget"
           ? Number(value)
           : value,
     }));
@@ -129,21 +114,9 @@ function UpdateEventPopup({
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            location: updatedEvent.location,
-            team: updatedEvent.team,
-            budget: Number(updatedEvent.budget),
-            event_size: updatedEvent.event_size,
-            event_status: updatedEvent.event_status,
-            event_name: updatedEvent.event_name,
-            start_date: updatedEvent.start_date,
-            end_date: updatedEvent.end_date,
-            total_leads: Number(updatedEvent.total_leads),
-            priority_leads: Number(updatedEvent.priority_leads),
-          }),
+          body: JSON.stringify(updatedEvent),
         }
       );
-
       if (!response.ok) throw new Error("Failed to update event");
       onSave(updatedEvent);
     } catch (err: any) {
@@ -169,7 +142,7 @@ function UpdateEventPopup({
             >
               <option value="Upcoming">Upcoming</option>
               <option value="In progress">Active</option>
-              {/* <option value="Completed">Completed</option> */}
+              <option value="Completed">Completed</option>
             </select>
           </label>
 
@@ -185,28 +158,17 @@ function UpdateEventPopup({
             />
           </label>
 
-          {/* Dates */}
-          <label className="block">
-            <span className="text-sm font-medium">Start Date</span>
-            <input
-              name="start_date"
-              value={updatedEvent.start_date}
-              onChange={handleChange}
-              className="w-full border p-2 rounded"
-              type="date"
-            />
-          </label>
-
-          <label className="block">
-            <span className="text-sm font-medium">End Date</span>
-            <input
-              name="end_date"
-              value={updatedEvent.end_date}
-              onChange={handleChange}
-              className="w-full border p-2 rounded"
-              type="date"
-            />
-          </label>
+          {/* ✅ Custom DateInput */}
+          <DateInput
+            label="Start Date"
+            value={updatedEvent.start_date}
+            onChange={(val) => setUpdatedEvent((p) => ({ ...p, start_date: val }))}
+          />
+          <DateInput
+            label="End Date"
+            value={updatedEvent.end_date}
+            onChange={(val) => setUpdatedEvent((p) => ({ ...p, end_date: val }))}
+          />
 
           {/* Location */}
           <label className="block">
@@ -220,7 +182,7 @@ function UpdateEventPopup({
             />
           </label>
 
-          {/* ✅ Team dropdown with fetched list */}
+          {/* Team */}
           <label className="block">
             <span className="text-sm font-medium">Team</span>
             <select
@@ -229,15 +191,12 @@ function UpdateEventPopup({
               onChange={handleChange}
               className="w-full border p-2 rounded"
             >
-              <option value="">
-                {loadingTeams ? "Loading teams..." : "Select a team"}
-              </option>
-              {teams.length > 0 &&
-                teams.map((teamName, idx) => (
-                  <option key={idx} value={teamName}>
-                    {teamName}
-                  </option>
-                ))}
+              <option value="">Select a team</option>
+              {teams.map((t, idx) => (
+                <option key={idx} value={t}>
+                  {t}
+                </option>
+              ))}
             </select>
           </label>
 
@@ -280,20 +239,22 @@ function UpdateEventPopup({
             />
           </label>
 
-          {/* Event Size */}
+          {/* ✅ Event Size Dropdown */}
           <label className="block">
             <span className="text-sm font-medium">Event Size</span>
-            <input
+            <select
               name="event_size"
               value={updatedEvent.event_size || ""}
               onChange={handleChange}
               className="w-full border p-2 rounded"
-              type="text"
-            />
+            >
+              <option value="small">Small</option>
+              <option value="medium">Medium</option>
+              <option value="large">Large</option>
+            </select>
           </label>
         </div>
 
-        {/* Footer buttons */}
         <div className="flex justify-end space-x-3 mt-6">
           <Button variant="outline" onClick={onClose}>
             Cancel
@@ -336,68 +297,23 @@ export default function Events() {
   const [popupOpen, setPopupOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [status, setStatus] = useState("All");
+  const [searchTerm, setSearchTerm] = useState("");
+
   useEffect(() => {
     const fetchEvents = async () => {
       const data: any = await request("/get_all_event_details", "GET");
       if (data?.data) {
         const allEvents = data.data;
-
-        if (status === "All") {
-          setEvents(allEvents);
-        } else {
-          setEvents(
-            allEvents.filter((event: Event) =>
-              getStatusFromDates(event,event.start_date, event.end_date) === status
-            )
-          );
-        }
-      } else {
-        setEvents([]);
-      }
+        setEvents(allEvents);
+      } else setEvents([]);
     };
-
     fetchEvents();
-  }, [status]);
-
-  // useEffect(() => {
-  //   const fetchEvents = async () => {
-  //     let url = "/get_all_event_details";
-  //     if (status !== "All") {
-  //       const filterValue =
-  //         status === "Upcoming"
-  //           ? "upcoming"
-  //           : status === "Completed"
-  //             ? "completed"
-  //             : status === "In progress"
-  //               ? "in_progress"
-  //               : "";
-  //       if (filterValue) url += `?filter=${filterValue}`;
-  //     }
-  //     const data: any = await request(url, "GET");
-  //     if (data?.data) setEvents(data.data);
-  //     else setEvents([]);
-  //   };
-
-  //   fetchEvents();
-  // }, [status]);
+  }, []);
 
   const openUpdatePopup = (event: Event) => {
     setSelectedEvent(event);
     setPopupOpen(true);
   };
-
-  const getStatusFromDates = (event:any,startDate: string, endDate: string) => {
-    const now = new Date();
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    console.log(event.event_status == "Upcoming",event);
-    
-    if ((now >= start || event.event_status == "In progress") && now <= end) return "Active";
-    else if (now < start ) return "Upcoming";
-    else if (now > end) return "Completed";
-    else return "Unknown";
-  };
-
 
   const closeUpdatePopup = () => {
     setPopupOpen(false);
@@ -405,13 +321,37 @@ export default function Events() {
   };
 
   const handleSave = (updatedEvent: Event) => {
-    setEvents((prevEvents) =>
-      prevEvents.map((ev) =>
-        ev.event_id === updatedEvent.event_id ? updatedEvent : ev
-      )
+    setEvents((prev) =>
+      prev.map((ev) => (ev.event_id === updatedEvent.event_id ? updatedEvent : ev))
     );
     closeUpdatePopup();
   };
+
+  const getStatusFromDates = (event: any, start: string, end: string) => {
+    const now = new Date();
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    if ((now >= startDate || event.event_status === "In progress") && now <= endDate)
+      return "Active";
+    else if (now < startDate) return "Upcoming";
+    else if (now > endDate) return "Completed";
+    return "Unknown";
+  };
+
+  const filteredEvents = events
+    .filter((event) => {
+      const statusMatch =
+        status === "All" || getStatusFromDates(event, event.start_date, event.end_date) === status;
+      const searchMatch = [event.event_name, event.team, event.location]
+        .join(" ")
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
+      return statusMatch && searchMatch;
+    })
+    .sort(
+      (a, b) =>
+        new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
+    );
 
   return (
     <div className="flex h-screen bg-background">
@@ -420,14 +360,22 @@ export default function Events() {
         <DashboardHeader />
         <main className="flex-1 overflow-auto p-6 space-y-6">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-semibold text-foreground">
-              Your Events
-            </h1>
+            <h1 className="text-2xl font-semibold text-foreground">Your Events</h1>
             <div className="flex items-center space-x-4">
-              <Select defaultValue="All" onValueChange={(value) => setStatus(value)}>
-                <span className="text-sm text-muted-foreground">Show Events:</span>
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search events..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 pr-3 py-2 border rounded-md w-60 focus:ring-2 focus:ring-primary focus:outline-none"
+                />
+              </div>
+
+              <Select defaultValue="All" onValueChange={(v) => setStatus(v)}>
                 <SelectTrigger className="w-40">
-                  <SelectValue />
+                  <SelectValue placeholder="Filter Status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="All">All</SelectItem>
@@ -448,76 +396,42 @@ export default function Events() {
                 <table className="w-full">
                   <thead className="bg-muted/30">
                     <tr>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                        Event Status
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                        Event Name
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                        Start & End Date
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                        Location
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                        Team
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                        Total Leads
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                        Priority Leads
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
-                        Actions
-                      </th>
+                      <th className="py-3 px-4 text-left">Status</th>
+                      <th className="py-3 px-4 text-left">Event Name</th>
+                      <th className="py-3 px-4 text-left">Dates</th>
+                      <th className="py-3 px-4 text-left">Location</th>
+                      <th className="py-3 px-4 text-left">Team</th>
+                      <th className="py-3 px-4 text-left">Leads</th>
+                      <th className="py-3 px-4 text-left">Priority</th>
+                      <th className="py-3 px-4 text-left">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {([...events].sort((a, b) =>
-                      new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
-                    )).map((event, index) => (
-                      <tr key={index} className="border-b hover:bg-muted/20">
+                    {filteredEvents.map((event) => (
+                      <tr
+                        key={event.event_id}
+                        className="border-b hover:bg-muted/20 transition-colors"
+                      >
                         <td className="py-3 px-4">
-                          {getStatusBadge(getStatusFromDates(event,event.start_date, event.end_date))}
+                          {getStatusBadge(
+                            getStatusFromDates(event, event.start_date, event.end_date)
+                          )}
                         </td>
-
-                        <td className="py-3 px-4 text-foreground whitespace-nowrap">
-                          {event.event_name}
+                        <td className="py-3 px-4">{event.event_name}</td>
+                        <td className="py-3 px-4">
+                          {event.start_date} → {event.end_date}
                         </td>
-                        <td className="py-3 px-4 text-foreground whitespace-nowrap">
-                          {event.start_date} - {event.end_date}
-                        </td>
-                        <td className="py-3 px-4 text-foreground whitespace-nowrap">
-                          {event.location}
-                        </td>
-                        <td className="py-3 px-4 whitespace-nowrap">
-                          <div className="flex items-center space-x-2">
-                            <div
-                              className={`w-3 h-3 rounded-full ${event.team === "epredia"
-                                ? "bg-gray-400"
-                                : "bg-purple-400"
-                                }`}
-                            ></div>
-                            <span className="text-foreground">{event.team}</span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-foreground whitespace-nowrap">
-                          {event.total_leads}
-                        </td>
-                        <td className="py-3 px-4 text-foreground whitespace-nowrap">
-                          {event.priority_leads}
-                        </td>
+                        <td className="py-3 px-4">{event.location}</td>
+                        <td className="py-3 px-4">{event.team}</td>
+                        <td className="py-3 px-4">{event.total_leads}</td>
+                        <td className="py-3 px-4">{event.priority_leads}</td>
                         <td className="py-3 px-4">
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => openUpdatePopup(event)}
-                            className="flex items-center space-x-1"
                           >
-                            <Edit className="w-4 h-4" />
-                            <span>Edit</span>
+                            <Edit className="w-4 h-4 mr-1" /> Edit
                           </Button>
                         </td>
                       </tr>
@@ -531,7 +445,11 @@ export default function Events() {
       </div>
 
       {popupOpen && (
-        <UpdateEventPopup event={selectedEvent} onClose={closeUpdatePopup} onSave={handleSave} />
+        <UpdateEventPopup
+          event={selectedEvent}
+          onClose={closeUpdatePopup}
+          onSave={handleSave}
+        />
       )}
     </div>
   );
