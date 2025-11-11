@@ -21,6 +21,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
+
 // Helper to format ISO date to locale string
 const formatDate = (isoStr: string | null | undefined) => {
   if (!isoStr) return "-";
@@ -30,6 +31,52 @@ const formatDate = (isoStr: string | null | undefined) => {
     month: "short",
     day: "numeric",
   });
+};
+
+// Helper function to convert array of leads to CSV string
+const convertLeadsToCSV = (leads: any[]) => {
+  const headers = [
+    "Name",
+    "Company",
+    "Designation",
+    "Phone Number",
+    "Email",
+    "Event Name",
+    "Created At",
+    "City",
+    "State",
+    "ZIP",
+    "Country",
+    "Area of Interest",
+    "Disclaimer",
+  ];
+
+  const rows = leads.map((lead) => [
+    lead.name || "",
+    lead.company || "",
+    lead.designation || "",
+    (lead.phone_numbers && lead.phone_numbers[0]) || "",
+    (lead.emails && lead.emails[0]) || "",
+    lead.event_name || "",
+    lead.created_at ? formatDate(lead.created_at) : "",
+    lead.city || "",
+    lead.state || "",
+    lead.zip || "",
+    lead.country || "",
+    lead.area_of_interest || "",
+    lead.disclaimer || "",
+  ]);
+
+  const csvContent = [
+    headers.join(","),
+    ...rows.map((row) =>
+      row
+        .map((item) => `"${String(item).replace(/"/g, '""')}"`) // escape quotes
+        .join(",")
+    ),
+  ].join("\n");
+
+  return csvContent;
 };
 
 export default function Teams() {
@@ -49,6 +96,7 @@ export default function Teams() {
   const [selectedLead, setSelectedLead] = useState<any | null>(null);
 
   const { toast } = useToast();
+
   function getLeadType(lead: any) {
     if (!lead.image_url) {
       return "manual_lead";
@@ -84,7 +132,6 @@ export default function Teams() {
 
     return matchesEvent && matchesName && afterStartDate && beforeEndDate && matchesType;
   });
-
 
   // Fetch lead data
   const fetchLeadData = async () => {
@@ -139,25 +186,28 @@ export default function Teams() {
     }
   };
 
-  // Filter & pagination logic with added filters
-  // const filteredLeads = leadData.filter((lead) => {
-  //   // filter event name contains
-  //   const matchesEvent = lead.event_name
-  //     ?.toLowerCase()
-  //     .includes(eventNameFilter.toLowerCase());
-  //   // filter lead name contains
-  //   const matchesName = lead.name
-  //     ?.toLowerCase()
-  //     .includes(leadNameFilter.toLowerCase());
+  // CSV Download Handler
+  const handleDownloadCSV = () => {
+    if (filteredLeads.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "❌ No Data",
+        description: "No leads available to download with current filters.",
+      });
+      return;
+    }
+    const csvContent = convertLeadsToCSV(filteredLeads);
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
 
-  //   // filter start date & end date range - consider lead.created_at date
-  //   const leadDate = new Date(lead.created_at);
-  //   const afterStartDate =
-  //     !startDateFilter || leadDate >= new Date(startDateFilter);
-  //   const beforeEndDate = !endDateFilter || leadDate <= new Date(endDateFilter);
-
-  //   return matchesEvent && matchesName && afterStartDate && beforeEndDate;
-  // });
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `leads_export_${new Date().toISOString()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   const totalLeads = filteredLeads.length;
   const totalPages = Math.ceil(totalLeads / itemsPerPage);
@@ -200,7 +250,7 @@ export default function Teams() {
         <main className="flex-1 overflow-auto p-6 space-y-6">
           <div>
             <h1 className="text-2xl font-semibold text-foreground mb-2">
-            All Lead Capture
+              All Lead Capture
             </h1>
             <p className="text-muted-foreground mb-4">Here is your Lead Data</p>
           </div>
@@ -244,22 +294,15 @@ export default function Teams() {
                   </select>
                 </div>
 
-                {/* <div>
-                  <Label>Filter by Start Date</Label>
-                  <Input
-                    type="date"
-                    value={startDateFilter}
-                    onChange={handleStartDateFilterChange}
-                  />
-                </div>
-                <div>
-                  <Label>Filter by End Date</Label>
-                  <Input
-                    type="date"
-                    value={endDateFilter}
-                    onChange={handleEndDateFilterChange}
-                  />
-                </div> */}
+                {/* Optionally add date filters back if needed, currently commented out */}
+
+              </div>
+
+              {/* Download CSV Button */}
+              <div className="mt-4 flex justify-end">
+                <Button onClick={handleDownloadCSV} disabled={loading}>
+                  Download CSV
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -446,7 +489,6 @@ export default function Teams() {
                       <strong>QR Data:</strong> {selectedLead.qr_data}
                     </div>
                   )}
-                  {/* Add these inside your <div className="flex-1 space-y-3"> */}
                   {selectedLead?.city && (
                     <div>
                       <strong>City:</strong> {selectedLead.city}
@@ -477,10 +519,8 @@ export default function Teams() {
                       <strong>Disclaimer:</strong> {selectedLead.disclaimer}
                     </div>
                   )}
-
                 </div>
                 {/* Right: Image */}
-                {/* Right: Image (larger, clickable to open in new tab) */}
                 {selectedLead?.image_url && (
                   <div className="flex justify-center items-start md:items-center">
                     <a
@@ -498,7 +538,6 @@ export default function Teams() {
                     </a>
                   </div>
                 )}
-
               </div>
 
               <DialogFooter>
@@ -508,7 +547,6 @@ export default function Teams() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-
         </main>
       </div>
     </div>
