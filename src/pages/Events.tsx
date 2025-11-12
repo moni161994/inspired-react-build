@@ -14,6 +14,7 @@ import {
 import { Edit, Search } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
 import { DateInput } from "@/components/ui/DateInput";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type Event = {
   event_id: number;
@@ -27,6 +28,7 @@ type Event = {
   priority_leads: number;
   budget?: number;
   event_size?: string;
+  form_fields?: string[];
 };
 
 type Team = {
@@ -55,11 +57,34 @@ function UpdateEventPopup({
     priority_leads: 0,
     budget: 1,
     event_size: "medium",
+    form_fields: [],
     ...event,
   });
 
   const [teams, setTeams] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [showFormFieldPopup, setShowFormFieldPopup] = useState(false);
+
+  // ✅ List of all available form fields
+  const availableFields = [
+    "name",
+    "designation",
+    "company",
+    "phone_numbers",
+    "emails",
+    "websites",
+    "other",
+    "city",
+    "state",
+    "zip",
+    "country",
+    "area_of_interest",
+    "disclaimer",
+    "consent_form",
+    "term_and_condition",
+    "signature",
+    "email_opt_in",
+  ];
 
   useEffect(() => {
     fetch("https://api.inditechit.com/get_all_teams")
@@ -88,6 +113,7 @@ function UpdateEventPopup({
       priority_leads: 0,
       budget: 1,
       event_size: "medium",
+      form_fields: [],
       ...event,
     });
   }, [event]);
@@ -103,6 +129,16 @@ function UpdateEventPopup({
           ? Number(value)
           : value,
     }));
+  };
+
+  const toggleField = (field: string) => {
+    setUpdatedEvent((prev) => {
+      const exists = prev.form_fields?.includes(field);
+      const newFields = exists
+        ? prev.form_fields?.filter((f) => f !== field)
+        : [...(prev.form_fields || []), field];
+      return { ...prev, form_fields: newFields };
+    });
   };
 
   const handleSave = async () => {
@@ -125,144 +161,196 @@ function UpdateEventPopup({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-      <div className="bg-white p-6 rounded-lg w-full max-w-2xl shadow-lg relative">
-        <h2 className="text-lg font-semibold mb-6">Update Event</h2>
-        {error && <p className="text-red-500 mb-4">{error}</p>}
+    <>
+      {/* ======= Main Edit Event Popup ======= */}
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+        <div className="bg-white p-6 rounded-lg w-full max-w-2xl shadow-lg relative overflow-y-auto max-h-[95vh]">
+          <h2 className="text-lg font-semibold mb-6">Update Event</h2>
+          {error && <p className="text-red-500 mb-4">{error}</p>}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Event Status */}
-          <label className="block">
-            <span className="text-sm font-medium">Event Status</span>
-            <select
-              name="event_status"
-              value={updatedEvent.event_status}
-              onChange={handleChange}
-              className="w-full border p-2 rounded"
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Event Status */}
+            <label className="block">
+              <span className="text-sm font-medium">Event Status</span>
+              <select
+                name="event_status"
+                value={updatedEvent.event_status}
+                onChange={handleChange}
+                className="w-full border p-2 rounded"
+              >
+                <option value="Upcoming">Upcoming</option>
+                <option value="In progress">Active</option>
+                <option value="Completed">Completed</option>
+              </select>
+            </label>
+
+            {/* Event Name */}
+            <label className="block">
+              <span className="text-sm font-medium">Event Name</span>
+              <input
+                name="event_name"
+                value={updatedEvent.event_name}
+                onChange={handleChange}
+                className="w-full border p-2 rounded"
+                type="text"
+              />
+            </label>
+
+            {/* Dates */}
+            <DateInput
+              label="Start Date"
+              value={updatedEvent.start_date}
+              onChange={(val) => setUpdatedEvent((p) => ({ ...p, start_date: val }))}
+            />
+            <DateInput
+              label="End Date"
+              value={updatedEvent.end_date}
+              onChange={(val) => setUpdatedEvent((p) => ({ ...p, end_date: val }))}
+            />
+
+            {/* Location */}
+            <label className="block">
+              <span className="text-sm font-medium">Location</span>
+              <input
+                name="location"
+                value={updatedEvent.location}
+                onChange={handleChange}
+                className="w-full border p-2 rounded"
+                type="text"
+              />
+            </label>
+
+            {/* Team */}
+            <label className="block">
+              <span className="text-sm font-medium">Team</span>
+              <select
+                name="team"
+                value={updatedEvent.team}
+                onChange={handleChange}
+                className="w-full border p-2 rounded"
+              >
+                <option value="">Select a team</option>
+                {teams.map((t, idx) => (
+                  <option key={idx} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {/* Leads */}
+            <label className="block">
+              <span className="text-sm font-medium">Total Leads</span>
+              <input
+                name="total_leads"
+                value={updatedEvent.total_leads}
+                onChange={handleChange}
+                className="w-full border p-2 rounded"
+                type="number"
+                min={0}
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-sm font-medium">Priority Leads</span>
+              <input
+                name="priority_leads"
+                value={updatedEvent.priority_leads}
+                onChange={handleChange}
+                className="w-full border p-2 rounded"
+                type="number"
+                min={0}
+              />
+            </label>
+
+            {/* Budget */}
+            <label className="block">
+              <span className="text-sm font-medium">Budget</span>
+              <input
+                name="budget"
+                value={updatedEvent.budget || ""}
+                onChange={handleChange}
+                className="w-full border p-2 rounded"
+                type="number"
+                min={0}
+                step="any"
+              />
+            </label>
+
+            {/* Event Size */}
+            <label className="block">
+              <span className="text-sm font-medium">Event Size</span>
+              <select
+                name="event_size"
+                value={updatedEvent.event_size || ""}
+                onChange={handleChange}
+                className="w-full border p-2 rounded"
+              >
+                <option value="small">Small</option>
+                <option value="medium">Medium</option>
+                <option value="large">Large</option>
+              </select>
+            </label>
+          </div>
+
+          {/* ✅ Select Form Fields */}
+          <div className="mt-6">
+            <Button
+              variant="outline"
+              onClick={() => setShowFormFieldPopup(true)}
             >
-              <option value="Upcoming">Upcoming</option>
-              <option value="In progress">Active</option>
-              <option value="Completed">Completed</option>
-            </select>
-          </label>
+              Select Form Fields
+            </Button>
+            {updatedEvent.form_fields?.length ? (
+              <div className="mt-2 text-sm text-gray-600">
+                Selected: {updatedEvent.form_fields.join(", ")}
+              </div>
+            ) : (
+              <div className="mt-2 text-sm text-gray-400">No fields selected</div>
+            )}
+          </div>
 
-          {/* Event Name */}
-          <label className="block">
-            <span className="text-sm font-medium">Event Name</span>
-            <input
-              name="event_name"
-              value={updatedEvent.event_name}
-              onChange={handleChange}
-              className="w-full border p-2 rounded"
-              type="text"
-            />
-          </label>
-
-          {/* ✅ Custom DateInput */}
-          <DateInput
-            label="Start Date"
-            value={updatedEvent.start_date}
-            onChange={(val) => setUpdatedEvent((p) => ({ ...p, start_date: val }))}
-          />
-          <DateInput
-            label="End Date"
-            value={updatedEvent.end_date}
-            onChange={(val) => setUpdatedEvent((p) => ({ ...p, end_date: val }))}
-          />
-
-          {/* Location */}
-          <label className="block">
-            <span className="text-sm font-medium">Location</span>
-            <input
-              name="location"
-              value={updatedEvent.location}
-              onChange={handleChange}
-              className="w-full border p-2 rounded"
-              type="text"
-            />
-          </label>
-
-          {/* Team */}
-          <label className="block">
-            <span className="text-sm font-medium">Team</span>
-            <select
-              name="team"
-              value={updatedEvent.team}
-              onChange={handleChange}
-              className="w-full border p-2 rounded"
-            >
-              <option value="">Select a team</option>
-              {teams.map((t, idx) => (
-                <option key={idx} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          {/* Leads */}
-          <label className="block">
-            <span className="text-sm font-medium">Total Leads</span>
-            <input
-              name="total_leads"
-              value={updatedEvent.total_leads}
-              onChange={handleChange}
-              className="w-full border p-2 rounded"
-              type="number"
-              min={0}
-            />
-          </label>
-
-          <label className="block">
-            <span className="text-sm font-medium">Priority Leads</span>
-            <input
-              name="priority_leads"
-              value={updatedEvent.priority_leads}
-              onChange={handleChange}
-              className="w-full border p-2 rounded"
-              type="number"
-              min={0}
-            />
-          </label>
-
-          {/* Budget */}
-          <label className="block">
-            <span className="text-sm font-medium">Budget</span>
-            <input
-              name="budget"
-              value={updatedEvent.budget || ""}
-              onChange={handleChange}
-              className="w-full border p-2 rounded"
-              type="number"
-              min={0}
-              step="any"
-            />
-          </label>
-
-          {/* ✅ Event Size Dropdown */}
-          <label className="block">
-            <span className="text-sm font-medium">Event Size</span>
-            <select
-              name="event_size"
-              value={updatedEvent.event_size || ""}
-              onChange={handleChange}
-              className="w-full border p-2 rounded"
-            >
-              <option value="small">Small</option>
-              <option value="medium">Medium</option>
-              <option value="large">Large</option>
-            </select>
-          </label>
-        </div>
-
-        <div className="flex justify-end space-x-3 mt-6">
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave}>Save</Button>
+          {/* Buttons */}
+          <div className="flex justify-end space-x-3 mt-6">
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave}>Save</Button>
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* ======= Checkbox Popup ======= */}
+      {showFormFieldPopup && (
+        <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-[60] p-4">
+          <div className="bg-white p-6 rounded-lg w-full max-w-md shadow-xl">
+            <h3 className="text-lg font-semibold mb-4">Select Form Fields</h3>
+
+            <div className="grid grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-2">
+              {availableFields.map((field) => (
+                <label key={field} className="flex items-center space-x-2 text-sm">
+                  <Checkbox
+                    checked={updatedEvent.form_fields?.includes(field)}
+                    onCheckedChange={() => toggleField(field)}
+                  />
+                  <span className="capitalize">{field.replace(/_/g, " ")}</span>
+                </label>
+              ))}
+            </div>
+
+            <div className="flex justify-end mt-5 space-x-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowFormFieldPopup(false)}
+              >
+                Cancel
+              </Button>
+              <Button onClick={() => setShowFormFieldPopup(false)}>Done</Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
