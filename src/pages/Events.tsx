@@ -15,6 +15,7 @@ import { Edit, Search } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
 import { DateInput } from "@/components/ui/DateInput";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 type Event = {
   event_id: number;
@@ -28,13 +29,83 @@ type Event = {
   priority_leads: number;
   budget?: number;
   event_size?: string;
-  form_fields?: string[];
+  form_fields: string[];
 };
 
-type Team = {
-  team_id: number;
-  team_name: string;
-};
+const AVAILABLE_FIELDS = [
+    "designation",
+    "company",
+    "phone_numbers",
+    "emails",
+    "websites",
+    "other",
+    "city",
+    "state",
+    "zip",
+    "country",
+    "area_of_interest",
+    "disclaimer",
+    "consent_form",
+    "term_and_condition",
+    "signature",
+    "email_opt_in"
+  ];
+
+function FormFieldsPopup({
+  selectedFields,
+  onClose,
+  onSave,
+}: {
+  selectedFields: string[];
+  onClose: () => void;
+  onSave: (fields: string[]) => void;
+}) {
+  const [fields, setFields] = useState<string[]>(selectedFields || []);
+
+  const handleToggle = (field: string) => {
+    setFields((prev) =>
+      prev.includes(field) ? prev.filter((f) => f !== field) : [...prev, field]
+    );
+  };
+
+  const handleSave = () => {
+    onSave(fields);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-[60]">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+        <h2 className="text-lg font-semibold mb-4">Select Form Fields</h2>
+        <div className="space-y-2 max-h-60 overflow-y-auto">
+        {AVAILABLE_FIELDS.map((field) => (
+            <div
+              key={field}
+              className="flex items-center space-x-3 border p-2 rounded-md hover:bg-gray-50"
+            >
+              <Checkbox
+                id={field}
+                checked={fields.includes(field)}
+                onCheckedChange={() => handleToggle(field)}
+              />
+              <Label
+                htmlFor={field}
+                className="text-sm capitalize cursor-pointer select-none"
+              >
+                {field.replace(/_/g, " ")}
+              </Label>
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-end gap-3 mt-6">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave}>Save</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function UpdateEventPopup({
   event,
@@ -63,28 +134,7 @@ function UpdateEventPopup({
 
   const [teams, setTeams] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [showFormFieldPopup, setShowFormFieldPopup] = useState(false);
-
-  // ✅ List of all available form fields
-  const availableFields = [
-    "name",
-    "designation",
-    "company",
-    "phone_numbers",
-    "emails",
-    "websites",
-    "other",
-    "city",
-    "state",
-    "zip",
-    "country",
-    "area_of_interest",
-    "disclaimer",
-    "consent_form",
-    "term_and_condition",
-    "signature",
-    "email_opt_in",
-  ];
+  const [formPopupOpen, setFormPopupOpen] = useState(false);
 
   useEffect(() => {
     fetch("https://api.inditechit.com/get_all_teams")
@@ -101,21 +151,22 @@ function UpdateEventPopup({
   }, []);
 
   useEffect(() => {
-    setUpdatedEvent({
-      event_id: 0,
-      event_status: "",
-      event_name: "",
-      start_date: "",
-      end_date: "",
-      location: "",
-      team: "",
-      total_leads: 0,
-      priority_leads: 0,
-      budget: 1,
-      event_size: "medium",
-      form_fields: [],
-      ...event,
-    });
+    if (event) {
+      setUpdatedEvent({
+        event_id: event.event_id,
+        event_status: event.event_status || "",
+        event_name: event.event_name || "",
+        start_date: event.start_date || "",
+        end_date: event.end_date || "",
+        location: event.location || "",
+        team: event.team || "",
+        total_leads: event.total_leads || 0,
+        priority_leads: event.priority_leads || 0,
+        budget: event.budget || 0,
+        event_size: event.event_size || "medium",
+        form_fields: event.form_fields || [],
+      });
+    }
   }, [event]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -129,16 +180,6 @@ function UpdateEventPopup({
           ? Number(value)
           : value,
     }));
-  };
-
-  const toggleField = (field: string) => {
-    setUpdatedEvent((prev) => {
-      const exists = prev.form_fields?.includes(field);
-      const newFields = exists
-        ? prev.form_fields?.filter((f) => f !== field)
-        : [...(prev.form_fields || []), field];
-      return { ...prev, form_fields: newFields };
-    });
   };
 
   const handleSave = async () => {
@@ -162,9 +203,8 @@ function UpdateEventPopup({
 
   return (
     <>
-      {/* ======= Main Edit Event Popup ======= */}
       <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-        <div className="bg-white p-6 rounded-lg w-full max-w-2xl shadow-lg relative overflow-y-auto max-h-[95vh]">
+        <div className="bg-white p-6 rounded-lg w-full max-w-2xl shadow-lg relative">
           <h2 className="text-lg font-semibold mb-6">Update Event</h2>
           {error && <p className="text-red-500 mb-4">{error}</p>}
 
@@ -196,7 +236,7 @@ function UpdateEventPopup({
               />
             </label>
 
-            {/* Dates */}
+            {/* ✅ Custom DateInput */}
             <DateInput
               label="Start Date"
               value={updatedEvent.start_date}
@@ -277,7 +317,7 @@ function UpdateEventPopup({
               />
             </label>
 
-            {/* Event Size */}
+            {/* ✅ Event Size Dropdown */}
             <label className="block">
               <span className="text-sm font-medium">Event Size</span>
               <select
@@ -291,26 +331,26 @@ function UpdateEventPopup({
                 <option value="large">Large</option>
               </select>
             </label>
-          </div>
 
-          {/* ✅ Select Form Fields */}
-          <div className="mt-6">
-            <Button
-              variant="outline"
-              onClick={() => setShowFormFieldPopup(true)}
-            >
-              Select Form Fields
-            </Button>
-            {updatedEvent.form_fields?.length ? (
-              <div className="mt-2 text-sm text-gray-600">
-                Selected: {updatedEvent.form_fields.join(", ")}
+            {/* ✅ Select Form Fields */}
+            <div className="col-span-2 flex justify-between items-center border p-3 rounded">
+              <span className="font-medium text-sm">Form Fields:</span>
+              <Button variant="outline" onClick={() => setFormPopupOpen(true)}>
+                Select Form Fields
+              </Button>
+            </div>
+
+            {updatedEvent.form_fields.length > 0 && (
+              <div className="col-span-2 flex flex-wrap gap-2 mt-2">
+                {updatedEvent.form_fields.map((field) => (
+                  <Badge key={field} variant="secondary">
+                    {field}
+                  </Badge>
+                ))}
               </div>
-            ) : (
-              <div className="mt-2 text-sm text-gray-400">No fields selected</div>
             )}
           </div>
 
-          {/* Buttons */}
           <div className="flex justify-end space-x-3 mt-6">
             <Button variant="outline" onClick={onClose}>
               Cancel
@@ -320,35 +360,15 @@ function UpdateEventPopup({
         </div>
       </div>
 
-      {/* ======= Checkbox Popup ======= */}
-      {showFormFieldPopup && (
-        <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-[60] p-4">
-          <div className="bg-white p-6 rounded-lg w-full max-w-md shadow-xl">
-            <h3 className="text-lg font-semibold mb-4">Select Form Fields</h3>
-
-            <div className="grid grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-2">
-              {availableFields.map((field) => (
-                <label key={field} className="flex items-center space-x-2 text-sm">
-                  <Checkbox
-                    checked={updatedEvent.form_fields?.includes(field)}
-                    onCheckedChange={() => toggleField(field)}
-                  />
-                  <span className="capitalize">{field.replace(/_/g, " ")}</span>
-                </label>
-              ))}
-            </div>
-
-            <div className="flex justify-end mt-5 space-x-3">
-              <Button
-                variant="outline"
-                onClick={() => setShowFormFieldPopup(false)}
-              >
-                Cancel
-              </Button>
-              <Button onClick={() => setShowFormFieldPopup(false)}>Done</Button>
-            </div>
-          </div>
-        </div>
+      {formPopupOpen && (
+        <FormFieldsPopup
+          selectedFields={updatedEvent.form_fields}
+          onClose={() => setFormPopupOpen(false)}
+          onSave={(fields) => {
+            setUpdatedEvent((prev) => ({ ...prev, form_fields: fields }));
+            setFormPopupOpen(false);
+          }}
+        />
       )}
     </>
   );
@@ -390,10 +410,8 @@ export default function Events() {
   useEffect(() => {
     const fetchEvents = async () => {
       const data: any = await request("/get_all_event_details", "GET");
-      if (data?.data) {
-        const allEvents = data.data;
-        setEvents(allEvents);
-      } else setEvents([]);
+      if (data?.data) setEvents(data.data);
+      else setEvents([]);
     };
     fetchEvents();
   }, []);
@@ -515,11 +533,11 @@ export default function Events() {
                         <td className="py-3 px-4">{event.priority_leads}</td>
                         <td className="py-3 px-4">
                           <Button
-                            variant="outline"
-                            size="sm"
+                            variant="ghost"
+                            size="icon"
                             onClick={() => openUpdatePopup(event)}
                           >
-                            <Edit className="w-4 h-4 mr-1" /> Edit
+                            <Edit className="w-4 h-4" />
                           </Button>
                         </td>
                       </tr>
@@ -532,7 +550,7 @@ export default function Events() {
         </main>
       </div>
 
-      {popupOpen && (
+      {popupOpen && selectedEvent && (
         <UpdateEventPopup
           event={selectedEvent}
           onClose={closeUpdatePopup}
