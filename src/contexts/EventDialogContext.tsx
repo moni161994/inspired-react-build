@@ -21,10 +21,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/components/ui/use-toast";
-import { useNavigate } from "react-router-dom";
 import { DateInput } from "@/components/ui/DateInput";
 
 type EventDialogContextType = {
@@ -38,12 +36,13 @@ const EventDialogContext = createContext<EventDialogContextType | undefined>(
 
 export function EventDialogProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
-  const navigate = useNavigate();
   const { request } = useApi<any>();
 
   const [isOpen, setIsOpen] = useState(false);
-  const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [teams, setTeams] = useState<any[]>([]);
+
+  // ⭐ ADDED — list of templates
+  const [templates, setTemplates] = useState<any[]>([]);
 
   const [formData, setFormData] = useState({
     status: "Upcoming",
@@ -56,30 +55,10 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     priorityLeads: 0,
     budget: 0,
     eventSize: "",
-    form_fields: [] as string[],
+    template_id: "", // ⭐ ADDED
   });
 
-  // Example available form fields (from your DB table)
-  const availableFields = [
-    "name",
-    "designation",
-    "company",
-    "phone_numbers",
-    "emails",
-    "websites",
-    "other",
-    "city",
-    "state",
-    "zip",
-    "country",
-    "area_of_interest",
-    "disclaimer",
-    "consent_form",
-    "term_and_condition",
-    "signature",
-    "email_opt_in"
-  ];
-
+  // ================= FETCH TEAMS =================
   useEffect(() => {
     const fetchTeams = async () => {
       try {
@@ -104,7 +83,27 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
         });
       }
     };
+
     fetchTeams();
+  }, []);
+
+  // ================= FETCH TEMPLATE LIST =================
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      const res = await request("/form_template_list", "GET");
+
+      if (res?.success && res.data) {
+        setTemplates(res.data);
+      } else {
+        toast({
+          variant: "destructive",
+          title: "❌ Failed to Load Templates",
+          description: res?.message || "Unable to fetch template list.",
+        });
+      }
+    };
+
+    fetchTemplates();
   }, []);
 
   const handleChange = (e: any) => {
@@ -116,16 +115,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const toggleFormField = (field: string) => {
-    setFormData((prev) => {
-      const exists = prev.form_fields.includes(field);
-      const updated = exists
-        ? prev.form_fields.filter((f) => f !== field)
-        : [...prev.form_fields, field];
-      return { ...prev, form_fields: updated };
-    });
-  };
-
+  // ================= SUBMIT FORM =================
   const handleSubmit = async () => {
     const requiredFields = [
       { field: "status", label: "Event Status" },
@@ -134,6 +124,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
       { field: "startDate", label: "Start Date" },
       { field: "endDate", label: "End Date" },
       { field: "location", label: "Event Location" },
+      { field: "template_id", label: "Template" }, // ⭐ ADDED REQUIRED TEMPLATE
     ];
 
     for (const { field, label } of requiredFields) {
@@ -156,6 +147,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // ⭐ ADDED template_id to payload
     const payload = {
       event_status: formData.status,
       event_name: formData.eventName,
@@ -167,7 +159,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
       priority_leads: formData.priorityLeads,
       budget: formData.budget,
       event_size: formData.eventSize,
-      form_fields: formData.form_fields,
+      template_id: formData.template_id, // ⭐ SEND TEMPLATE ID
     };
 
     const res = await request("/create_events", "POST", payload);
@@ -178,6 +170,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
         description: "Event has been created successfully.",
       });
       closeEventDialog();
+
       setFormData({
         status: "Upcoming",
         team: "",
@@ -189,8 +182,9 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
         priorityLeads: 0,
         budget: 0,
         eventSize: "",
-        form_fields: [],
+        template_id: "", // ⭐ RESET
       });
+
       window.location.href = "/events";
     } else {
       toast({
@@ -214,7 +208,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
       priorityLeads: 0,
       budget: 0,
       eventSize: "",
-      form_fields: [],
+      template_id: "", // ⭐ RESET
     });
   };
 
@@ -234,6 +228,37 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
           </DialogHeader>
 
           <div className="grid grid-cols-2 gap-6 mt-4">
+            
+            {/* ================= TEMPLATE DROPDOWN ⭐ NEW ================= */}
+            <div>
+              <Label>Select Template *</Label>
+              <Select
+                value={formData.template_id}
+                onValueChange={(val) =>
+                  handleSelectChange("template_id", val)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Template" />
+                </SelectTrigger>
+
+                <SelectContent>
+                  {templates.length > 0 ? (
+                    templates.map((tpl) => (
+                      <SelectItem key={tpl.id} value={String(tpl.id)}>
+                        {tpl.template_name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="none" disabled>
+                      No Templates Available
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* EVENT STATUS */}
             <div>
               <Label>Event Status *</Label>
               <Select
@@ -250,6 +275,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
               </Select>
             </div>
 
+            {/* TEAM */}
             <div>
               <Label>Select Team *</Label>
               <Select
@@ -275,6 +301,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
               </Select>
             </div>
 
+            {/* EVENT NAME */}
             <div>
               <Label htmlFor="eventName">Event Name *</Label>
               <Input
@@ -285,6 +312,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
               />
             </div>
 
+            {/* EVENT SIZE */}
             <div>
               <Label htmlFor="eventSize">Event Size</Label>
               <Select
@@ -302,6 +330,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
               </Select>
             </div>
 
+            {/* START DATE */}
             <DateInput
               label="Start Date *"
               value={formData.startDate}
@@ -311,16 +340,20 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
               }
             />
 
+            {/* END DATE */}
             <DateInput
               label="End Date *"
               value={formData.endDate}
               required
-              minDate={formData.startDate ? new Date(formData.startDate) : new Date()}
+              minDate={
+                formData.startDate ? new Date(formData.startDate) : new Date()
+              }
               onChange={(val) =>
                 setFormData((prev) => ({ ...prev, endDate: val }))
               }
             />
 
+            {/* LOCATION */}
             <div>
               <Label htmlFor="location">Event Location *</Label>
               <Input
@@ -331,6 +364,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
               />
             </div>
 
+            {/* BUDGET */}
             <div>
               <Label htmlFor="budget">Approximate Budget (USD)</Label>
               <Input
@@ -341,6 +375,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
               />
             </div>
 
+            {/* TOTAL LEADS */}
             <div>
               <Label htmlFor="totalLeads">Total Leads</Label>
               <Input
@@ -351,6 +386,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
               />
             </div>
 
+            {/* PRIORITY LEADS */}
             <div>
               <Label htmlFor="priorityLeads">Priority Leads</Label>
               <Input
@@ -360,62 +396,15 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 onChange={handleChange}
               />
             </div>
-
-            {/* Select Form Button */}
-            <div className="col-span-2 flex justify-center pt-4">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setIsFormDialogOpen(true)}
-              >
-                Select Form Fields
-              </Button>
-            </div>
-
-            {formData.form_fields.length > 0 && (
-              <div className="col-span-2 text-sm text-gray-600">
-                Selected Fields: {formData.form_fields.join(", ")}
-              </div>
-            )}
           </div>
 
+          {/* ACTION BUTTONS */}
           <div className="flex justify-center space-x-2 pt-6">
             <Button variant="outline" onClick={closeEventDialog}>
               Cancel
             </Button>
             <Button type="button" onClick={handleSubmit}>
               Create Event
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Field Selection Dialog */}
-      <Dialog open={isFormDialogOpen} onOpenChange={setIsFormDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Select Form Fields</DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-2 gap-3 mt-3">
-            {availableFields.map((field) => (
-              <div key={field} className="flex items-center space-x-2">
-                <Checkbox
-                  id={field}
-                  checked={formData.form_fields.includes(field)}
-                  onCheckedChange={() => toggleFormField(field)}
-                />
-                <Label htmlFor={field} className="text-sm capitalize">
-                  {field.replace(/_/g, " ")}
-                </Label>
-              </div>
-            ))}
-          </div>
-          <div className="flex justify-end pt-4">
-            <Button
-              type="button"
-              onClick={() => setIsFormDialogOpen(false)}
-            >
-              Done
             </Button>
           </div>
         </DialogContent>

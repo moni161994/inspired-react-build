@@ -14,97 +14,22 @@ import {
 import { Edit, Search } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
 import { DateInput } from "@/components/ui/DateInput";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 
-type Event = {
+export interface Event {
   event_id: number;
-  event_status: string;
   event_name: string;
+  event_status: string;
   start_date: string;
   end_date: string;
   location: string;
-  team: string;
   total_leads: number;
   priority_leads: number;
-  budget?: number;
-  event_size?: string;
-  form_fields: string[];
-};
-
-const AVAILABLE_FIELDS = [
-    "designation",
-    "company",
-    "phone_numbers",
-    "emails",
-    "websites",
-    "other",
-    "city",
-    "state",
-    "zip",
-    "country",
-    "area_of_interest",
-    "disclaimer",
-    "consent_form",
-    "term_and_condition",
-    "signature",
-    "email_opt_in"
-  ];
-
-function FormFieldsPopup({
-  selectedFields,
-  onClose,
-  onSave,
-}: {
-  selectedFields: string[];
-  onClose: () => void;
-  onSave: (fields: string[]) => void;
-}) {
-  const [fields, setFields] = useState<string[]>(selectedFields || []);
-
-  const handleToggle = (field: string) => {
-    setFields((prev) =>
-      prev.includes(field) ? prev.filter((f) => f !== field) : [...prev, field]
-    );
-  };
-
-  const handleSave = () => {
-    onSave(fields);
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-[60]">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
-        <h2 className="text-lg font-semibold mb-4">Select Form Fields</h2>
-        <div className="space-y-2 max-h-60 overflow-y-auto">
-        {AVAILABLE_FIELDS.map((field) => (
-            <div
-              key={field}
-              className="flex items-center space-x-3 border p-2 rounded-md hover:bg-gray-50"
-            >
-              <Checkbox
-                id={field}
-                checked={fields.includes(field)}
-                onCheckedChange={() => handleToggle(field)}
-              />
-              <Label
-                htmlFor={field}
-                className="text-sm capitalize cursor-pointer select-none"
-              >
-                {field.replace(/_/g, " ")}
-              </Label>
-            </div>
-          ))}
-        </div>
-        <div className="flex justify-end gap-3 mt-6">
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave}>Save</Button>
-        </div>
-      </div>
-    </div>
-  );
+  budget: string;
+  event_size: string;
+  is_active: string;
+  team: string;
+  template_id: number | null; // <-- ADD THIS
+ 
 }
 
 function UpdateEventPopup({
@@ -116,7 +41,7 @@ function UpdateEventPopup({
   onClose: () => void;
   onSave: (updatedEvent: Event) => void;
 }) {
-  const [updatedEvent, setUpdatedEvent] = useState<Event>({
+  const [updatedEvent, setUpdatedEvent] = useState<any>({
     event_id: 0,
     event_status: "",
     event_name: "",
@@ -128,84 +53,103 @@ function UpdateEventPopup({
     priority_leads: 0,
     budget: 1,
     event_size: "medium",
-    form_fields: [],
+    template_id: "",
     ...event,
   });
 
   const [teams, setTeams] = useState<string[]>([]);
+  const [templateList, setTemplateList] = useState<{ data: any[] }>({ data: [] });
   const [error, setError] = useState<string | null>(null);
-  const [formPopupOpen, setFormPopupOpen] = useState(false);
 
+  const { request, loading } = useApi<any>();
+
+  // 🔹 Fetch Teams + Templates
   useEffect(() => {
-    fetch("https://api.inditechit.com/get_all_teams")
-      .then((res) => res.json())
-      .then((data) => {
-        if (Array.isArray(data)) {
-          const teamNames = data
+    const fetchData = async () => {
+      try {
+        // TEAM API
+        const teamsRes = await request("/get_all_teams", "GET");
+
+        if (Array.isArray(teamsRes)) {
+          const teamNames = teamsRes
             .map((t: any) => t.team_name)
             .filter((name: any): name is string => typeof name === "string");
+
           setTeams(teamNames);
         }
-      })
-      .catch(() => setTeams([]));
+
+        // TEMPLATE API (response inside data)
+        const templateRes = await request("/form_template_list", "GET");
+
+        if (templateRes?.data && Array.isArray(templateRes.data)) {
+          setTemplateList({ data: templateRes.data });
+        }
+      } catch (err) {
+        console.error("API error:", err);
+      }
+    };
+
+    fetchData();
   }, []);
 
+  // 🔹 Pre-fill template_id as string
   useEffect(() => {
     if (event) {
       setUpdatedEvent({
-        event_id: event.event_id,
-        event_status: event.event_status || "",
-        event_name: event.event_name || "",
-        start_date: event.start_date || "",
-        end_date: event.end_date || "",
-        location: event.location || "",
-        team: event.team || "",
-        total_leads: event.total_leads || 0,
-        priority_leads: event.priority_leads || 0,
-        budget: event.budget || 0,
-        event_size: event.event_size || "medium",
-        form_fields: event.form_fields || [],
+        ...event,
+        template_id: event.template_id ? String(event.template_id) : "",
       });
     }
   }, [event]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  // 🔹 Handle all input changes
+  const handleChange = (e: any) => {
     const { name, value } = e.target;
-    setUpdatedEvent((prev) => ({
-      ...prev!,
+
+    setUpdatedEvent((prev: any) => ({
+      ...prev,
       [name]:
-        name === "total_leads" ||
-        name === "priority_leads" ||
-        name === "budget"
+        ["total_leads", "priority_leads", "budget"].includes(name)
           ? Number(value)
           : value,
     }));
   };
 
+  // 🔹 Save API using useApi
   const handleSave = async () => {
-    if (!updatedEvent) return;
     setError(null);
+  
+    // ✅ Remove fields from payload using destructuring
+    const { fields, ...cleanEvent } = updatedEvent;
+  
+    const payload = {
+      ...cleanEvent,
+      template_id:
+        cleanEvent.template_id === "" ? null : Number(cleanEvent.template_id),
+    };
+  
     try {
-      const response = await fetch(
-        `https://api.inditechit.com/update_event?event_id=${updatedEvent.event_id}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updatedEvent),
-        }
+      const res = await request(
+        `/update_event?event_id=${updatedEvent.event_id}`,
+        "PUT",
+        payload
       );
-      if (!response.ok) throw new Error("Failed to update event");
-      onSave(updatedEvent);
+  
+      if (!res) throw new Error("Failed to update event");
+  
+      onSave(payload);
     } catch (err: any) {
       setError(err.message || "An error occurred while saving.");
     }
   };
+  
 
   return (
     <>
       <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
         <div className="bg-white p-6 rounded-lg w-full max-w-2xl shadow-lg relative">
           <h2 className="text-lg font-semibold mb-6">Update Event</h2>
+
           {error && <p className="text-red-500 mb-4">{error}</p>}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -236,16 +180,20 @@ function UpdateEventPopup({
               />
             </label>
 
-            {/* ✅ Custom DateInput */}
+            {/* Dates */}
             <DateInput
               label="Start Date"
               value={updatedEvent.start_date}
-              onChange={(val) => setUpdatedEvent((p) => ({ ...p, start_date: val }))}
+              onChange={(val) =>
+                setUpdatedEvent((p: any) => ({ ...p, start_date: val }))
+              }
             />
             <DateInput
               label="End Date"
               value={updatedEvent.end_date}
-              onChange={(val) => setUpdatedEvent((p) => ({ ...p, end_date: val }))}
+              onChange={(val) =>
+                setUpdatedEvent((p: any) => ({ ...p, end_date: val }))
+              }
             />
 
             {/* Location */}
@@ -303,26 +251,24 @@ function UpdateEventPopup({
               />
             </label>
 
-            {/* Budget */}
             <label className="block">
               <span className="text-sm font-medium">Budget</span>
               <input
                 name="budget"
-                value={updatedEvent.budget || ""}
+                value={updatedEvent.budget}
                 onChange={handleChange}
                 className="w-full border p-2 rounded"
                 type="number"
                 min={0}
-                step="any"
               />
             </label>
 
-            {/* ✅ Event Size Dropdown */}
+            {/* Event Size */}
             <label className="block">
               <span className="text-sm font-medium">Event Size</span>
               <select
                 name="event_size"
-                value={updatedEvent.event_size || ""}
+                value={updatedEvent.event_size}
                 onChange={handleChange}
                 className="w-full border p-2 rounded"
               >
@@ -332,47 +278,47 @@ function UpdateEventPopup({
               </select>
             </label>
 
-            {/* ✅ Select Form Fields */}
-            <div className="col-span-2 flex justify-between items-center border p-3 rounded">
-              <span className="font-medium text-sm">Form Fields:</span>
-              <Button variant="outline" onClick={() => setFormPopupOpen(true)}>
-                Select Form Fields
-              </Button>
-            </div>
+            {/* Template Dropdown */}
+            <label className="block col-span-2">
+              <span className="text-sm font-medium">Form Template</span>
+              <select
+                name="template_id"
+                value={updatedEvent.template_id || ""}
+                onChange={handleChange}
+                className="w-full border p-2 rounded"
+              >
+                <option value="">Select Template</option>
 
-            {updatedEvent.form_fields.length > 0 && (
-              <div className="col-span-2 flex flex-wrap gap-2 mt-2">
-                {updatedEvent.form_fields.map((field) => (
-                  <Badge key={field} variant="secondary">
-                    {field}
-                  </Badge>
+                {templateList.data.length === 0 && (
+                  <option disabled>No templates found</option>
+                )}
+
+                {templateList.data.map((tpl: any) => (
+                  <option key={tpl.id} value={String(tpl.id)}>
+                    {tpl.template_name}
+                  </option>
                 ))}
-              </div>
-            )}
+              </select>
+            </label>
           </div>
 
           <div className="flex justify-end space-x-3 mt-6">
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={handleSave}>Save</Button>
+            <Button onClick={handleSave} disabled={loading}>
+              {loading ? "Saving..." : "Save"}
+            </Button>
           </div>
         </div>
       </div>
-
-      {formPopupOpen && (
-        <FormFieldsPopup
-          selectedFields={updatedEvent.form_fields}
-          onClose={() => setFormPopupOpen(false)}
-          onSave={(fields) => {
-            setUpdatedEvent((prev) => ({ ...prev, form_fields: fields }));
-            setFormPopupOpen(false);
-          }}
-        />
-      )}
     </>
   );
 }
+
+
+
+
 
 const getStatusBadge = (status: string) => {
   switch (status) {

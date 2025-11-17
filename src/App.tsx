@@ -16,6 +16,7 @@ import ProtectedRoute from "../src/components/protectedRoute";
 import TeamAnalytics from "./pages/TeamAna";
 import Analytics from "./pages/Analytics";
 import Reports from "./pages/Reports";
+import Templates from "./pages/Templates";
 
 const queryClient = new QueryClient();
 
@@ -94,6 +95,7 @@ const App = () => (
             <Route path="/team" element={<ProtectedRoute><TeamAnalytics /></ProtectedRoute>} />
             <Route path="/lead" element={<ProtectedRoute><Teams /></ProtectedRoute>} />
             <Route path="/report" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+            <Route path="/template" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </EventDialogProvider>

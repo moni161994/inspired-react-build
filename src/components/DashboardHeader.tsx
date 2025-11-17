@@ -67,7 +67,6 @@ export function DashboardHeader() {
     };
     fetchUsers();
   }, []);
-  console.log("users", users);
   const handleLogout = () => {
     logout();
     navigate("/login");
