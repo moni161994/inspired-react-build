@@ -13,6 +13,15 @@ import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/hooks/use-toast";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid
+} from "recharts";
 
 type Member = {
   employee_id: string;
@@ -35,6 +44,7 @@ export default function Analytics() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [users, setUsers] = useState<Member[]>([]);
   const [analyticsData, setAnalyticsData] = useState<EventSummary | null>(null);
+  const [templateUsage, setTemplateUsage] = useState([]);
 
   const { request, loading } = useApi();
   const { toast } = useToast();
@@ -54,7 +64,16 @@ export default function Analytics() {
     fetchUsers();
     fetchTeams();
     fetchEventSummary();
+    fetchTemplateUsage();      // 👈 Add here
   }, []);
+
+  const fetchTemplateUsage = async () => {
+    const res = await request("/template_usage_count", "GET");
+    if (res?.success && Array.isArray(res.data)) {
+      setTemplateUsage(res.data);
+    }
+  };
+  
 
   const fetchUsers = async () => {
     const res = await request("/get_users", "GET");
@@ -199,7 +218,7 @@ export default function Analytics() {
                     </div>
                   </CardContent>
                 </Card>
-
+             
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium text-muted-foreground">Active Events</CardTitle>
@@ -217,6 +236,26 @@ export default function Analytics() {
                     </div>
                   </CardContent>
                 </Card>
+                <Card>
+  <CardHeader>
+    <CardTitle>Template Usage Analytics</CardTitle>
+  </CardHeader>
+
+  <CardContent className="h-72">
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={templateUsage}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="template_name" tick={{ fontSize: 12 }} />
+        <YAxis />
+        <Tooltip />
+        
+        {/* Set bar color here */}
+        <Bar dataKey="usage_count" fill="#FF4D00" />
+      </BarChart>
+    </ResponsiveContainer>
+  </CardContent>
+</Card>
+
               </div>
             </TabsContent>
 
@@ -254,6 +293,8 @@ export default function Analytics() {
                     </div>
                   </CardContent>
                 </Card>
+               
+
               </div>
             </TabsContent>
           </Tabs>
