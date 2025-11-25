@@ -113,6 +113,7 @@ export default function Reports() {
                   <TableRow>
                     <TableHead>Lead ID</TableHead>
                     <TableHead>Name</TableHead>
+                    <TableHead>Event Name</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Consent</TableHead>
                     <TableHead>Status</TableHead>
@@ -124,6 +125,7 @@ export default function Reports() {
                     <TableRow key={item.lead_id}>
                       <TableCell>{item.lead_id}</TableCell>
                       <TableCell>{item.name}</TableCell>
+                      <TableCell>{item.event_name}</TableCell>
                       <TableCell>{item.emails}</TableCell>
                       <TableCell>{item.consent ?? "—"}</TableCell>
                       <TableCell>
