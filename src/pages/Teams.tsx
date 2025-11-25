@@ -109,29 +109,30 @@ export default function Teams() {
     }
     return "manual_lead";
   }
+  console.log(leadData,"-------------------------------");
+  const filteredLeads = leadData
+  // const filteredLeads = leadData.filter((lead) => {
+  //   // filter event name contains
+  //   const matchesEvent = lead.event_name
+  //     ?.toLowerCase()
+  //     .includes(eventNameFilter.toLowerCase());
+  //   // filter lead name contains
+  //   const matchesName = lead.name
+  //     ?.toLowerCase()
+  //     .includes(leadNameFilter.toLowerCase());
 
-  const filteredLeads = leadData.filter((lead) => {
-    // filter event name contains
-    const matchesEvent = lead.event_name
-      ?.toLowerCase()
-      .includes(eventNameFilter.toLowerCase());
-    // filter lead name contains
-    const matchesName = lead.name
-      ?.toLowerCase()
-      .includes(leadNameFilter.toLowerCase());
+  //   // filter by type
+  //   const matchesType =
+  //     !leadTypeFilter || getLeadType(lead) === leadTypeFilter;
 
-    // filter by type
-    const matchesType =
-      !leadTypeFilter || getLeadType(lead) === leadTypeFilter;
+  //   // filter start date & end date range - consider lead.created_at date
+  //   const leadDate = new Date(lead.created_at);
+  //   const afterStartDate =
+  //     !startDateFilter || leadDate >= new Date(startDateFilter);
+  //   const beforeEndDate = !endDateFilter || leadDate <= new Date(endDateFilter);
 
-    // filter start date & end date range - consider lead.created_at date
-    const leadDate = new Date(lead.created_at);
-    const afterStartDate =
-      !startDateFilter || leadDate >= new Date(startDateFilter);
-    const beforeEndDate = !endDateFilter || leadDate <= new Date(endDateFilter);
-
-    return matchesEvent && matchesName && afterStartDate && beforeEndDate && matchesType;
-  });
+  //   return matchesEvent && matchesName && afterStartDate && beforeEndDate && matchesType;
+  // });
 
   // Fetch lead data
   const fetchLeadData = async () => {
@@ -146,6 +147,9 @@ export default function Teams() {
       });
     }
   };
+
+console.log("data", leadData);
+
 
   useEffect(() => {
     fetchLeadData();
@@ -211,7 +215,8 @@ export default function Teams() {
 
   const totalLeads = filteredLeads.length;
   const totalPages = Math.ceil(totalLeads / itemsPerPage);
-
+  // console.log(filteredLeads,"++++++++++++++++++++++++++++++++");
+  
   const paginatedLeads = filteredLeads.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
