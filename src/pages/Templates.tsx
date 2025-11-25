@@ -142,17 +142,14 @@ function Templates() {
   };
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-screen bg-background relative z-0">
+
       <DashboardSidebar />
 
       <div className="flex flex-col flex-1">
         <DashboardHeader />
 
         <main className="flex-1 overflow-auto p-6 space-y-6">
-
-          {/* ================= TEMPLATE TABLE ================= */}
-          {!editing && (
-            <>
               <h2 className="text-2xl font-semibold">Form Templates</h2>
 
               <table className="w-full border rounded-lg">
@@ -199,64 +196,60 @@ function Templates() {
                   )}
                 </tbody>
               </table>
-            </>
-          )}
+{editing && (
+    <div className="template-overlay fixed inset-0 bg-black/60 flex justify-center items-center ">
 
-          {/* ================= EDIT MODAL ================= */}
-          {editing && (
-            <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-50">
-              <div className="bg-white p-6 rounded-xl w-[500px] max-h-[90vh] overflow-y-auto shadow-xl">
 
-                <h2 className="text-xl font-semibold mb-4">Edit Template</h2>
+    <div className="bg-white p-6 rounded-xl w-[500px] max-h-[90vh] overflow-y-auto shadow-2xl">
 
-                {/* NAME */}
-                <label className="font-semibold">Template Name</label>
-                <Input
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="mb-3"
-                />
+      <h2 className="text-xl font-semibold mb-4">Edit Template</h2>
 
-                {/* DESC */}
-                <label className="font-semibold">Description</label>
-                <Input
-                  value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
-                  className="mb-3"
-                />
+      <label className="font-semibold">Template Name</label>
+      <Input
+        value={editName}
+        onChange={(e) => setEditName(e.target.value)}
+        className="mb-3"
+      />
 
-                {/* FIELDS */}
-                <label className="font-semibold">Select Fields</label>
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  {AVAILABLE_FIELDS.map((label) => {
-                    const api = convertToApiKey(label);
+      <label className="font-semibold">Description</label>
+      <Input
+        value={editDescription}
+        onChange={(e) => setEditDescription(e.target.value)}
+        className="mb-3"
+      />
 
-                    return (
-                      <label key={label} className="flex items-center gap-2 border p-2 rounded">
-                        <input
-                          type="checkbox"
-                          checked={selectedFields.some((f) => f.field_name === api)}
-                          onChange={() => toggleField(label)}
-                        />
-                        {label}
-                      </label>
-                    );
-                  })}
-                </div>
+      <label className="font-semibold">Select Fields</label>
+      <div className="grid grid-cols-2 gap-2 mt-2">
+        {AVAILABLE_FIELDS.map((label) => {
+          const api = convertToApiKey(label);
 
-                {/* BUTTONS */}
-                <div className="flex gap-4 mt-6 justify-end">
-                  <Button variant="secondary" onClick={() => setEditing(null)}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleUpdate} disabled={loading}>
-                    {loading ? "Saving..." : "Save"}
-                  </Button>
-                </div>
+          return (
+            <label key={label} className="flex items-center gap-2 border p-2 rounded">
+              <input
+                type="checkbox"
+                checked={selectedFields.some((f) => f.field_name === api)}
+                onChange={() => toggleField(label)}
+              />
+              {label}
+            </label>
+          );
+        })}
+      </div>
 
-              </div>
-            </div>
-          )}
+      <div className="flex gap-4 mt-6 justify-end">
+        <Button variant="secondary" onClick={() => setEditing(null)}>
+          Cancel
+        </Button>
+        <Button onClick={handleUpdate} disabled={loading}>
+          {loading ? "Saving..." : "Save"}
+        </Button>
+      </div>
+
+    </div>
+  </div>
+)}
+
+
         </main>
       </div>
     </div>

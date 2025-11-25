@@ -36,6 +36,29 @@ type User = {
   user_name: string;
 };
 
+const AVAILABLE_FIELDS = [
+  "Designation",
+  "Company",
+  "Phone Numbers",
+  "Emails",
+  "Websites",
+  "Other",
+  "City",
+  "State",
+  "ZIP",
+  "Country",
+  "Area Of Interest",
+  "Disclaimer",
+  "Consent Form",
+  "Term And Condition",
+  "Signature",
+  "Email Opt In",
+];
+
+// helper to convert label to API key style
+const convertToApiKey = (label: string) =>
+  label.toLowerCase().replace(/ /g, "_");
+
 export function DashboardHeader() {
   const navigate = useNavigate();
   const { openEventDialog } = useEventDialog();
@@ -43,15 +66,109 @@ export function DashboardHeader() {
   const { toast } = useToast();
 
   const [teamDialogOpen, setTeamDialogOpen] = useState(false);
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
+
   const [formData, setFormData] = useState({
     team_name: "",
     manager_id: "",
     employees_id: [] as string[],
   });
 
-  // ✅ Fetch all users on mount
+  // CREATE TEMPLATE STATES
+  const [templateName, setTemplateName] = useState("");
+  const [templateDescription, setTemplateDescription] = useState("");
+  const [selectedFields, setSelectedFields] = useState<string[]>([]); // stores api keys like "phone_numbers"
+
+  // Toggle field selection
+  const toggleField = (label: string) => {
+    const api = convertToApiKey(label);
+    setSelectedFields((prev) =>
+      prev.includes(api) ? prev.filter((f) => f !== api) : [...prev, api]
+    );
+  };
+
+  // Build fields payload (array of objects) for API
+  const buildFieldsPayload = () => {
+    return selectedFields.map((field_name) => {
+      // Default field_type mapping
+      let field_type = "text";
+      if (field_name === "phone_numbers") field_type = "number";
+      // If you need dropdowns for specific fields later, you can add logic here
+
+      return {
+        field_name,
+        field_type,
+        is_required: false,
+      };
+    });
+  };
+
+  // Handle Template Create API
+  const handleCreateTemplate = async () => {
+    if (!templateName.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Missing Template Name",
+        description: "Please provide a template name.",
+      });
+      return;
+    }
+
+    if (selectedFields.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "No Fields Selected",
+        description: "Please select at least one field for the template.",
+      });
+      return;
+    }
+
+    setLoading(true);
+
+    const payload = {
+      templateName: templateName,
+      description: templateDescription,
+      fields: buildFieldsPayload(),
+    };
+
+    try {
+      const res = await request("/create_form_template", "POST", payload);
+
+      // The API in your example returned { "success": true, "message": "Template updated successfully" }
+      // Adjust success detection depending on actual API shape:
+      if (res?.success || res?.message?.toLowerCase()?.includes("created") || res?.msg?.toLowerCase()?.includes("created")) {
+        toast({
+          title: "Template Created",
+          description: "Your new template has been added.",
+        });
+
+        setTemplateDialogOpen(false);
+        setTemplateName("");
+        setTemplateDescription("");
+        setSelectedFields([]);
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Failed to Create Template",
+          description: res?.message || res?.msg || "Unexpected error occurred.",
+        });
+      }
+    } catch (err: any) {
+      console.error("create template error:", err);
+      toast({
+        variant: "destructive",
+        title: "Network Error",
+        description: "Could not create template. Try again later.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch all users
   useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -67,6 +184,7 @@ export function DashboardHeader() {
     };
     fetchUsers();
   }, []);
+
   const handleLogout = () => {
     logout();
     navigate("/login");
@@ -77,7 +195,6 @@ export function DashboardHeader() {
     setFormData((prev) => ({ ...prev, [id]: value }));
   };
 
-  // ✅ Add/remove employee IDs for multi-select
   const toggleEmployee = (id: string) => {
     setFormData((prev) => {
       const exists = prev.employees_id.includes(id);
@@ -110,18 +227,17 @@ export function DashboardHeader() {
 
     if (res?.message === "Team created successfully") {
       toast({
-        title: "✅ Team Created",
+        title: "Team Created",
         description: "Your team has been created successfully.",
       });
       setTeamDialogOpen(false);
       setFormData({ team_name: "", manager_id: "", employees_id: [] });
-      //  navigate("");
-      window.location.href = "/team"
+      window.location.href = "/team";
     } else {
       toast({
         variant: "destructive",
-        title: "❌ Failed to Create Team",
-        description: res?.msg || "An unexpected error occurred.",
+        title: "Failed",
+        description: res?.msg || "Unexpected error occurred.",
       });
     }
   };
@@ -134,16 +250,6 @@ export function DashboardHeader() {
         </div>
 
         <div className="flex items-center space-x-4">
-          {/* Search */}
-          {/* <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-            <Input
-              type="text"
-              placeholder="Team Search..."
-              className="w-64 pl-10 bg-background border-border"
-            />
-          </div> */}
-
           {/* Add New Team */}
           <Button
             className="bg-primary hover:bg-primary/90 text-primary-foreground"
@@ -153,7 +259,16 @@ export function DashboardHeader() {
             Add New Team
           </Button>
 
-          {/* Add New Event */}
+          {/* Create Template */}
+          <Button
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
+            onClick={() => setTemplateDialogOpen(true)}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Create Template
+          </Button>
+
+          {/* Add Event */}
           <Button
             className="bg-primary hover:bg-primary/90 text-primary-foreground"
             onClick={openEventDialog}
@@ -169,7 +284,7 @@ export function DashboardHeader() {
         </div>
       </header>
 
-      {/* Add Team Dialog */}
+      {/* TEAM DIALOG */}
       <Dialog open={teamDialogOpen} onOpenChange={setTeamDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -177,7 +292,6 @@ export function DashboardHeader() {
           </DialogHeader>
 
           <div className="space-y-4 mt-4">
-            {/* Team Name */}
             <div>
               <Label htmlFor="team_name">Team Name *</Label>
               <Input
@@ -188,7 +302,6 @@ export function DashboardHeader() {
               />
             </div>
 
-            {/* Manager Selection */}
             <div>
               <Label>Manager *</Label>
               <Select
@@ -201,25 +314,18 @@ export function DashboardHeader() {
                   <SelectValue placeholder="Select Manager" />
                 </SelectTrigger>
                 <SelectContent>
-                  {users?.length > 0 ? (
-                    users?.map((user) => (
-                      <SelectItem
-                        key={user.employee_id}
-                        value={String(user.employee_id)}
-                      >
-                        {user.user_name}
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem value="none" disabled>
-                      No users available
+                  {users?.map((user) => (
+                    <SelectItem
+                      key={user.employee_id}
+                      value={String(user.employee_id)}
+                    >
+                      {user.user_name}
                     </SelectItem>
-                  )}
+                  ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Employees Multi-Select */}
             <div>
               <Label>Employees *</Label>
               <Command className="border rounded-md">
@@ -239,19 +345,20 @@ export function DashboardHeader() {
                         }`}
                       >
                         <span>{user.user_name}</span>
-                        {formData.employees_id.includes(String(user.employee_id)) && (
-                          <X className="w-4 h-4" />
-                        )}
+                        {formData.employees_id.includes(
+                          String(user.employee_id)
+                        ) && <X className="w-4 h-4" />}
                       </div>
                     </CommandItem>
                   ))}
                 </CommandGroup>
               </Command>
 
-              {/* Selected Employees as Badges */}
               <div className="flex flex-wrap gap-2 mt-2">
                 {formData?.employees_id?.map((id) => {
-                  const emp = users?.find((u) => String(u.employee_id) === id);
+                  const emp = users?.find(
+                    (u) => String(u.employee_id) === id
+                  );
                   return (
                     <Badge
                       key={id}
@@ -270,13 +377,75 @@ export function DashboardHeader() {
             </div>
           </div>
 
-          {/* Footer Buttons */}
           <div className="flex justify-end space-x-3 pt-6">
             <Button variant="outline" onClick={() => setTeamDialogOpen(false)}>
               Cancel
             </Button>
             <Button onClick={handleCreateTeam} disabled={loading}>
               {loading ? "Creating..." : "Create"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* CREATE TEMPLATE DIALOG */}
+      <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Create New Template</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-4">
+            <div>
+              <Label>Template Name *</Label>
+              <Input
+                placeholder="Enter template name"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label>Description</Label>
+              <Input
+                placeholder="Enter description"
+                value={templateDescription}
+                onChange={(e) => setTemplateDescription(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label>Select Fields *</Label>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                {AVAILABLE_FIELDS.map((label) => {
+                  const api = convertToApiKey(label);
+                  return (
+                    <label
+                      key={label}
+                      className="flex items-center gap-2 border p-2 rounded"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedFields.includes(api)}
+                        onChange={() => toggleField(label)}
+                      />
+                      <span className="select-none">{label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-6">
+            <Button
+              variant="outline"
+              onClick={() => setTemplateDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleCreateTemplate} disabled={loading}>
+              {loading ? "Saving..." : "Save Template"}
             </Button>
           </div>
         </DialogContent>

@@ -137,7 +137,7 @@ export default function Teams() {
   const fetchLeadData = async () => {
     const res = await request(`/get_all_leads`, "GET");
     if (res && res.success === true && res.data) {
-      setLeadData(res.data);
+      setLeadData(res.data );
     } else {
       toast({
         variant: "destructive",

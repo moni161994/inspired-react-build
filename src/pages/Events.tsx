@@ -163,7 +163,7 @@ function UpdateEventPopup({
                 className="w-full border p-2 rounded"
               >
                 <option value="Upcoming">Upcoming</option>
-                <option value="In progress">Active</option>
+                <option value="Active">Active</option>
                 <option value="Completed">Completed</option>
               </select>
             </label>
@@ -383,7 +383,7 @@ export default function Events() {
     const now = new Date();
     const startDate = new Date(start);
     const endDate = new Date(end);
-    if ((now >= startDate || event.event_status === "In progress") && now <= endDate)
+    if ((now >= startDate || event.event_status === "Active") && now <= endDate)
       return "Active";
     else if (now < startDate) return "Upcoming";
     else if (now > endDate) return "Completed";
@@ -432,7 +432,7 @@ export default function Events() {
                 <SelectContent>
                   <SelectItem value="All">All</SelectItem>
                   <SelectItem value="Upcoming">Upcoming</SelectItem>
-                  <SelectItem value="In progress">In Progress</SelectItem>
+                  <SelectItem value="Active">Active</SelectItem>
                   <SelectItem value="Completed">Completed</SelectItem>
                 </SelectContent>
               </Select>
