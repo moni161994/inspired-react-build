@@ -100,7 +100,7 @@ setStartDate("")
 
   useEffect(() => {
     fetchEmployeeActivity();
-  }, [startDateEvent, endDateEvent]);
+  }, [startDateEvent, endDateEvent, eventId]);
 
   const fetchEmployeeActivity = async () => {
     try {
