@@ -45,7 +45,15 @@ export default function Analytics() {
   const [users, setUsers] = useState<Member[]>([]);
   const [analyticsData, setAnalyticsData] = useState<EventSummary | null>(null);
   const [templateUsage, setTemplateUsage] = useState([]);
-
+  const [activityReport, setActivityReport] = useState([]);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [startDateEvent, setStartDateEvent] = useState("");
+const [endDateEvent, setEndDateEvent] = useState("");
+const [eventId, setEventId] = useState("");
+const [events, setEvents] = useState([]);
+const [employeeReport, setEmployeeReport] = useState([]);
+  
   const { request, loading } = useApi();
   const { toast } = useToast();
 
@@ -64,15 +72,91 @@ export default function Analytics() {
     fetchUsers();
     fetchTeams();
     fetchEventSummary();
-    fetchTemplateUsage();      // 👈 Add here
+    fetchTemplateUsage();  
+    fetchEvents();    // 👈 Add here
   }, []);
+
+  useEffect(() => {
+    fetchActivityReport();
+  }, [startDate, endDate]);
+  
+  const handleClearDate = () =>{
+setEndDate("");
+setStartDate("")
+  }
+
+  const handleClearDateforEvent = () =>{
+    setEndDateEvent("");
+    setStartDateEvent("")
+    setEventId("");
+      }
 
   const fetchTemplateUsage = async () => {
     const res = await request("/template_usage_count", "GET");
     if (res?.success && Array.isArray(res.data)) {
-      setTemplateUsage(res.data);
+      setTemplateUsage(res?.data);
     }
   };
+
+  useEffect(() => {
+    fetchEmployeeActivity();
+  }, [startDateEvent, endDateEvent]);
+
+  const fetchEmployeeActivity = async () => {
+    try {
+      const res = await fetch(
+        `https://api.inditechit.com/employee_activity_report?${startDateEvent ? `startDate=${startDateEvent}` : ""}${endDateEvent ? `&endDate=${endDateEvent}` : ""}${eventId ? `&event_id=${eventId}` : ""}`
+      );
+      const result = await res.json();
+      setEmployeeReport(result?.data || []);
+    } catch (err) {
+      console.log(err);
+    } 
+  };
+  
+
+  const fetchEvents = async () => {
+    const data: any = await request("/get_all_event_details", "GET");
+    if (data?.data) setEvents(data.data);
+    else setEvents([]);
+  };
+
+  const fetchActivityReport = async () => {
+let res:any;
+    if (startDate || endDate) {
+      res = await request(
+        `/team_activity_report?startDate=${startDate}&endDate=${endDate}`,
+        "GET"
+      );
+    }else{
+      res = await request(
+        `/team_activity_report?`,
+        "GET"
+      );
+    
+    }
+  
+    if (res?.success && Array.isArray(res.data)) {
+      const grouped = res.data.reduce((acc: any, item: any) => {
+        acc[item.team] = (acc[item.team] || 0) + item.total_leads;
+        return acc;
+      }, {});
+  
+      const graphData = Object.keys(grouped).map((team) => ({
+        team,
+        total_leads: grouped[team],
+      }));
+  
+      setActivityReport(graphData);
+    } else {
+      toast({
+        title: "Failed to load team activity report",
+        description: res?.msg || "Something went wrong.",
+        variant: "destructive",
+      });
+    }
+  };
+  
   
 
   const fetchUsers = async () => {
@@ -254,6 +338,129 @@ export default function Analytics() {
       </BarChart>
     </ResponsiveContainer>
   </CardContent>
+</Card>
+
+<Card>
+<CardHeader>
+    <CardTitle>Team Activity Report</CardTitle>
+  </CardHeader>
+  {/* Filters Row */}
+  <div className="flex gap-6 items-end justify-between p-6">
+    <div className="flex flex-col">
+      <Label>Start Date</Label>
+      <Input
+        type="date"
+        value={startDate}
+        onChange={(e) => setStartDate(e.target.value)}
+      />
+    </div>
+
+    <div className="flex flex-col">
+      <Label>End Date</Label>
+      <Input
+        type="date"
+        value={endDate}
+        onChange={(e) => setEndDate(e.target.value)}
+      />
+    </div>
+  </div>
+  {/* Chart */}
+  <CardContent className="h-72">
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={activityReport}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="team" tick={{ fontSize: 12 }} />
+        <YAxis />
+        <Tooltip />
+        <Bar dataKey="total_leads" fill="#6A5ACD" />
+      </BarChart>
+    </ResponsiveContainer>
+  </CardContent>
+
+  {/* Button centered bottom */}
+  <div className="flex justify-center pb-4">
+    <Button onClick={handleClearDate} disabled={loading} className="px-10">
+      Clear Filter
+    </Button>
+  </div>
+</Card>
+
+<Card>
+<CardHeader>
+    <CardTitle>Employee Activity Report</CardTitle>
+  </CardHeader>
+  <div className="flex gap-6 items-end justify-between p-4">
+
+    <div className="flex flex-col">
+      <Label>Start Date</Label>
+      <Input
+        type="date"
+        value={startDateEvent}
+        onChange={(e) => setStartDateEvent(e.target.value)}
+      />
+    </div>
+
+    <div className="flex flex-col">
+      <Label>End Date</Label>
+      <Input
+        type="date"
+        value={endDateEvent}
+        onChange={(e) => setEndDateEvent(e.target.value)}
+      />
+    </div>
+
+    <div className="flex flex-col">
+      <Label>Select Event</Label>
+      <select
+        className="border rounded p-2"
+        value={eventId}
+        onChange={(e) => setEventId(e.target.value)}
+      >
+        <option value="">-- Select Event --</option>
+        {events.map((ev) => (
+          <option key={ev.event_id} value={ev.event_id}>
+            {ev.event_name}
+          </option>
+        ))}
+      </select>
+    </div>
+
+  </div>
+
+  {employeeReport.length > 0 ? (
+  <table className="table-auto w-full mt-4 border">
+    <thead>
+      <tr className="bg-slate-200">
+        <th className="border p-2">Employee ID</th>
+        <th className="border p-2">Employee Name</th>
+        <th className="border p-2">Event Name</th>
+        <th className="border p-2">Lead Date</th>
+        <th className="border p-2">Total Leads</th>
+      </tr>
+    </thead>
+    <tbody>
+      {employeeReport.map((row, i) => (
+        <tr key={i}>
+          <td className="border p-2">{row.employee_id}</td>
+          <td className="border p-2">{row.user_name}</td>
+          <td className="border p-2">{row.event_name}</td>
+          <td className="border p-2">
+            {new Date(row.lead_date).toLocaleDateString()}
+          </td>
+          <td className="border p-2">{row.total_leads}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+) : (
+  <p className="text-center mt-4">No records found</p>
+)}
+
+<div className="flex justify-center m-4">
+    <Button onClick={handleClearDateforEvent} disabled={loading}>
+      Clear Filter
+    </Button>
+  </div>
 </Card>
 
               </div>
