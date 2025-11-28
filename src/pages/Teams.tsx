@@ -334,11 +334,15 @@ console.log("data", leadData);
                         Email
                       </th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                        Signature
+                      </th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
                         Event Name
                       </th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
                         Actions
                       </th>
+                     
                     </tr>
                   </thead>
                   <tbody>
@@ -376,6 +380,13 @@ console.log("data", leadData);
                         <td className="py-3 px-4 text-foreground">
                           {lead?.emails?.[0] || "-"}
                         </td>
+                        <td className="py-3 px-4 text-foreground">
+                          {
+                            lead?.signature && <img src={`data:image/png;base64, ${lead?.signature}`} alt="signature" style={{height:"80px",width:"100px",objectFit:"cover"}} />
+                          }
+                        
+                        </td>
+                       
                         <td className="py-3 px-4 text-foreground">
                           {lead?.event_name || "Active Event"}
                         </td>
