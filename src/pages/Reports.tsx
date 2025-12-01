@@ -17,11 +17,19 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function Reports() {
   const { request, loading, error } = useApi<any>();
   const [summary, setSummary] = useState<any>(null);
   const [reports, setReports] = useState<any[]>([]);
+  const [filter, setFilter] = useState<string>("all");
 
   useEffect(() => {
     const fetchReports = async () => {
@@ -35,6 +43,15 @@ export default function Reports() {
     fetchReports();
   }, []);
 
+  // Filter reports based on consent status
+  const filteredReports = reports.filter((item) => {
+    if (filter === "all") return true;
+    if (filter === "granted") return item.consent_status === "granted";
+    if (filter === "denied") return item.consent_status === "denied";
+    if (filter === "missing") return item.consent_status === "missing";
+    return true;
+  });
+
   return (
     <div className="flex h-screen bg-background">
       <DashboardSidebar />
@@ -42,7 +59,6 @@ export default function Reports() {
         <DashboardHeader />
 
         <main className="flex-1 overflow-auto p-6 space-y-6">
-
           {/* ---------- PAGE HEADER ---------- */}
           <div className="flex justify-between items-center">
             <h1 className="text-2xl font-semibold text-foreground">Reports</h1>
@@ -101,13 +117,30 @@ export default function Reports() {
             </div>
           )}
 
-          {/* ---------- TABLE OF LEADS ---------- */}
+          {/* ---------- TABLE OF LEADS WITH FILTER ---------- */}
           <Card className="shadow">
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Leads Report</CardTitle>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Filter:</span>
+                <Select value={filter} onValueChange={setFilter}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="All Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="granted">Granted</SelectItem>
+                    <SelectItem value="denied">Denied</SelectItem>
+                    <SelectItem value="missing">Missing</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </CardHeader>
 
             <CardContent>
+              <div className="text-sm text-muted-foreground mb-2">
+                Showing {filteredReports.length} of {reports.length} leads
+              </div>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -121,7 +154,7 @@ export default function Reports() {
                 </TableHeader>
 
                 <TableBody>
-                  {reports.map((item: any) => (
+                  {filteredReports.map((item: any) => (
                     <TableRow key={item.lead_id}>
                       <TableCell>{item.lead_id}</TableCell>
                       <TableCell>{item.name}</TableCell>
@@ -145,9 +178,13 @@ export default function Reports() {
                   ))}
                 </TableBody>
               </Table>
+              {filteredReports.length === 0 && !loading && (
+                <div className="text-center py-8 text-muted-foreground">
+                  No leads match the selected filter
+                </div>
+              )}
             </CardContent>
           </Card>
-
         </main>
       </div>
     </div>
