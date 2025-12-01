@@ -4,11 +4,28 @@ import { DashboardHeader } from "@/components/DashboardHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Command,
+  CommandInput,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+} from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
@@ -20,7 +37,7 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  CartesianGrid
+  CartesianGrid,
 } from "recharts";
 
 type Member = {
@@ -47,13 +64,16 @@ export default function Analytics() {
   const [templateUsage, setTemplateUsage] = useState([]);
   const [activityReport, setActivityReport] = useState([]);
   const [startDate, setStartDate] = useState("");
+  const [startDateTemplate, setStartDateTemplate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [endDateTemplate, setEndDateTemplate] = useState("");
   const [startDateEvent, setStartDateEvent] = useState("");
-const [endDateEvent, setEndDateEvent] = useState("");
-const [eventId, setEventId] = useState("");
-const [events, setEvents] = useState([]);
-const [employeeReport, setEmployeeReport] = useState([]);
-  
+  const [endDateEvent, setEndDateEvent] = useState("");
+  const [eventId, setEventId] = useState("");
+  const [events, setEvents] = useState([]);
+  const [employeeReport, setEmployeeReport] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+
   const { request, loading } = useApi();
   const { toast } = useToast();
 
@@ -68,31 +88,49 @@ const [employeeReport, setEmployeeReport] = useState([]);
     employees_id: [] as string[], // array of strings
   });
 
+  const filteredReport = employeeReport.filter((row: any) =>
+    row.user_name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   useEffect(() => {
     fetchUsers();
     fetchTeams();
     fetchEventSummary();
-    fetchTemplateUsage();  
-    fetchEvents();    // 👈 Add here
+    // fetchTemplateUsage();
+    fetchEvents(); // 👈 Add here
   }, []);
 
   useEffect(() => {
     fetchActivityReport();
   }, [startDate, endDate]);
-  
-  const handleClearDate = () =>{
-setEndDate("");
-setStartDate("")
+
+  useEffect(() => {
+    fetchTemplateUsage();
+  }, [startDateTemplate, endDateTemplate]);
+
+  const handleClearDate = () => {
+    setEndDate("");
+    setStartDate("");
+  };
+
+  const handleClearDateforEvent = () => {
+    setEndDateEvent("");
+    setStartDateEvent("");
+    setEventId("");
+  };
+
+  const handleClearDateTemplate =()=>{
+    setEndDateTemplate("");
+    setStartDateTemplate("")
   }
 
-  const handleClearDateforEvent = () =>{
-    setEndDateEvent("");
-    setStartDateEvent("")
-    setEventId("");
-      }
-
   const fetchTemplateUsage = async () => {
-    const res = await request("/template_usage_count", "GET");
+    // const res = await request("/template_usage_count", "GET");
+    const res = await request(
+      `/template_usage_count?${
+        startDateTemplate ? `start_date=${startDateTemplate}` : ""
+      }${endDateTemplate ? `&end_date=${endDateTemplate}` : ""}`,"GET"
+    );
     if (res?.success && Array.isArray(res.data)) {
       setTemplateUsage(res?.data);
     }
@@ -105,15 +143,18 @@ setStartDate("")
   const fetchEmployeeActivity = async () => {
     try {
       const res = await fetch(
-        `https://api.inditechit.com/employee_activity_report?${startDateEvent ? `startDate=${startDateEvent}` : ""}${endDateEvent ? `&endDate=${endDateEvent}` : ""}${eventId ? `&event_id=${eventId}` : ""}`
+        `https://api.inditechit.com/employee_activity_report?${
+          startDateEvent ? `startDate=${startDateEvent}` : ""
+        }${endDateEvent ? `&endDate=${endDateEvent}` : ""}${
+          eventId ? `&event_id=${eventId}` : ""
+        }`
       );
       const result = await res.json();
       setEmployeeReport(result?.data || []);
     } catch (err) {
       console.log(err);
-    } 
+    }
   };
-  
 
   const fetchEvents = async () => {
     const data: any = await request("/get_all_event_details", "GET");
@@ -122,31 +163,27 @@ setStartDate("")
   };
 
   const fetchActivityReport = async () => {
-let res:any;
+    let res: any;
     if (startDate || endDate) {
       res = await request(
         `/team_activity_report?startDate=${startDate}&endDate=${endDate}`,
         "GET"
       );
-    }else{
-      res = await request(
-        `/team_activity_report?`,
-        "GET"
-      );
-    
+    } else {
+      res = await request(`/team_activity_report?`, "GET");
     }
-  
+
     if (res?.success && Array.isArray(res.data)) {
       const grouped = res.data.reduce((acc: any, item: any) => {
         acc[item.team] = (acc[item.team] || 0) + item.total_leads;
         return acc;
       }, {});
-  
+
       const graphData = Object.keys(grouped).map((team) => ({
         team,
         total_leads: grouped[team],
       }));
-  
+
       setActivityReport(graphData);
     } else {
       toast({
@@ -156,8 +193,6 @@ let res:any;
       });
     }
   };
-  
-  
 
   const fetchUsers = async () => {
     const res = await request("/get_users", "GET");
@@ -190,7 +225,8 @@ let res:any;
     } else {
       toast({
         title: "Failed to load analytics",
-        description: res?.msg || "Something went wrong while fetching event summary.",
+        description:
+          res?.msg || "Something went wrong while fetching event summary.",
         variant: "destructive",
       });
     }
@@ -231,7 +267,11 @@ let res:any;
 
   // Create or update submit handler
   const handleCreateOrUpdateTeam = async () => {
-    if (!formData.team_name.trim() || !formData.manager_id || formData.employees_id.length === 0) {
+    if (
+      !formData.team_name.trim() ||
+      !formData.manager_id ||
+      formData.employees_id.length === 0
+    ) {
       toast({ title: "All fields are required", variant: "destructive" });
       return;
     }
@@ -265,6 +305,49 @@ let res:any;
     }
   };
 
+  const handleDownloadCSV = () => {
+    if (!employeeReport || employeeReport.length === 0) {
+      toast({
+        title: "No data available",
+        description: "Employee activity report is empty.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // CSV Headers
+    const headers = [
+      "Employee ID",
+      "Employee Name",
+      "Event Name",
+      "Lead Date",
+      "Total Leads",
+    ];
+
+    // Convert rows
+    const rows = employeeReport.map((row: any) => [
+      row.employee_id,
+      row.user_name,
+      row.event_name,
+      new Date(row.lead_date).toLocaleDateString(),
+      row.total_leads,
+    ]);
+
+    // Prepare CSV string
+    const csvContent = [headers, ...rows].map((e) => e.join(",")).join("\n");
+
+    // Trigger file download
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `employee_activity_report_${new Date()
+      .toISOString()
+      .slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="flex h-screen bg-background">
       <DashboardSidebar />
@@ -280,14 +363,18 @@ let res:any;
 
             <TabsContent value="analytics-overview" className="space-y-6">
               <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-semibold text-foreground">All Teams Analytics Overview</h1>
+                <h1 className="text-2xl font-semibold text-foreground">
+                  All Teams Analytics Overview
+                </h1>
               </div>
 
               {/* Summary Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Total Events</CardTitle>
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      Total Events
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-end space-x-4">
@@ -302,10 +389,12 @@ let res:any;
                     </div>
                   </CardContent>
                 </Card>
-             
+
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Active Events</CardTitle>
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      Active Events
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-end space-x-4">
@@ -321,149 +410,196 @@ let res:any;
                   </CardContent>
                 </Card>
                 <Card>
-  <CardHeader>
-    <CardTitle>Template Usage Analytics</CardTitle>
-  </CardHeader>
+                  <CardHeader>
+                    <CardTitle>Template Usage Analytics</CardTitle>
+                  </CardHeader>
+                  <div className="flex gap-6 items-end justify-between p-6">
+                    <div className="flex flex-col">
+                      <Label>Start Date</Label>
+                      <Input
+                        type="date"
+                        value={startDateTemplate}
+                        onChange={(e) => setStartDateTemplate(e.target.value)}
+                      />
+                    </div>
 
-  <CardContent className="h-72">
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={templateUsage}>
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="template_name" tick={{ fontSize: 12 }} />
-        <YAxis />
-        <Tooltip />
-        
-        {/* Set bar color here */}
-        <Bar dataKey="usage_count" fill="#FF4D00" />
-      </BarChart>
-    </ResponsiveContainer>
-  </CardContent>
-</Card>
+                    <div className="flex flex-col">
+                      <Label>End Date</Label>
+                      <Input
+                        type="date"
+                        value={endDateTemplate}
+                        onChange={(e) => setEndDateTemplate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <CardContent className="h-72">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={templateUsage}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis
+                          dataKey="template_name"
+                          tick={{ fontSize: 12 }}
+                        />
+                        <YAxis />
+                        <Tooltip />
 
-<Card>
-<CardHeader>
-    <CardTitle>Team Activity Report</CardTitle>
-  </CardHeader>
-  {/* Filters Row */}
-  <div className="flex gap-6 items-end justify-between p-6">
-    <div className="flex flex-col">
-      <Label>Start Date</Label>
-      <Input
-        type="date"
-        value={startDate}
-        onChange={(e) => setStartDate(e.target.value)}
-      />
-    </div>
+                        {/* Set bar color here */}
+                        <Bar dataKey="usage_count" fill="#FF4D00" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                  <div className="flex justify-center pb-4">
+                    <Button
+                      onClick={handleClearDateTemplate}
+                      disabled={loading}
+                      className="px-10"
+                    >
+                      Clear Filter
+                    </Button>
+                  </div>
+                </Card>
 
-    <div className="flex flex-col">
-      <Label>End Date</Label>
-      <Input
-        type="date"
-        value={endDate}
-        onChange={(e) => setEndDate(e.target.value)}
-      />
-    </div>
-  </div>
-  {/* Chart */}
-  <CardContent className="h-72">
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={activityReport}>
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="team" tick={{ fontSize: 12 }} />
-        <YAxis />
-        <Tooltip />
-        <Bar dataKey="total_leads" fill="#6A5ACD" />
-      </BarChart>
-    </ResponsiveContainer>
-  </CardContent>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Team Activity Report</CardTitle>
+                  </CardHeader>
+                  {/* Filters Row */}
+                  <div className="flex gap-6 items-end justify-between p-6">
+                    <div className="flex flex-col">
+                      <Label>Start Date</Label>
+                      <Input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                      />
+                    </div>
 
-  {/* Button centered bottom */}
-  <div className="flex justify-center pb-4">
-    <Button onClick={handleClearDate} disabled={loading} className="px-10">
-      Clear Filter
-    </Button>
-  </div>
-</Card>
+                    <div className="flex flex-col">
+                      <Label>End Date</Label>
+                      <Input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  {/* Chart */}
+                  <CardContent className="h-72">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={activityReport}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="team" tick={{ fontSize: 12 }} />
+                        <YAxis />
+                        <Tooltip />
+                        <Bar dataKey="total_leads" fill="#6A5ACD" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
 
-<Card>
-<CardHeader>
-    <CardTitle>Employee Activity Report</CardTitle>
-  </CardHeader>
-  <div className="flex gap-6 items-end justify-between p-4">
-
-    <div className="flex flex-col">
-      <Label>Start Date</Label>
-      <Input
-        type="date"
-        value={startDateEvent}
-        onChange={(e) => setStartDateEvent(e.target.value)}
-      />
-    </div>
-
-    <div className="flex flex-col">
-      <Label>End Date</Label>
-      <Input
-        type="date"
-        value={endDateEvent}
-        onChange={(e) => setEndDateEvent(e.target.value)}
-      />
-    </div>
-
-    <div className="flex flex-col">
-      <Label>Select Event</Label>
-      <select
-        className="border rounded p-2"
-        value={eventId}
-        onChange={(e) => setEventId(e.target.value)}
-      >
-        <option value="">-- Select Event --</option>
-        {events.map((ev) => (
-          <option key={ev.event_id} value={ev.event_id}>
-            {ev.event_name}
-          </option>
-        ))}
-      </select>
-    </div>
-
-  </div>
-
-  {employeeReport.length > 0 ? (
-  <table className="table-auto w-full mt-4 border">
-    <thead>
-      <tr className="bg-slate-200">
-        <th className="border p-2">Employee ID</th>
-        <th className="border p-2">Employee Name</th>
-        <th className="border p-2">Event Name</th>
-        <th className="border p-2">Lead Date</th>
-        <th className="border p-2">Total Leads</th>
-      </tr>
-    </thead>
-    <tbody>
-      {employeeReport.map((row, i) => (
-        <tr key={i}>
-          <td className="border p-2">{row.employee_id}</td>
-          <td className="border p-2">{row.user_name}</td>
-          <td className="border p-2">{row.event_name}</td>
-          <td className="border p-2">
-            {new Date(row.lead_date).toLocaleDateString()}
-          </td>
-          <td className="border p-2">{row.total_leads}</td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
-) : (
-  <p className="text-center mt-4">No records found</p>
-)}
-
-<div className="flex justify-center m-4">
-    <Button onClick={handleClearDateforEvent} disabled={loading}>
-      Clear Filter
-    </Button>
-  </div>
-</Card>
-
+                  {/* Button centered bottom */}
+                  <div className="flex justify-center pb-4">
+                    <Button
+                      onClick={handleClearDate}
+                      disabled={loading}
+                      className="px-10"
+                    >
+                      Clear Filter
+                    </Button>
+                  </div>
+                </Card>
               </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-end justify-between">
+                    <h1>Employee Activity Report</h1>
+                    <Button onClick={handleDownloadCSV} disabled={loading}>
+                      Download CSV
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
+                <div className="flex gap-6 items-end justify-between p-4">
+                  <div className="flex flex-col">
+                    <Label>Start Date</Label>
+                    <Input
+                      type="date"
+                      value={startDateEvent}
+                      onChange={(e) => setStartDateEvent(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="flex flex-col">
+                    <Label>End Date</Label>
+                    <Input
+                      type="date"
+                      value={endDateEvent}
+                      onChange={(e) => setEndDateEvent(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="flex flex-col">
+                    <Label>Select Event</Label>
+                    <select
+                      className="border rounded p-2"
+                      value={eventId}
+                      onChange={(e) => setEventId(e.target.value)}
+                    >
+                      <option value="">-- Select Event --</option>
+                      {events.map((ev) => (
+                        <option key={ev.event_id} value={ev.event_id}>
+                          {ev.event_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex flex-col">
+                    <Label>Search by Employee Name</Label>
+                    <Input
+                      placeholder="Enter employee name"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-72 border-0 focus:ring-0 focus:outline-none focus:border-0"
+                      style={{
+                        boxShadow: "none",
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {filteredReport.length > 0 ? (
+                  <table className="table-auto w-full mt-4 border">
+                    <thead>
+                      <tr className="bg-slate-200">
+                        <th className="border p-2">Employee ID</th>
+                        <th className="border p-2">Employee Name</th>
+                        <th className="border p-2">Event Name</th>
+                        <th className="border p-2">Lead Date</th>
+                        <th className="border p-2">Total Leads</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredReport.map((row, i) => (
+                        <tr key={i}>
+                          <td className="border p-2">{row.employee_id}</td>
+                          <td className="border p-2">{row.user_name}</td>
+                          <td className="border p-2">{row.event_name}</td>
+                          <td className="border p-2">
+                            {new Date(row.lead_date).toLocaleDateString()}
+                          </td>
+                          <td className="border p-2">{row.total_leads}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <p className="text-center mt-4">No records found</p>
+                )}
+
+                <div className="flex justify-center m-4">
+                  <Button onClick={handleClearDateforEvent} disabled={loading}>
+                    Clear Filter
+                  </Button>
+                </div>
+              </Card>
             </TabsContent>
 
             <TabsContent value="team-analytics">
@@ -474,22 +610,40 @@ let res:any;
                       <table className="w-full">
                         <thead className="bg-muted/30">
                           <tr>
-                            <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Team Id</th>
-                            <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Manager</th>
-                            <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Team Name</th>
-                            <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Members</th>
-                            <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
+                            <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                              Team Id
+                            </th>
+                            <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                              Manager
+                            </th>
+                            <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                              Team Name
+                            </th>
+                            <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                              Members
+                            </th>
+                            <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                              Actions
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
                           {teams?.map((team) => (
-                            <tr key={team.team_id} className="border-b hover:bg-muted/20">
+                            <tr
+                              key={team.team_id}
+                              className="border-b hover:bg-muted/20"
+                            >
                               <td className="py-3 px-4">{team.team_id}</td>
                               <td className="py-3 px-4">{team.manager_name}</td>
                               <td className="py-3 px-4">{team.team_name}</td>
-                              <td className="py-3 px-4">{team.members.length}</td>
                               <td className="py-3 px-4">
-                                <Button onClick={() => openTeamDialog(team)} variant="outline">
+                                {team.members.length}
+                              </td>
+                              <td className="py-3 px-4">
+                                <Button
+                                  onClick={() => openTeamDialog(team)}
+                                  variant="outline"
+                                >
                                   Edit Team
                                 </Button>
                               </td>
@@ -500,8 +654,6 @@ let res:any;
                     </div>
                   </CardContent>
                 </Card>
-               
-
               </div>
             </TabsContent>
           </Tabs>
@@ -512,7 +664,9 @@ let res:any;
       <Dialog open={teamDialogOpen} onOpenChange={setTeamDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editTeamObj ? "Edit Team" : "Create a New Team"}</DialogTitle>
+            <DialogTitle>
+              {editTeamObj ? "Edit Team" : "Create a New Team"}
+            </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 mt-4">
@@ -542,7 +696,10 @@ let res:any;
                 <SelectContent>
                   {users.length > 0 ? (
                     users.map((user) => (
-                      <SelectItem key={user.employee_id} value={String(user.employee_id)}>
+                      <SelectItem
+                        key={user.employee_id}
+                        value={String(user.employee_id)}
+                      >
                         {user.user_name}
                       </SelectItem>
                     ))
@@ -569,15 +726,17 @@ let res:any;
                     >
                       <div
                         className={`flex items-center justify-between w-full ${
-                          formData.employees_id.includes(String(user.employee_id))
+                          formData.employees_id.includes(
+                            String(user.employee_id)
+                          )
                             ? "font-semibold text-primary"
                             : ""
                         }`}
                       >
                         <span>{user.user_name}</span>
-                        {formData.employees_id.includes(String(user.employee_id)) && (
-                          <X className="w-4 h-4" />
-                        )}
+                        {formData.employees_id.includes(
+                          String(user.employee_id)
+                        ) && <X className="w-4 h-4" />}
                       </div>
                     </CommandItem>
                   ))}
@@ -589,9 +748,16 @@ let res:any;
                 {formData.employees_id.map((id) => {
                   const emp = users.find((u) => String(u.employee_id) === id);
                   return (
-                    <Badge key={id} className="flex items-center space-x-1" variant="secondary">
+                    <Badge
+                      key={id}
+                      className="flex items-center space-x-1"
+                      variant="secondary"
+                    >
                       <span>{emp?.user_name || `User ${id}`}</span>
-                      <X className="w-3 h-3 cursor-pointer" onClick={() => toggleEmployee(id)} />
+                      <X
+                        className="w-3 h-3 cursor-pointer"
+                        onClick={() => toggleEmployee(id)}
+                      />
                     </Badge>
                   );
                 })}
@@ -605,7 +771,13 @@ let res:any;
               Cancel
             </Button>
             <Button onClick={handleCreateOrUpdateTeam} disabled={loading}>
-              {loading ? (editTeamObj ? "Updating..." : "Creating...") : editTeamObj ? "Update" : "Create"}
+              {loading
+                ? editTeamObj
+                  ? "Updating..."
+                  : "Creating..."
+                : editTeamObj
+                ? "Update"
+                : "Create"}
             </Button>
           </div>
         </DialogContent>

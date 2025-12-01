@@ -230,34 +230,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
           <div className="grid grid-cols-2 gap-6 mt-4">
             
             {/* ================= TEMPLATE DROPDOWN ⭐ NEW ================= */}
-            <div>
-              <Label>Select Template *</Label>
-              <Select
-                value={formData.template_id}
-                onValueChange={(val) =>
-                  handleSelectChange("template_id", val)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Template" />
-                </SelectTrigger>
-
-                <SelectContent>
-                  {templates.length > 0 ? (
-                    templates.map((tpl) => (
-                      <SelectItem key={tpl.id} value={String(tpl.id)}>
-                        {tpl.template_name}
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem value="none" disabled>
-                      No Templates Available
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-
+      
             {/* EVENT STATUS */}
             <div>
               <Label>Event Status *</Label>
@@ -265,7 +238,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 value={formData.status}
                 onValueChange={(val) => handleSelectChange("status", val)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="border-gray focus:border-gray">
                   <SelectValue placeholder="Select Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -282,7 +255,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 value={formData.team}
                 onValueChange={(val) => handleSelectChange("team", val)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="border-gray focus:border-gray">
                   <SelectValue placeholder="Select Team" />
                 </SelectTrigger>
                 <SelectContent>
@@ -309,6 +282,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 placeholder="Enter event name"
                 value={formData.eventName}
                 onChange={handleChange}
+                className="border-gray focus:border-gray"
               />
             </div>
 
@@ -319,7 +293,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 value={formData.eventSize}
                 onValueChange={(val) => handleSelectChange("eventSize", val)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="border-gray focus:border-gray">
                   <SelectValue placeholder="Select Event Size" />
                 </SelectTrigger>
                 <SelectContent>
@@ -361,6 +335,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 placeholder="Enter location"
                 value={formData.location}
                 onChange={handleChange}
+                className="border-gray focus:border-gray"
               />
             </div>
 
@@ -372,6 +347,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 type="number"
                 value={formData.budget}
                 onChange={handleChange}
+                className="border-gray focus:border-gray"
               />
             </div>
 
@@ -383,6 +359,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 type="number"
                 value={formData.totalLeads}
                 onChange={handleChange}
+                className="border-gray focus:border-gray"
               />
             </div>
 
@@ -394,8 +371,37 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 type="number"
                 value={formData.priorityLeads}
                 onChange={handleChange}
+                className="border-gray focus:border-gray"
               />
             </div>
+            <div>
+              <Label>Select Template *</Label>
+              <Select
+                value={formData.template_id}
+                onValueChange={(val) =>
+                  handleSelectChange("template_id", val)
+                }
+              >
+                <SelectTrigger className="border-gray focus:border-gray">
+                  <SelectValue placeholder="Select Template" />
+                </SelectTrigger>
+
+                <SelectContent>
+                  {templates.length > 0 ? (
+                    templates.map((tpl) => (
+                      <SelectItem key={tpl.id} value={String(tpl.id)}>
+                        {tpl.template_name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="none" disabled>
+                      No Templates Available
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
           </div>
 
           {/* ACTION BUTTONS */}

@@ -115,16 +115,41 @@ function Templates() {
     setDeleteDialog({ open: true, templateId });
   };
 
-  const confirmDelete = () => {
-    if (deleteDialog.templateId) {
-      setTemplates((prev) => prev.filter((item) => item.id !== deleteDialog.templateId));
-      setDeleteDialog({ open: false, templateId: null });
+  const confirmDelete = async () => {
+    if (!deleteDialog.templateId) return;
+  
+    try {
+      const res = await request(
+        `/delete_form_template?template_id=${deleteDialog.templateId}`,
+        "DELETE"
+      );
+  
+      if (res?.success) {
+        toast({
+          title: "Success",
+          description: "Template deleted successfully"
+        });
+  
+        fetchTemplates(); // refresh table
+      } else {
+        toast({
+          title: "Delete Failed",
+          description: res?.error || res?.message || "Cannot delete template. It is assigned to one or more events.",
+          variant: "destructive"
+        });
+        
+      }
+    } catch (error) {
       toast({
-        title: "Success",
-        description: "Template deleted successfully"
+        title: "Error",
+        description: "Unable to delete template",
+        variant: "destructive"
       });
     }
+  
+    setDeleteDialog({ open: false, templateId: null });
   };
+  
 
   // ================= TOGGLE CHECKBOX =================
   const toggleField = (label: string) => {
@@ -196,6 +221,7 @@ function Templates() {
                 <TableHead>ID</TableHead>
                 <TableHead>Template Name</TableHead>
                 <TableHead>Fields</TableHead>
+                <TableHead>Image</TableHead>
                 <TableHead>Created At</TableHead>
                 <TableHead className="w-32">Actions</TableHead>
               </TableRow>
@@ -217,6 +243,16 @@ function Templates() {
                       {tpl.fields
                         ?.map((f: any) => convertToLabel(f.field_name))
                         .join(", ")}
+                    </TableCell>
+                    <TableCell>{
+                       tpl.template_image &&
+                       <img 
+                                 src={`${tpl.template_image}`} 
+                                 alt="signature" 
+                                 style={{height:"80px", width:"100px", objectFit:"cover"}}
+                               />
+                      }
+                   
                     </TableCell>
                     <TableCell>
                       {new Date(tpl.created_at).toLocaleString()}

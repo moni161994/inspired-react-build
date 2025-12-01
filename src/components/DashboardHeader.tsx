@@ -81,6 +81,21 @@ export function DashboardHeader() {
   const [templateName, setTemplateName] = useState("");
   const [templateDescription, setTemplateDescription] = useState("");
   const [selectedFields, setSelectedFields] = useState<string[]>([]); // stores api keys like "phone_numbers"
+  const [templateLogoBase64, setTemplateLogoBase64] = useState<string>("");
+
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+  
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setTemplateLogoBase64(reader.result as string); // store Base64
+      console.log("Base64 file:", reader.result); // ✅ this will log Base64
+    };
+    reader.readAsDataURL(file); // converts file to Base64
+  };
+  
 
   // Toggle field selection
   const toggleField = (label: string) => {
@@ -127,11 +142,13 @@ export function DashboardHeader() {
     }
 
     setLoading(true);
+    
 
     const payload = {
       templateName: templateName,
       description: templateDescription,
       fields: buildFieldsPayload(),
+      template_image_base64: templateLogoBase64
     };
 
     try {
@@ -184,7 +201,7 @@ export function DashboardHeader() {
       }
     };
     fetchUsers();
-  }, []);
+  }, [teamDialogOpen]);
 
   const handleLogout = () => {
     logout();
@@ -441,7 +458,7 @@ export function DashboardHeader() {
             id="logo-upload"
             type="file"
             accept="image/*"
-            // onChange={handleLogoUpload}
+            onChange={handleLogoUpload}
             className="mt-1 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
           />
           </div>
