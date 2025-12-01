@@ -68,7 +68,7 @@ export default function Reports() {
                   <CardTitle>Consent Granted</CardTitle>
                 </CardHeader>
                 <CardContent className="text-3xl font-bold text-green-600">
-                  {summary.total_granted}
+                  {summary.granted}
                 </CardContent>
               </Card>
 
@@ -77,7 +77,7 @@ export default function Reports() {
                   <CardTitle>Consent Denied</CardTitle>
                 </CardHeader>
                 <CardContent className="text-3xl font-bold text-red-600">
-                  {summary.total_denied}
+                  {summary.denied}
                 </CardContent>
               </Card>
 
@@ -86,7 +86,7 @@ export default function Reports() {
                   <CardTitle>Missing Consent</CardTitle>
                 </CardHeader>
                 <CardContent className="text-3xl font-bold text-yellow-600">
-                  {summary.total_missing}
+                  {summary.missing}
                 </CardContent>
               </Card>
 
