@@ -21,7 +21,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
-
 // Helper to format ISO date to locale string
 const formatDate = (isoStr: string | null | undefined) => {
   if (!isoStr) return "-";
@@ -34,6 +33,51 @@ const formatDate = (isoStr: string | null | undefined) => {
 };
 
 // Helper function to convert array of leads to CSV string
+// const convertLeadsToCSV = (leads: any[]) => {
+//   const headers = [
+//     "Name",
+//     "Company",
+//     "Designation",
+//     "Phone Number",
+//     "Email",
+//     "Event Name",
+//     "Created At",
+//     "City",
+//     "State",
+//     "ZIP",
+//     "Country",
+//     "Area of Interest",
+//     "Disclaimer",
+//   ];
+
+//   const rows = leads.map((lead) => [
+//     lead.name || "",
+//     lead.company || "",
+//     lead.designation || "",
+//     (lead.phone_numbers && lead.phone_numbers[0]) || "",
+//     (lead.emails && lead.emails[0]) || "",
+//     lead.event_name || "",
+//     lead.created_at ? formatDate(lead.created_at) : "",
+//     lead.city || "",
+//     lead.state || "",
+//     lead.zip || "",
+//     lead.country || "",
+//     lead.area_of_interest || "",
+//     lead.disclaimer || "",
+//   ]);
+
+//   const csvContent = [
+//     headers.join(","),
+//     ...rows.map((row) =>
+//       row
+//         .map((item) => `"${String(item).replace(/"/g, '""')}"`) // escape quotes
+//         .join(",")
+//     ),
+//   ].join("\n");
+
+//   return csvContent;
+// };
+// Updated CSV conversion function - Add this replacement
 const convertLeadsToCSV = (leads: any[]) => {
   const headers = [
     "Name",
@@ -41,6 +85,7 @@ const convertLeadsToCSV = (leads: any[]) => {
     "Designation",
     "Phone Number",
     "Email",
+    "Lead Type",        // NEW COLUMN
     "Event Name",
     "Created At",
     "City",
@@ -51,12 +96,25 @@ const convertLeadsToCSV = (leads: any[]) => {
     "Disclaimer",
   ];
 
+  function getLeadType(lead: any) {
+    if (!lead.image_url) {
+      return "Manual Lead";
+    }
+    if (lead.image_url && (!lead.emails || lead.emails.length === 0)) {
+      return "Badge";
+    }
+    if (lead.image_url && lead.emails && lead.emails.length > 0) {
+      return "Visiting Card";
+    }
+    return "Manual Lead";
+  }
   const rows = leads.map((lead) => [
     lead.name || "",
     lead.company || "",
     lead.designation || "",
     (lead.phone_numbers && lead.phone_numbers[0]) || "",
     (lead.emails && lead.emails[0]) || "",
+    getLeadType(lead),  // NEW COLUMN - Uses existing getLeadType function
     lead.event_name || "",
     lead.created_at ? formatDate(lead.created_at) : "",
     lead.city || "",
@@ -109,28 +167,42 @@ export default function Teams() {
     }
     return "manual_lead";
   }
-  console.log(leadData,"-------------------------------");
-  const filteredLeads = leadData
+  const filteredLeads = leadData.filter((lead) => {
+    // Normalize values for safer checks
+    const eventName = (lead.event_name || "").toLowerCase();
+    const leadName = (lead.name || "").toLowerCase();
+    const filterEvent = eventNameFilter.toLowerCase();
+    const filterName = leadNameFilter.toLowerCase();
+  
+    const matchesEvent = eventName.includes(filterEvent);
+    const matchesName = leadName.includes(filterName);
+    const matchesType = !leadTypeFilter || getLeadType(lead) === leadTypeFilter;
+  
+    // Parse lead date safely
+    const leadDate = lead.created_at ? new Date(lead.created_at) : null;
+    const startDate = startDateFilter ? new Date(startDateFilter) : null;
+    const endDate = endDateFilter ? new Date(endDateFilter) : null;
+  
+    // Check for valid date objects before comparisons
+    const afterStartDate = !startDate || (leadDate && leadDate >= startDate);
+    const beforeEndDate = !endDate || (leadDate && leadDate <= endDate);
+  
+    return matchesEvent && matchesName && matchesType && afterStartDate && beforeEndDate;
+  });
+  
+  // const filteredLeads = leadData
+  // Uncomment when you want filtering back:
   // const filteredLeads = leadData.filter((lead) => {
-  //   // filter event name contains
   //   const matchesEvent = lead.event_name
   //     ?.toLowerCase()
   //     .includes(eventNameFilter.toLowerCase());
-  //   // filter lead name contains
   //   const matchesName = lead.name
   //     ?.toLowerCase()
   //     .includes(leadNameFilter.toLowerCase());
-
-  //   // filter by type
-  //   const matchesType =
-  //     !leadTypeFilter || getLeadType(lead) === leadTypeFilter;
-
-  //   // filter start date & end date range - consider lead.created_at date
+  //   const matchesType = !leadTypeFilter || getLeadType(lead) === leadTypeFilter;
   //   const leadDate = new Date(lead.created_at);
-  //   const afterStartDate =
-  //     !startDateFilter || leadDate >= new Date(startDateFilter);
+  //   const afterStartDate = !startDateFilter || leadDate >= new Date(startDateFilter);
   //   const beforeEndDate = !endDateFilter || leadDate <= new Date(endDateFilter);
-
   //   return matchesEvent && matchesName && afterStartDate && beforeEndDate && matchesType;
   // });
 
@@ -138,7 +210,7 @@ export default function Teams() {
   const fetchLeadData = async () => {
     const res = await request(`/get_all_leads`, "GET");
     if (res && res.success === true && res.data) {
-      setLeadData(res.data );
+      setLeadData(res.data);
     } else {
       toast({
         variant: "destructive",
@@ -148,14 +220,11 @@ export default function Teams() {
     }
   };
 
-console.log("data", leadData);
-
-
   useEffect(() => {
     fetchLeadData();
   }, []);
 
-  // Delete lead handler (unchanged)
+  // Delete lead handler
   const handleDelete = async (lead_id: any) => {
     try {
       const res = await request(`/delete_lead?lead_id=${lead_id}`, "DELETE");
@@ -215,7 +284,6 @@ console.log("data", leadData);
 
   const totalLeads = filteredLeads.length;
   const totalPages = Math.ceil(totalLeads / itemsPerPage);
-  // console.log(filteredLeads,"++++++++++++++++++++++++++++++++");
   
   const paginatedLeads = filteredLeads.slice(
     (currentPage - 1) * itemsPerPage,
@@ -298,9 +366,6 @@ console.log("data", leadData);
                     <option value="manual_lead">Manual Lead</option>
                   </select>
                 </div>
-
-                {/* Optionally add date filters back if needed, currently commented out */}
-
               </div>
 
               {/* Download CSV Button */}
@@ -342,14 +407,13 @@ console.log("data", leadData);
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
                         Actions
                       </th>
-                     
                     </tr>
                   </thead>
                   <tbody>
                     {paginatedLeads.length === 0 && (
                       <tr>
                         <td
-                          colSpan={7}
+                          colSpan={8}
                           className="py-6 text-center text-muted-foreground"
                         >
                           No leads found for the filter.
@@ -381,12 +445,14 @@ console.log("data", leadData);
                           {lead?.emails?.[0] || "-"}
                         </td>
                         <td className="py-3 px-4 text-foreground">
-                          {
-                            lead?.signature && <img src={`data:image/png;base64, ${lead?.signature}`} alt="signature" style={{height:"80px",width:"100px",objectFit:"cover"}} />
-                          }
-                        
+                          {lead?.signature && (
+                            <img 
+                              src={`data:image/png;base64,${lead?.signature}`} 
+                              alt="signature" 
+                              style={{height:"80px", width:"100px", objectFit:"cover"}}
+                            />
+                          )}
                         </td>
-                       
                         <td className="py-3 px-4 text-foreground">
                           {lead?.event_name || "Active Event"}
                         </td>
@@ -444,119 +510,146 @@ console.log("data", leadData);
             </Button>
           </div>
 
-          {/* Lead Details Popup */}
+          {/* Lead Details Popup - FIXED IMAGE CONTAINER */}
           <Dialog
             open={selectedLead !== null}
             onOpenChange={() => setSelectedLead(null)}
           >
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
+            <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+              <DialogHeader className="p-6 pb-4">
                 <DialogTitle>Lead Details</DialogTitle>
                 <DialogDescription>
                   Details of lead: <strong>{selectedLead?.name}</strong>
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="flex flex-col md:flex-row gap-6 my-4">
-                {/* Left: Text fields */}
-                <div className="flex-1 space-y-3">
-                  {selectedLead?.company && (
-                    <div>
-                      <strong>Company:</strong> {selectedLead.company}
+              <div className="p-6 max-h-[calc(90vh-140px)] overflow-y-auto">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                  {/* Left: Text fields */}
+                  <div className="space-y-3 pr-4 max-h-[calc(90vh-200px)] overflow-y-auto">
+                    {selectedLead?.company && (
+                      <div>
+                        <strong>Company:</strong> {selectedLead.company}
+                      </div>
+                    )}
+                    {selectedLead?.designation && (
+                      <div>
+                        <strong>Designation:</strong> {selectedLead.designation}
+                      </div>
+                    )}
+                    {selectedLead?.phone_numbers && selectedLead.phone_numbers.length > 0 && (
+                      <div>
+                        <strong>Phone Numbers:</strong> {selectedLead.phone_numbers.join(", ")}
+                      </div>
+                    )}
+                    {selectedLead?.emails && selectedLead.emails.length > 0 && (
+                      <div>
+                        <strong>Emails:</strong> {selectedLead.emails.join(", ")}
+                      </div>
+                    )}
+                    {selectedLead?.websites && selectedLead.websites.length > 0 && (
+                      <div>
+                        <strong>Websites:</strong> {selectedLead.websites.join(", ")}
+                      </div>
+                    )}
+                    {selectedLead?.other && selectedLead.other.length > 0 && (
+                      <div>
+                        <strong>Other Info:</strong> {selectedLead.other.join(", ")}
+                      </div>
+                    )}
+                    {selectedLead?.created_at && (
+                      <div>
+                        <strong>Created At:</strong> {formatDate(selectedLead.created_at)}
+                      </div>
+                    )}
+                    {selectedLead?.event_name && (
+                      <div>
+                        <strong>Event Name:</strong> {selectedLead.event_name}
+                      </div>
+                    )}
+                    {selectedLead?.qr_data && (
+                      <div>
+                        <strong>QR Data:</strong> {selectedLead.qr_data}
+                      </div>
+                    )}
+                    {selectedLead?.city && (
+                      <div>
+                        <strong>City:</strong> {selectedLead.city}
+                      </div>
+                    )}
+                    {selectedLead?.state && (
+                      <div>
+                        <strong>State:</strong> {selectedLead.state}
+                      </div>
+                    )}
+                    {selectedLead?.zip && (
+                      <div>
+                        <strong>ZIP:</strong> {selectedLead.zip}
+                      </div>
+                    )}
+                    {selectedLead?.country && (
+                      <div>
+                        <strong>Country:</strong> {selectedLead.country}
+                      </div>
+                    )}
+                    {selectedLead?.area_of_interest && (
+                      <div>
+                        <strong>Area of Interest:</strong> {selectedLead.area_of_interest}
+                      </div>
+                    )}
+                    {selectedLead?.disclaimer && (
+                      <div>
+                        <strong>Disclaimer:</strong> {selectedLead.disclaimer}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Right: Image - FIXED CONTAINER */}
+                  {selectedLead?.image_url && (
+                    <div className="flex flex-col items-center gap-4 p-4 bg-muted/20 rounded-lg h-fit max-h-[calc(90vh-200px)]">
+                      <div className="flex-1 flex flex-col items-center justify-center">
+                        <div className="w-full max-w-xs h-64 flex items-center justify-center bg-background border rounded-lg shadow-md overflow-hidden">
+                          <a
+                            href={selectedLead.image_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block w-full h-full p-2"
+                          >
+                            <img
+                              src={selectedLead.image_url}
+                              alt="Lead image"
+                              className="w-full h-full object-contain rounded border"
+                            />
+                          </a>
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm text-muted-foreground">Click image to view full size</p>
+                      </div>
                     </div>
                   )}
-                  {selectedLead?.designation && (
-                    <div>
-                      <strong>Designation:</strong> {selectedLead.designation}
-                    </div>
-                  )}
-                  {selectedLead?.phone_numbers && selectedLead.phone_numbers.length > 0 && (
-                    <div>
-                      <strong>Phone Numbers:</strong> {selectedLead.phone_numbers.join(", ")}
-                    </div>
-                  )}
-                  {selectedLead?.emails && selectedLead.emails.length > 0 && (
-                    <div>
-                      <strong>Emails:</strong> {selectedLead.emails.join(", ")}
-                    </div>
-                  )}
-                  {selectedLead?.websites && selectedLead.websites.length > 0 && (
-                    <div>
-                      <strong>Websites:</strong> {selectedLead.websites.join(", ")}
-                    </div>
-                  )}
-                  {selectedLead?.other && selectedLead.other.length > 0 && (
-                    <div>
-                      <strong>Other Info:</strong> {selectedLead.other.join(", ")}
-                    </div>
-                  )}
-                  {selectedLead?.created_at && (
-                    <div>
-                      <strong>Created At:</strong> {formatDate(selectedLead.created_at)}
-                    </div>
-                  )}
-                  {selectedLead?.event_name && (
-                    <div>
-                      <strong>Event Name:</strong> {selectedLead.event_name}
-                    </div>
-                  )}
-                  {selectedLead?.qr_data && (
-                    <div>
-                      <strong>QR Data:</strong> {selectedLead.qr_data}
-                    </div>
-                  )}
-                  {selectedLead?.city && (
-                    <div>
-                      <strong>City:</strong> {selectedLead.city}
-                    </div>
-                  )}
-                  {selectedLead?.state && (
-                    <div>
-                      <strong>State:</strong> {selectedLead.state}
-                    </div>
-                  )}
-                  {selectedLead?.zip && (
-                    <div>
-                      <strong>ZIP:</strong> {selectedLead.zip}
-                    </div>
-                  )}
-                  {selectedLead?.country && (
-                    <div>
-                      <strong>Country:</strong> {selectedLead.country}
-                    </div>
-                  )}
-                  {selectedLead?.area_of_interest && (
-                    <div>
-                      <strong>Area of Interest:</strong> {selectedLead.area_of_interest}
-                    </div>
-                  )}
-                  {selectedLead?.disclaimer && (
-                    <div>
-                      <strong>Disclaimer:</strong> {selectedLead.disclaimer}
+                  
+                  {/* Signature Image */}
+                  {selectedLead?.signature && (
+                    <div className="col-span-2 flex justify-center">
+                      <div className="w-full max-w-md p-4 bg-muted/20 rounded-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <strong className="text-lg">Signature</strong>
+                        </div>
+                        <div className="w-full h-32 bg-background border rounded-lg shadow-md overflow-hidden flex items-center justify-center">
+                          <img 
+                            src={`data:image/png;base64,${selectedLead.signature}`} 
+                            alt="Signature" 
+                            className="w-full h-full object-contain p-2"
+                          />
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
-                {/* Right: Image */}
-                {selectedLead?.image_url && (
-                  <div className="flex justify-center items-start md:items-center">
-                    <a
-                      href={selectedLead.image_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      tabIndex={-1}
-                    >
-                      <img
-                        src={selectedLead.image_url}
-                        alt="lead"
-                        className="w-64 h-64 object-contain rounded border shadow-lg cursor-pointer transition-transform duration-150 hover:scale-105"
-                        style={{ maxWidth: 180, maxHeight: 180 }}
-                      />
-                    </a>
-                  </div>
-                )}
               </div>
 
-              <DialogFooter>
+              <DialogFooter className="p-6 pt-0 border-t">
                 <Button variant="outline" onClick={() => setSelectedLead(null)}>
                   Close
                 </Button>

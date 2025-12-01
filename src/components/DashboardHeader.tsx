@@ -149,6 +149,7 @@ export function DashboardHeader() {
         setTemplateName("");
         setTemplateDescription("");
         setSelectedFields([]);
+        window.location.href = "/template";
       } else {
         toast({
           variant: "destructive",
@@ -435,6 +436,14 @@ export function DashboardHeader() {
                 })}
               </div>
             </div>
+            <Label>Brand Logo Image</Label>
+          <Input
+            id="logo-upload"
+            type="file"
+            accept="image/*"
+            // onChange={handleLogoUpload}
+            className="mt-1 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+          />
           </div>
 
           <div className="flex justify-end space-x-3 pt-6">
