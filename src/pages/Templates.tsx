@@ -70,6 +70,7 @@ function Templates() {
   const [selectedFields, setSelectedFields] = useState<any[]>([]);
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [templateImageBase64, setTemplateImageBase64] = useState(""); // New state for image
 
   // ================= FETCH TEMPLATE LIST =================
   const fetchTemplates = async () => {
@@ -96,6 +97,7 @@ function Templates() {
 
     setEditName(tpl.template_name);
     setEditDescription(tpl.description);
+    setTemplateImageBase64(""); // Reset image on edit
 
     // Convert API keys to UI selected labels
     const mapped = tpl.fields.map((f: any) => convertToLabel(f.field_name));
@@ -108,6 +110,19 @@ function Templates() {
     }));
 
     setSelectedFields(fieldsForState);
+  };
+
+  // ================= IMAGE HANDLER =================
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = (reader.result as string).split(',')[1]; // Remove data:image/... prefix
+        setTemplateImageBase64(base64);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   // ================= DELETE HANDLER =================
@@ -137,7 +152,6 @@ function Templates() {
           description: res?.error || res?.message || "Cannot delete template. It is assigned to one or more events.",
           variant: "destructive"
         });
-        
       }
     } catch (error) {
       toast({
@@ -149,7 +163,6 @@ function Templates() {
   
     setDeleteDialog({ open: false, templateId: null });
   };
-  
 
   // ================= TOGGLE CHECKBOX =================
   const toggleField = (label: string) => {
@@ -176,11 +189,16 @@ function Templates() {
 
   // ================= UPDATE TEMPLATE =================
   const handleUpdate = async () => {
-    const payload = {
+    const payload: any = {
       template_name: editName,
       description: editDescription,
       fields: selectedFields
     };
+
+    // Add image only if a new one was selected
+    if (templateImageBase64) {
+      payload.template_image_base64 = templateImageBase64;
+    }
 
     const res = await request(
       `/edit_form_template?template_id=${editing.id}`,
@@ -195,6 +213,7 @@ function Templates() {
       });
 
       setEditing(null);
+      setTemplateImageBase64(""); // Reset image
       fetchTemplates();
     } else {
       toast({
@@ -230,7 +249,7 @@ function Templates() {
             <TableBody>
               {templates.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center p-5 h-24">
+                  <TableCell colSpan={6} className="text-center p-5 h-24">
                     No templates found
                   </TableCell>
                 </TableRow>
@@ -245,15 +264,14 @@ function Templates() {
                         .join(", ")}
                     </TableCell>
                     <TableCell>{
-                       tpl.template_image &&
-                       <img 
-                                 src={`${tpl.template_image}`} 
-                                 alt="signature" 
-                                 style={{height:"80px", width:"100px", objectFit:"cover"}}
-                               />
-                      }
-                   
-                    </TableCell>
+                      tpl.template_image && (
+                        <img 
+                          src={tpl.template_image} 
+                          alt="template" 
+                          style={{height:"80px", width:"100px", objectFit:"cover"}}
+                        />
+                      )
+                    }</TableCell>
                     <TableCell>
                       {new Date(tpl.created_at).toLocaleString()}
                     </TableCell>
@@ -321,6 +339,28 @@ function Templates() {
                     />
                   </div>
 
+                  {/* New Image Upload Section */}
+                  <div>
+                    <label className="text-sm font-semibold mb-1 block">Template Image</label>
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="w-full"
+                    />
+                    {templateImageBase64 && (
+                      <div className="mt-2">
+                        <img 
+                          src={`data:image/png;base64,${templateImageBase64}`} 
+                          alt="preview" 
+                          style={{height:"80px", width:"100px", objectFit:"cover"}}
+                          className="rounded border mt-1"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">Image selected</p>
+                      </div>
+                    )}
+                  </div>
+
                   <div>
                     <label className="text-sm font-semibold mb-2 block">Select Fields</label>
                     <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
@@ -345,7 +385,10 @@ function Templates() {
                 <div className="flex gap-4 justify-end">
                   <Button 
                     variant="outline" 
-                    onClick={() => setEditing(null)}
+                    onClick={() => {
+                      setEditing(null);
+                      setTemplateImageBase64("");
+                    }}
                     type="button"
                   >
                     Cancel

@@ -515,7 +515,7 @@ export default function Teams() {
             open={selectedLead !== null}
             onOpenChange={() => setSelectedLead(null)}
           >
-            <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+            <DialogContent className="max-w-4xl max-h-[90vh] p-0 flex flex-col justify-center item-center">
               <DialogHeader className="p-6 pb-4">
                 <DialogTitle>Lead Details</DialogTitle>
                 <DialogDescription>

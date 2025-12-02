@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 
 export default function Reports() {
   const { request, loading, error } = useApi<any>();
@@ -51,6 +52,39 @@ export default function Reports() {
     if (filter === "missing") return item.consent_status === "missing";
     return true;
   });
+
+  const handleDownloadCSV = () => {
+    if (!filteredReports || filteredReports.length === 0) return;
+
+    const headers = [
+      "Lead ID",
+      "Name",
+      "Event Name",
+      "Email",
+      "Consent",
+      "Consent Status",
+    ];
+
+    const rows = filteredReports.map((item: any) => [
+      item.lead_id,
+      item.name,
+      item.event_name,
+      item.emails,
+      item.consent ?? "",
+      item.consent_status,
+    ]);
+
+    const csvContent = [headers, ...rows].map((r) => r.join(",")).join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `consent_report_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
 
   return (
     <div className="flex h-screen bg-background">
@@ -135,6 +169,14 @@ export default function Reports() {
                   </SelectContent>
                 </Select>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadCSV}
+                disabled={filteredReports.length === 0}
+              >
+                Download CSV
+              </Button>
             </CardHeader>
 
             <CardContent>
@@ -169,9 +211,13 @@ export default function Reports() {
                           <Badge className="bg-red-600">Denied</Badge>
                         )}
                         {item.consent_status === "missing" && (
-                          <Badge className="bg-yellow-600 text-black">
-                            Missing
-                          </Badge>
+                          // <Badge className="bg-yellow-600 text-black">
+                          //   Missing
+                          // </Badge>
+                          <button className="flex items-center gap-2">
+                            <span className="text-green-600">✔</span>
+                          </button>
+
                         )}
                       </TableCell>
                     </TableRow>

@@ -29,7 +29,7 @@ export interface Event {
   is_active: string;
   team: string;
   template_id: number | null; // <-- ADD THIS
- 
+
 }
 
 function UpdateEventPopup({
@@ -118,31 +118,31 @@ function UpdateEventPopup({
   // 🔹 Save API using useApi
   const handleSave = async () => {
     setError(null);
-  
+
     // ✅ Remove fields from payload using destructuring
     const { fields, ...cleanEvent } = updatedEvent;
-  
+
     const payload = {
       ...cleanEvent,
       template_id:
         cleanEvent.template_id === "" ? null : Number(cleanEvent.template_id),
     };
-  
+
     try {
       const res = await request(
         `/update_event?event_id=${updatedEvent.event_id}`,
         "PUT",
         payload
       );
-  
+
       if (!res) throw new Error("Failed to update event");
-  
+
       onSave(payload);
     } catch (err: any) {
       setError(err.message || "An error occurred while saving.");
     }
   };
-  
+
 
   return (
     <>
@@ -405,6 +405,12 @@ export default function Events() {
         new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
     );
 
+  const handleClearFilters = () => {
+    setStatus("All");
+    setSearchTerm("");
+  };
+
+
   return (
     <div className="flex h-screen bg-background">
       <DashboardSidebar />
@@ -412,9 +418,9 @@ export default function Events() {
         <DashboardHeader />
         <main className="flex-1 overflow-auto p-6 space-y-6">
           <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center space-x-6">
             <h1 className="text-2xl font-semibold text-foreground">Your Events</h1>
-            <div className="flex items-center space-x-4">
-              <div className="relative">
+            <div className="relative">
                 <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
@@ -424,9 +430,12 @@ export default function Events() {
                   className="pl-9 pr-3 py-2 border rounded-md w-60 focus:ring-2 focus:ring-primary focus:outline-none"
                 />
               </div>
+              </div>
+            <div className="flex items-center space-x-4">
+              
 
-              <Select defaultValue="All" onValueChange={(v) => setStatus(v)}>
-                <SelectTrigger className="w-40">
+              <Select value={status} onValueChange={(v) => setStatus(v)}>
+                <SelectTrigger className="w-40 border border-gray-300">
                   <SelectValue placeholder="Filter Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -436,6 +445,9 @@ export default function Events() {
                   <SelectItem value="Completed">Completed</SelectItem>
                 </SelectContent>
               </Select>
+              <Button onClick={handleClearFilters}>
+                Clear Filter
+              </Button>
             </div>
           </div>
 

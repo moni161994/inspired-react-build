@@ -39,6 +39,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
+import { DateInput } from "@/components/ui/DateInput";
 
 type Member = {
   employee_id: string;
@@ -119,7 +120,7 @@ export default function Analytics() {
     setEventId("");
   };
 
-  const handleClearDateTemplate =()=>{
+  const handleClearDateTemplate = () => {
     setEndDateTemplate("");
     setStartDateTemplate("")
   }
@@ -127,9 +128,8 @@ export default function Analytics() {
   const fetchTemplateUsage = async () => {
     // const res = await request("/template_usage_count", "GET");
     const res = await request(
-      `/template_usage_count?${
-        startDateTemplate ? `start_date=${startDateTemplate}` : ""
-      }${endDateTemplate ? `&end_date=${endDateTemplate}` : ""}`,"GET"
+      `/template_usage_count?${startDateTemplate ? `start_date=${startDateTemplate}` : ""
+      }${endDateTemplate ? `&end_date=${endDateTemplate}` : ""}`, "GET"
     );
     if (res?.success && Array.isArray(res.data)) {
       setTemplateUsage(res?.data);
@@ -143,10 +143,8 @@ export default function Analytics() {
   const fetchEmployeeActivity = async () => {
     try {
       const res = await fetch(
-        `https://api.inditechit.com/employee_activity_report?${
-          startDateEvent ? `startDate=${startDateEvent}` : ""
-        }${endDateEvent ? `&endDate=${endDateEvent}` : ""}${
-          eventId ? `&event_id=${eventId}` : ""
+        `https://api.inditechit.com/employee_activity_report?${startDateEvent ? `startDate=${startDateEvent}` : ""
+        }${endDateEvent ? `&endDate=${endDateEvent}` : ""}${eventId ? `&event_id=${eventId}` : ""
         }`
       );
       const result = await res.json();
@@ -415,20 +413,26 @@ export default function Analytics() {
                   </CardHeader>
                   <div className="flex gap-6 items-end justify-between p-6">
                     <div className="flex flex-col">
-                      <Label>Start Date</Label>
-                      <Input
-                        type="date"
+
+                      <DateInput
+                        label="Start Date *"
                         value={startDateTemplate}
-                        onChange={(e) => setStartDateTemplate(e.target.value)}
+                        required
+                        onChange={(val: string) => {
+                          setStartDateTemplate(val);
+                        }}
                       />
+
                     </div>
 
                     <div className="flex flex-col">
-                      <Label>End Date</Label>
-                      <Input
-                        type="date"
+                      <DateInput
+                        label="End Date *"
                         value={endDateTemplate}
-                        onChange={(e) => setEndDateTemplate(e.target.value)}
+                        required
+                        onChange={(val: string) => {
+                          setEndDateTemplate(val);
+                        }}
                       />
                     </div>
                   </div>
@@ -466,20 +470,25 @@ export default function Analytics() {
                   {/* Filters Row */}
                   <div className="flex gap-6 items-end justify-between p-6">
                     <div className="flex flex-col">
-                      <Label>Start Date</Label>
-                      <Input
-                        type="date"
+                      
+                      <DateInput
+                        label="Start Date *"
                         value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
+                        required
+                        onChange={(val: string) => {
+                          setStartDate(val);
+                        }}
                       />
                     </div>
 
                     <div className="flex flex-col">
-                      <Label>End Date</Label>
-                      <Input
-                        type="date"
+                    <DateInput
+                        label="End Date *"
                         value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
+                        required
+                        onChange={(val: string) => {
+                          setEndDate(val);
+                        }}
                       />
                     </div>
                   </div>
@@ -519,21 +528,37 @@ export default function Analytics() {
                 </CardHeader>
                 <div className="flex gap-6 items-end justify-between p-4">
                   <div className="flex flex-col">
-                    <Label>Start Date</Label>
-                    <Input
+                    {/* <Label>Start Date</Label> */}
+                    {/* <Input
                       type="date"
                       value={startDateEvent}
                       onChange={(e) => setStartDateEvent(e.target.value)}
-                    />
+                    /> */}
+                    <DateInput
+                        label="Start Date *"
+                        value={startDateEvent}
+                        required
+                        onChange={(val: string) => {
+                          setStartDateEvent(val);
+                        }}
+                      />
                   </div>
 
                   <div className="flex flex-col">
                     <Label>End Date</Label>
-                    <Input
+                    {/* <Input
                       type="date"
                       value={endDateEvent}
                       onChange={(e) => setEndDateEvent(e.target.value)}
-                    />
+                    /> */}
+                    <DateInput
+                        label="End Date *"
+                        value={endDateEvent}
+                        required
+                        onChange={(val: string) => {
+                          setEndDateEvent(val);
+                        }}
+                      />
                   </div>
 
                   <div className="flex flex-col">
@@ -563,6 +588,11 @@ export default function Analytics() {
                       }}
                     />
                   </div>
+                  <div className="flex flex-col">
+                  <Button onClick={handleClearDateforEvent} disabled={loading}>
+                    Clear Filter
+                  </Button>
+                </div>
                 </div>
 
                 {filteredReport.length > 0 ? (
@@ -594,11 +624,7 @@ export default function Analytics() {
                   <p className="text-center mt-4">No records found</p>
                 )}
 
-                <div className="flex justify-center m-4">
-                  <Button onClick={handleClearDateforEvent} disabled={loading}>
-                    Clear Filter
-                  </Button>
-                </div>
+                
               </Card>
             </TabsContent>
 
@@ -725,13 +751,12 @@ export default function Analytics() {
                       onSelect={() => toggleEmployee(String(user.employee_id))}
                     >
                       <div
-                        className={`flex items-center justify-between w-full ${
-                          formData.employees_id.includes(
-                            String(user.employee_id)
-                          )
+                        className={`flex items-center justify-between w-full ${formData.employees_id.includes(
+                          String(user.employee_id)
+                        )
                             ? "font-semibold text-primary"
                             : ""
-                        }`}
+                          }`}
                       >
                         <span>{user.user_name}</span>
                         {formData.employees_id.includes(
@@ -776,8 +801,8 @@ export default function Analytics() {
                   ? "Updating..."
                   : "Creating..."
                 : editTeamObj
-                ? "Update"
-                : "Create"}
+                  ? "Update"
+                  : "Create"}
             </Button>
           </div>
         </DialogContent>

@@ -87,7 +87,7 @@ export function DashboardHeader() {
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-  
+
     const reader = new FileReader();
     reader.onloadend = () => {
       setTemplateLogoBase64(reader.result as string); // store Base64
@@ -95,7 +95,7 @@ export function DashboardHeader() {
     };
     reader.readAsDataURL(file); // converts file to Base64
   };
-  
+
 
   // Toggle field selection
   const toggleField = (label: string) => {
@@ -142,7 +142,7 @@ export function DashboardHeader() {
     }
 
     setLoading(true);
-    
+
 
     const payload = {
       templateName: templateName,
@@ -356,11 +356,10 @@ export function DashboardHeader() {
                       onSelect={() => toggleEmployee(String(user.employee_id))}
                     >
                       <div
-                        className={`flex items-center justify-between w-full ${
-                          formData.employees_id.includes(String(user.employee_id))
+                        className={`flex items-center justify-between w-full ${formData.employees_id.includes(String(user.employee_id))
                             ? "font-semibold text-primary"
                             : ""
-                        }`}
+                          }`}
                       >
                         <span>{user.user_name}</span>
                         {formData.employees_id.includes(
@@ -408,7 +407,7 @@ export function DashboardHeader() {
 
       {/* CREATE TEMPLATE DIALOG */}
       <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Create New Template</DialogTitle>
           </DialogHeader>
@@ -434,12 +433,13 @@ export function DashboardHeader() {
 
             <div>
               <Label>Select Fields *</Label>
-              <div className="grid grid-cols-2 gap-2 mt-2">
+              <div className="grid grid-cols-3 gap-2 mt-2">
                 {AVAILABLE_FIELDS.map((label) => {
                   const api = convertToApiKey(label);
                   return (
                     <label
                       key={label}
+                      style={{ whiteSpace: "nowrap" }}
                       className="flex items-center gap-2 border p-2 rounded"
                     >
                       <input
@@ -453,14 +453,16 @@ export function DashboardHeader() {
                 })}
               </div>
             </div>
-            <Label>Brand Logo Image</Label>
-          <Input
-            id="logo-upload"
-            type="file"
-            accept="image/*"
-            onChange={handleLogoUpload}
-            className="mt-1 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-          />
+            <div>
+              <Label>Brand Logo Image</Label>
+              <Input
+                id="logo-upload"
+                type="file"
+                accept="image/*"
+                onChange={handleLogoUpload}
+                className="mt-1 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              />
+            </div>
           </div>
 
           <div className="flex justify-end space-x-3 pt-6">

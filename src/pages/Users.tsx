@@ -142,9 +142,9 @@ export default function Users() {
                           <th className="py-3 px-4 text-left">ID</th>
                           <th className="py-3 px-4 text-left">Name</th>
                           <th className="py-3 px-4 text-left">Email</th>
-                          <th className="py-3 px-4 text-left">Profile</th>
+                          <th className="py-3 px-4 text-left">Designation</th>
                           {/* <th className="py-3 px-4 text-left">Teams</th> */}
-                          <th className="py-3 px-4 text-left">Parent</th>
+                          <th className="py-3 px-4 text-left">Manager User Id</th>
                           <th className="py-3 px-4 text-left">Status</th>
                           <th className="py-3 px-4 text-center">Actions</th>
                         </tr>

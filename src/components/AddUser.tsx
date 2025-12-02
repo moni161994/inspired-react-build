@@ -215,10 +215,10 @@ const AddUser = ({
             />
           </div>
           <div>
-            <Label htmlFor="profile">Profile</Label>
+            <Label htmlFor="profile">Designation</Label>
             <Input
               id="profile"
-              placeholder="Enter profile..."
+              placeholder="Enter Designation..."
               onChange={handleChange}
               value={userInfo.profile}
               name="profile"
@@ -226,10 +226,10 @@ const AddUser = ({
             />
           </div>
           <div>
-            <Label htmlFor="parent_id">Parent User</Label>
+            <Label htmlFor="parent_id">Manager</Label>
             <Select value={userInfo.parent_id} onValueChange={handleParentSelect}>
               <SelectTrigger className="border border-gray-300 rounded">
-                <SelectValue placeholder="Select Parent User" />
+                <SelectValue placeholder="Select Manager User" />
               </SelectTrigger>
               <SelectContent>
                 {allUsers.map((user) => (
