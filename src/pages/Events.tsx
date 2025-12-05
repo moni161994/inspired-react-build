@@ -435,7 +435,7 @@ export default function Events() {
               
 
               <Select value={status} onValueChange={(v) => setStatus(v)}>
-                <SelectTrigger className="w-40 border border-gray-300">
+                <SelectTrigger className="w-40 border border-gray-300 rounded">
                   <SelectValue placeholder="Filter Status" />
                 </SelectTrigger>
                 <SelectContent>
