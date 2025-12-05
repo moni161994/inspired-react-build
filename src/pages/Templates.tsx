@@ -342,13 +342,14 @@ function Templates() {
                   {/* New Image Upload Section */}
                   <div>
                     <label className="text-sm font-semibold mb-1 block">Template Image</label>
+                   
                     <Input
                       type="file"
                       accept="image/*"
                       onChange={handleImageChange}
                       className="w-full"
                     />
-                    {templateImageBase64 && (
+                    {templateImageBase64 ? (
                       <div className="mt-2">
                         <img 
                           src={`data:image/png;base64,${templateImageBase64}`} 
@@ -358,7 +359,8 @@ function Templates() {
                         />
                         <p className="text-xs text-muted-foreground mt-1">Image selected</p>
                       </div>
-                    )}
+                    ) 
+                  :  <img src={editing.template_image}></img>}
                   </div>
 
                   <div>
