@@ -61,6 +61,7 @@ function Templates() {
   const { toast } = useToast();
 
   const [templates, setTemplates] = useState<any[]>([]);
+  const [originalTemplateImage, setOriginalTemplateImage] = useState("");
   const [editing, setEditing] = useState<any | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; templateId: string | null }>({
     open: false,
@@ -92,12 +93,33 @@ function Templates() {
   }, []);
 
   // ================= OPEN EDIT POPUP =================
+  // const handleEdit = (tpl: any) => {
+  //   setEditing(tpl);
+
+  //   setEditName(tpl.template_name);
+  //   setEditDescription(tpl.description);
+  //   setTemplateImageBase64(""); // Reset image on edit
+
+  //   // Convert API keys to UI selected labels
+  //   const mapped = tpl.fields.map((f: any) => convertToLabel(f.field_name));
+
+  //   const fieldsForState = mapped.map((label: string) => ({
+  //     field_name: convertToApiKey(label),
+  //     field_type: "text",
+  //     is_required: false,
+  //     field_options: []
+  //   }));
+
+  //   setSelectedFields(fieldsForState);
+  // };
+
   const handleEdit = (tpl: any) => {
     setEditing(tpl);
+    setOriginalTemplateImage(tpl.template_image || ""); // Store original image
 
     setEditName(tpl.template_name);
     setEditDescription(tpl.description);
-    setTemplateImageBase64(""); // Reset image on edit
+    setTemplateImageBase64(""); // Reset new image on edit
 
     // Convert API keys to UI selected labels
     const mapped = tpl.fields.map((f: any) => convertToLabel(f.field_name));
@@ -132,19 +154,19 @@ function Templates() {
 
   const confirmDelete = async () => {
     if (!deleteDialog.templateId) return;
-  
+
     try {
       const res = await request(
         `/delete_form_template?template_id=${deleteDialog.templateId}`,
         "DELETE"
       );
-  
+
       if (res?.success) {
         toast({
           title: "Success",
           description: "Template deleted successfully"
         });
-  
+
         fetchTemplates(); // refresh table
       } else {
         toast({
@@ -160,7 +182,7 @@ function Templates() {
         variant: "destructive"
       });
     }
-  
+
     setDeleteDialog({ open: false, templateId: null });
   };
 
@@ -188,6 +210,42 @@ function Templates() {
   };
 
   // ================= UPDATE TEMPLATE =================
+  // const handleUpdate = async () => {
+  //   const payload: any = {
+  //     template_name: editName,
+  //     description: editDescription,
+  //     fields: selectedFields
+  //   };
+
+  //   // Add image only if a new one was selected
+  //   if (templateImageBase64) {
+  //     payload.template_image_base64 = templateImageBase64;
+  //   }
+
+  //   const res = await request(
+  //     `/edit_form_template?template_id=${editing.id}`,
+  //     "PUT",
+  //     payload
+  //   );
+
+  //   if (res?.success) {
+  //     toast({
+  //       title: "Success",
+  //       description: "Template updated successfully"
+  //     });
+
+  //     setEditing(null);
+  //     setTemplateImageBase64(""); // Reset image
+  //     fetchTemplates();
+  //   } else {
+  //     toast({
+  //       title: "Update Failed",
+  //       description: res?.message || "Something went wrong",
+  //       variant: "destructive"
+  //     });
+  //   }
+  // };
+
   const handleUpdate = async () => {
     const payload: any = {
       template_name: editName,
@@ -195,9 +253,12 @@ function Templates() {
       fields: selectedFields
     };
 
-    // Add image only if a new one was selected
+    // Only add new image if one was selected, otherwise keep original
     if (templateImageBase64) {
       payload.template_image_base64 = templateImageBase64;
+    } else if (originalTemplateImage) {
+      // If no new image selected but original exists, preserve it
+      payload.template_image = originalTemplateImage;
     }
 
     const res = await request(
@@ -213,7 +274,8 @@ function Templates() {
       });
 
       setEditing(null);
-      setTemplateImageBase64(""); // Reset image
+      setTemplateImageBase64(""); // Reset new image
+      setOriginalTemplateImage(""); // Reset original image
       fetchTemplates();
     } else {
       toast({
@@ -265,10 +327,10 @@ function Templates() {
                     </TableCell>
                     <TableCell>{
                       tpl.template_image && (
-                        <img 
-                          src={tpl.template_image} 
-                          alt="template" 
-                          style={{height:"80px", width:"100px", objectFit:"cover"}}
+                        <img
+                          src={tpl.template_image}
+                          alt="template"
+                          style={{ height: "80px", width: "100px", objectFit: "cover" }}
                         />
                       )
                     }</TableCell>
@@ -294,7 +356,7 @@ function Templates() {
                           <AlertDialogHeader>
                             <AlertDialogTitle>Delete Template</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Are you sure you want to delete template <strong>{tpl.template_name}</strong>? 
+                              Are you sure you want to delete template <strong>{tpl.template_name}</strong>?
                               This action cannot be undone.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
@@ -340,7 +402,7 @@ function Templates() {
                   </div>
 
                   {/* New Image Upload Section */}
-                  <div>
+                  {/* <div>
                     <label className="text-sm font-semibold mb-1 block">Template Image</label>
                    
                     <Input
@@ -361,6 +423,43 @@ function Templates() {
                       </div>
                     ) 
                   :  <img src={editing.template_image}></img>}
+                  </div> */}
+
+                  <div>
+                    <label className="text-sm font-semibold mb-1 block">Template Image</label>
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="w-full"
+                    />
+                    <div className="mt-2">
+                      {templateImageBase64 ? (
+                        // Show new selected image
+                        <img
+                          src={`data:image/png;base64,${templateImageBase64}`}
+                          alt="preview"
+                          style={{ height: "80px", width: "100px", objectFit: "cover" }}
+                          className="rounded border"
+                        />
+                      ) : originalTemplateImage ? (
+                        // Show original image if no new one selected
+                        <img
+                          src={originalTemplateImage}
+                          alt="current template"
+                          style={{ height: "80px", width: "100px", objectFit: "cover" }}
+                          className="rounded border"
+                        />
+                      ) : (
+                        // Show placeholder if no image
+                        <div className="w-[100px] h-[80px] bg-muted rounded border flex items-center justify-center text-xs text-muted-foreground">
+                          No image
+                        </div>
+                      )}
+                      {templateImageBase64 && (
+                        <p className="text-xs text-muted-foreground mt-1">New image selected</p>
+                      )}
+                    </div>
                   </div>
 
                   <div>
@@ -385,8 +484,8 @@ function Templates() {
                 </div>
 
                 <div className="flex gap-4 justify-end">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={() => {
                       setEditing(null);
                       setTemplateImageBase64("");
