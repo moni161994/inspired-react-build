@@ -602,6 +602,19 @@ export default function Teams() {
                         <strong>Disclaimer:</strong> {selectedLead.disclaimer}
                       </div>
                     )}
+                    {selectedLead?.consent && (
+                      <div>
+                        <strong>Consent:</strong> {selectedLead.consent}
+                      </div>
+                    )}
+                    {/* {selectedLead?.email_opt_in && ( */}
+                      <div>
+                        <strong>Email Opt In:</strong> {selectedLead.email_opt_in ? "True" : "False"}
+                      </div>
+                      <div>
+                        <strong>Consent:</strong> {selectedLead.consent ? "Granted" : "Missing"}
+                      </div>
+                    {/* )} */}
                   </div>
                   
                   {/* Right: Image - FIXED CONTAINER */}
