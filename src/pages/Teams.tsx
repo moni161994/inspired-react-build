@@ -608,12 +608,12 @@ export default function Teams() {
                       </div>
                     )}
                     {/* {selectedLead?.email_opt_in && ( */}
-                      <div>
+                      {selectedLead && <><div>
                         <strong>Email Opt In:</strong> {selectedLead.email_opt_in ? "True" : "False"}
                       </div>
                       <div>
                         <strong>Consent:</strong> {selectedLead.consent ? "Granted" : "Missing"}
-                      </div>
+                      </div></>}
                     {/* )} */}
                   </div>
                   
