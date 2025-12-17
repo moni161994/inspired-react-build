@@ -34,10 +34,21 @@ export default function Reports() {
   const [filter, setFilter] = useState<string>("all");
   const [nameFilter, setNameFilter] = useState<string>("");
   const [eventFilter, setEventFilter] = useState<string>("");
+  const [locationFilter, setLocationFilter] = useState<string>("");
+
+  // Build query string for API (only server-side filters)
+  const buildQuery = () => {
+    const params = new URLSearchParams();
+    if (locationFilter) params.set("location", locationFilter);
+    // if in future you want server-side status/template filters, add them here too
+    const qs = params.toString();
+    return qs ? `/consent_report?${qs}` : "/consent_report";
+  };
 
   useEffect(() => {
     const fetchReports = async () => {
-      const data: any = await request("/consent_report", "GET");
+      const endpoint = buildQuery();
+      const data: any = await request(endpoint, "GET");
 
       if (data?.summary) setSummary(data.summary);
       if (data?.data) setReports(data.data);
@@ -45,23 +56,26 @@ export default function Reports() {
     };
 
     fetchReports();
-  }, []);
+  }, [request, locationFilter]);
 
-  // Filter reports based on all criteria
+  // Client-side filters (status, name, event)
   const filteredReports = useMemo(() => {
     return reports.filter((item) => {
-      // Consent status filter
       if (filter !== "all" && item.consent_status !== filter) {
         return false;
       }
 
-      // Name filter (case-insensitive)
-      if (nameFilter && !item.name?.toLowerCase().includes(nameFilter.toLowerCase())) {
+      if (
+        nameFilter &&
+        !item.name?.toLowerCase().includes(nameFilter.toLowerCase())
+      ) {
         return false;
       }
 
-      // Event name filter (case-insensitive)
-      if (eventFilter && !item.event_name?.toLowerCase().includes(eventFilter.toLowerCase())) {
+      if (
+        eventFilter &&
+        !item.event_name?.toLowerCase().includes(eventFilter.toLowerCase())
+      ) {
         return false;
       }
 
@@ -79,6 +93,9 @@ export default function Reports() {
       "Email",
       "Consent",
       "Consent Status",
+      "City",
+      "State",
+      "Country",
     ];
 
     const rows = filteredReports.map((item: any) => [
@@ -88,6 +105,9 @@ export default function Reports() {
       item.emails,
       item.consent ?? "",
       item.consent_status,
+      item.city ?? "",
+      item.state ?? "",
+      item.country ?? "",
     ]);
 
     const csvContent = [headers, ...rows].map((r) => r.join(",")).join("\n");
@@ -108,7 +128,6 @@ export default function Reports() {
         <DashboardHeader />
 
         <main className="flex-1 overflow-auto p-6 space-y-6">
-          {/* ---------- PAGE HEADER ---------- */}
           <div className="flex justify-between items-center">
             <h1 className="text-2xl font-semibold text-foreground">Reports</h1>
           </div>
@@ -116,7 +135,6 @@ export default function Reports() {
           {loading && <p>Loading reports...</p>}
           {error && <p className="text-red-500">Error: {error}</p>}
 
-          {/* ---------- SUMMARY CARDS ---------- */}
           {summary && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               <Card className="shadow">
@@ -166,7 +184,6 @@ export default function Reports() {
             </div>
           )}
 
-          {/* ---------- TABLE OF LEADS WITH ENHANCED FILTERS ---------- */}
           <Card className="shadow">
             <CardHeader className="space-y-4">
               <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
@@ -184,7 +201,7 @@ export default function Reports() {
                 </div>
               </div>
 
-              {/* Enhanced Filter Section */}
+              {/* Filters */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                 {/* Name Filter */}
                 <div className="space-y-1">
@@ -230,21 +247,34 @@ export default function Reports() {
                   </Select>
                 </div>
 
-                {/* Spacer or Clear Filters Button */}
-                <div className="flex items-end space-x-2">
-                  <Button
-                    // variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setNameFilter("");
-                      setEventFilter("");
-                      setFilter("all");
-                    }}
-                    className="border border-input"
-                  >
-                    Clear All
-                  </Button>
+                {/* Location Filter (server-side) */}
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-muted-foreground">
+                    Filter by Location (API)
+                  </label>
+                  <Input
+                    placeholder="City / State / Country..."
+                    value={locationFilter}
+                    onChange={(e) => setLocationFilter(e.target.value)}
+                    className="border border-gray-300 rounded"
+                  />
                 </div>
+              </div>
+
+              {/* Clear Filters */}
+              <div className="flex items-end space-x-2">
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setNameFilter("");
+                    setEventFilter("");
+                    setFilter("all");
+                    setLocationFilter("");
+                  }}
+                  className="border border-input"
+                >
+                  Clear All
+                </Button>
               </div>
             </CardHeader>
 
@@ -252,22 +282,19 @@ export default function Reports() {
               <div className="text-sm text-muted-foreground mb-4">
                 Showing {filteredReports.length} of {reports.length} leads
                 {nameFilter && (
-                  <span className="ml-2">
-                    • Name: "{nameFilter}"
-                  </span>
+                  <span className="ml-2">• Name: "{nameFilter}"</span>
                 )}
                 {eventFilter && (
-                  <span className="ml-2">
-                    • Event: "{eventFilter}"
-                  </span>
+                  <span className="ml-2">• Event: "{eventFilter}"</span>
                 )}
                 {filter !== "all" && (
-                  <span className="ml-2">
-                    • Status: {filter}
-                  </span>
+                  <span className="ml-2">• Status: {filter}</span>
+                )}
+                {locationFilter && (
+                  <span className="ml-2">• Location: "{locationFilter}"</span>
                 )}
               </div>
-              
+
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -275,6 +302,9 @@ export default function Reports() {
                     <TableHead>Name</TableHead>
                     <TableHead>Event Name</TableHead>
                     <TableHead>Email</TableHead>
+                    <TableHead>City</TableHead>
+                    <TableHead>State</TableHead>
+                    <TableHead>Country</TableHead>
                     <TableHead>Consent</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
@@ -287,6 +317,9 @@ export default function Reports() {
                       <TableCell>{item.name}</TableCell>
                       <TableCell>{item.event_name}</TableCell>
                       <TableCell>{item.emails}</TableCell>
+                      <TableCell>{item.city}</TableCell>
+                      <TableCell>{item.state}</TableCell>
+                      <TableCell>{item.country}</TableCell>
                       <TableCell>{item.consent ?? "—"}</TableCell>
                       <TableCell>
                         {item.consent_status === "granted" && (
@@ -296,13 +329,16 @@ export default function Reports() {
                           <Badge className="bg-red-600">Denied</Badge>
                         )}
                         {item.consent_status === "missing" && (
-                          <Badge className="bg-yellow-600 text-black">Missing</Badge>
+                          <Badge className="bg-yellow-600 text-black">
+                            Missing
+                          </Badge>
                         )}
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
+
               {filteredReports.length === 0 && !loading && (
                 <div className="text-center py-8 text-muted-foreground">
                   No leads match the selected filters

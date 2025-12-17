@@ -32,52 +32,7 @@ const formatDate = (isoStr: string | null | undefined) => {
   });
 };
 
-// Helper function to convert array of leads to CSV string
-// const convertLeadsToCSV = (leads: any[]) => {
-//   const headers = [
-//     "Name",
-//     "Company",
-//     "Designation",
-//     "Phone Number",
-//     "Email",
-//     "Event Name",
-//     "Created At",
-//     "City",
-//     "State",
-//     "ZIP",
-//     "Country",
-//     "Area of Interest",
-//     "Disclaimer",
-//   ];
-
-//   const rows = leads.map((lead) => [
-//     lead.name || "",
-//     lead.company || "",
-//     lead.designation || "",
-//     (lead.phone_numbers && lead.phone_numbers[0]) || "",
-//     (lead.emails && lead.emails[0]) || "",
-//     lead.event_name || "",
-//     lead.created_at ? formatDate(lead.created_at) : "",
-//     lead.city || "",
-//     lead.state || "",
-//     lead.zip || "",
-//     lead.country || "",
-//     lead.area_of_interest || "",
-//     lead.disclaimer || "",
-//   ]);
-
-//   const csvContent = [
-//     headers.join(","),
-//     ...rows.map((row) =>
-//       row
-//         .map((item) => `"${String(item).replace(/"/g, '""')}"`) // escape quotes
-//         .join(",")
-//     ),
-//   ].join("\n");
-
-//   return csvContent;
-// };
-// Updated CSV conversion function - Add this replacement
+// Updated CSV conversion function
 const convertLeadsToCSV = (leads: any[]) => {
   const headers = [
     "Name",
@@ -85,7 +40,7 @@ const convertLeadsToCSV = (leads: any[]) => {
     "Designation",
     "Phone Number",
     "Email",
-    "Lead Type",        // NEW COLUMN
+    "Lead Type",
     "Event Name",
     "Created At",
     "City",
@@ -108,13 +63,14 @@ const convertLeadsToCSV = (leads: any[]) => {
     }
     return "Manual Lead";
   }
+
   const rows = leads.map((lead) => [
     lead.name || "",
     lead.company || "",
     lead.designation || "",
     (lead.phone_numbers && lead.phone_numbers[0]) || "",
     (lead.emails && lead.emails[0]) || "",
-    getLeadType(lead),  // NEW COLUMN - Uses existing getLeadType function
+    getLeadType(lead),
     lead.event_name || "",
     lead.created_at ? formatDate(lead.created_at) : "",
     lead.city || "",
@@ -129,7 +85,7 @@ const convertLeadsToCSV = (leads: any[]) => {
     headers.join(","),
     ...rows.map((row) =>
       row
-        .map((item) => `"${String(item).replace(/"/g, '""')}"`) // escape quotes
+        .map((item) => `"${String(item).replace(/"/g, '""')}"`)
         .join(",")
     ),
   ].join("\n");
@@ -142,11 +98,12 @@ export default function Teams() {
   const [leadData, setLeadData] = useState<any[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-  const [leadTypeFilter, setLeadTypeFilter] = useState(""); // "", "badge", "visiting_card", "manual_lead"
+  const [leadTypeFilter, setLeadTypeFilter] = useState("");
 
   // Filters state
   const [eventNameFilter, setEventNameFilter] = useState("");
   const [leadNameFilter, setLeadNameFilter] = useState("");
+  const [capturedByFilter, setCapturedByFilter] = useState("");
   const [startDateFilter, setStartDateFilter] = useState("");
   const [endDateFilter, setEndDateFilter] = useState("");
 
@@ -167,44 +124,38 @@ export default function Teams() {
     }
     return "manual_lead";
   }
+
   const filteredLeads = leadData.filter((lead) => {
-    // Normalize values for safer checks
     const eventName = (lead.event_name || "").toLowerCase();
     const leadName = (lead.name || "").toLowerCase();
+    const capturedByName = (lead.captured_by_name || "Active Event").toLowerCase();
+
     const filterEvent = eventNameFilter.toLowerCase();
     const filterName = leadNameFilter.toLowerCase();
-  
+    const filterCapturedBy = capturedByFilter.toLowerCase();
+
     const matchesEvent = eventName.includes(filterEvent);
     const matchesName = leadName.includes(filterName);
+    const matchesCapturedBy =
+      !capturedByFilter || capturedByName.includes(filterCapturedBy);
     const matchesType = !leadTypeFilter || getLeadType(lead) === leadTypeFilter;
-  
-    // Parse lead date safely
+
     const leadDate = lead.created_at ? new Date(lead.created_at) : null;
     const startDate = startDateFilter ? new Date(startDateFilter) : null;
     const endDate = endDateFilter ? new Date(endDateFilter) : null;
-  
-    // Check for valid date objects before comparisons
+
     const afterStartDate = !startDate || (leadDate && leadDate >= startDate);
     const beforeEndDate = !endDate || (leadDate && leadDate <= endDate);
-  
-    return matchesEvent && matchesName && matchesType && afterStartDate && beforeEndDate;
+
+    return (
+      matchesEvent &&
+      matchesName &&
+      matchesCapturedBy &&
+      matchesType &&
+      afterStartDate &&
+      beforeEndDate
+    );
   });
-  
-  // const filteredLeads = leadData
-  // Uncomment when you want filtering back:
-  // const filteredLeads = leadData.filter((lead) => {
-  //   const matchesEvent = lead.event_name
-  //     ?.toLowerCase()
-  //     .includes(eventNameFilter.toLowerCase());
-  //   const matchesName = lead.name
-  //     ?.toLowerCase()
-  //     .includes(leadNameFilter.toLowerCase());
-  //   const matchesType = !leadTypeFilter || getLeadType(lead) === leadTypeFilter;
-  //   const leadDate = new Date(lead.created_at);
-  //   const afterStartDate = !startDateFilter || leadDate >= new Date(startDateFilter);
-  //   const beforeEndDate = !endDateFilter || leadDate <= new Date(endDateFilter);
-  //   return matchesEvent && matchesName && afterStartDate && beforeEndDate && matchesType;
-  // });
 
   // Fetch lead data
   const fetchLeadData = async () => {
@@ -247,7 +198,8 @@ export default function Teams() {
         toast({
           variant: "destructive",
           title: "❌ Failed to Delete",
-          description: res?.msg || "Something went wrong while deleting the lead.",
+          description:
+            res?.msg || "Something went wrong while deleting the lead.",
         });
       }
     } catch (err) {
@@ -270,12 +222,17 @@ export default function Teams() {
       return;
     }
     const csvContent = convertLeadsToCSV(filteredLeads);
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob([csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
     const url = URL.createObjectURL(blob);
 
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", `leads_export_${new Date().toISOString()}.csv`);
+    link.setAttribute(
+      "download",
+      `leads_export_${new Date().toISOString()}.csv`
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -284,7 +241,7 @@ export default function Teams() {
 
   const totalLeads = filteredLeads.length;
   const totalPages = Math.ceil(totalLeads / itemsPerPage);
-  
+
   const paginatedLeads = filteredLeads.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -296,19 +253,33 @@ export default function Teams() {
   };
 
   // Handlers for filters
-  const handleEventNameFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleEventNameFilterChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     setEventNameFilter(e.target.value);
     setCurrentPage(1);
   };
-  const handleLeadNameFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLeadNameFilterChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     setLeadNameFilter(e.target.value);
     setCurrentPage(1);
   };
-  const handleStartDateFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCapturedByFilterChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    setCapturedByFilter(e.target.value);
+    setCurrentPage(1);
+  };
+  const handleStartDateFilterChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     setStartDateFilter(e.target.value);
     setCurrentPage(1);
   };
-  const handleEndDateFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleEndDateFilterChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     setEndDateFilter(e.target.value);
     setCurrentPage(1);
   };
@@ -325,7 +296,9 @@ export default function Teams() {
             <h1 className="text-2xl font-semibold text-foreground mb-2">
               All Lead Capture
             </h1>
-            <p className="text-muted-foreground mb-4">Here is your Lead Data</p>
+            <p className="text-muted-foreground mb-4">
+              Here is your Lead Data
+            </p>
           </div>
 
           {/* Filters */}
@@ -351,6 +324,15 @@ export default function Teams() {
                   />
                 </div>
                 <div>
+                  <Label>Filter by Captured By</Label>
+                  <Input
+                    placeholder="Search captured by"
+                    value={capturedByFilter}
+                    onChange={handleCapturedByFilterChange}
+                    className="border border-gray-300 rounded"
+                  />
+                </div>
+                <div>
                   <Label>Filter by Lead Type</Label>
                   <select
                     value={leadTypeFilter}
@@ -367,6 +349,28 @@ export default function Teams() {
                   </select>
                 </div>
               </div>
+
+              {/* Optional date filters if you want inputs visible */}
+              {/* <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+                <div>
+                  <Label>Start Date</Label>
+                  <Input
+                    type="date"
+                    value={startDateFilter}
+                    onChange={handleStartDateFilterChange}
+                    className="border border-gray-300 rounded"
+                  />
+                </div>
+                <div>
+                  <Label>End Date</Label>
+                  <Input
+                    type="date"
+                    value={endDateFilter}
+                    onChange={handleEndDateFilterChange}
+                    className="border border-gray-300 rounded"
+                  />
+                </div>
+              </div> */}
 
               {/* Download CSV Button */}
               <div className="mt-4 flex justify-end">
@@ -402,6 +406,9 @@ export default function Teams() {
                         Signature
                       </th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                        Captured By
+                      </th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
                         Event Name
                       </th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
@@ -413,7 +420,7 @@ export default function Teams() {
                     {paginatedLeads.length === 0 && (
                       <tr>
                         <td
-                          colSpan={8}
+                          colSpan={9}
                           className="py-6 text-center text-muted-foreground"
                         >
                           No leads found for the filter.
@@ -446,12 +453,19 @@ export default function Teams() {
                         </td>
                         <td className="py-3 px-4 text-foreground">
                           {lead?.signature && (
-                            <img 
-                              src={`data:image/png;base64,${lead?.signature}`} 
-                              alt="signature" 
-                              style={{height:"80px", width:"100px", objectFit:"cover"}}
+                            <img
+                              src={`data:image/png;base64,${lead?.signature}`}
+                              alt="signature"
+                              style={{
+                                height: "80px",
+                                width: "100px",
+                                objectFit: "cover",
+                              }}
                             />
                           )}
+                        </td>
+                        <td className="py-3 px-4 text-foreground">
+                          {lead?.captured_by_name || "Active Event"}
                         </td>
                         <td className="py-3 px-4 text-foreground">
                           {lead?.event_name || "Active Event"}
@@ -510,7 +524,7 @@ export default function Teams() {
             </Button>
           </div>
 
-          {/* Lead Details Popup - FIXED IMAGE CONTAINER */}
+          {/* Lead Details Popup */}
           <Dialog
             open={selectedLead !== null}
             onOpenChange={() => setSelectedLead(null)}
@@ -537,29 +551,36 @@ export default function Teams() {
                         <strong>Designation:</strong> {selectedLead.designation}
                       </div>
                     )}
-                    {selectedLead?.phone_numbers && selectedLead.phone_numbers.length > 0 && (
-                      <div>
-                        <strong>Phone Numbers:</strong> {selectedLead.phone_numbers.join(", ")}
-                      </div>
-                    )}
+                    {selectedLead?.phone_numbers &&
+                      selectedLead.phone_numbers.length > 0 && (
+                        <div>
+                          <strong>Phone Numbers:</strong>{" "}
+                          {selectedLead.phone_numbers.join(", ")}
+                        </div>
+                      )}
                     {selectedLead?.emails && selectedLead.emails.length > 0 && (
                       <div>
-                        <strong>Emails:</strong> {selectedLead.emails.join(", ")}
+                        <strong>Emails:</strong>{" "}
+                        {selectedLead.emails.join(", ")}
                       </div>
                     )}
-                    {selectedLead?.websites && selectedLead.websites.length > 0 && (
-                      <div>
-                        <strong>Websites:</strong> {selectedLead.websites.join(", ")}
-                      </div>
-                    )}
+                    {selectedLead?.websites &&
+                      selectedLead.websites.length > 0 && (
+                        <div>
+                          <strong>Websites:</strong>{" "}
+                          {selectedLead.websites.join(", ")}
+                        </div>
+                      )}
                     {selectedLead?.other && selectedLead.other.length > 0 && (
                       <div>
-                        <strong>Other Info:</strong> {selectedLead.other.join(", ")}
+                        <strong>Other Info:</strong>{" "}
+                        {selectedLead.other.join(", ")}
                       </div>
                     )}
                     {selectedLead?.created_at && (
                       <div>
-                        <strong>Created At:</strong> {formatDate(selectedLead.created_at)}
+                        <strong>Created At:</strong>{" "}
+                        {formatDate(selectedLead.created_at)}
                       </div>
                     )}
                     {selectedLead?.event_name && (
@@ -594,12 +615,14 @@ export default function Teams() {
                     )}
                     {selectedLead?.area_of_interest && (
                       <div>
-                        <strong>Area of Interest:</strong> {selectedLead.area_of_interest}
+                        <strong>Area of Interest:</strong>{" "}
+                        {selectedLead.area_of_interest}
                       </div>
                     )}
                     {selectedLead?.disclaimer && (
                       <div>
-                        <strong>Disclaimer:</strong> {selectedLead.disclaimer}
+                        <strong>Disclaimer:</strong>{" "}
+                        {selectedLead.disclaimer}
                       </div>
                     )}
                     {selectedLead?.consent && (
@@ -607,17 +630,21 @@ export default function Teams() {
                         <strong>Consent:</strong> {selectedLead.consent}
                       </div>
                     )}
-                    {/* {selectedLead?.email_opt_in && ( */}
-                      {selectedLead && <><div>
-                        <strong>Email Opt In:</strong> {selectedLead.email_opt_in ? "True" : "False"}
-                      </div>
-                      <div>
-                        <strong>Consent:</strong> {selectedLead.consent ? "Granted" : "Missing"}
-                      </div></>}
-                    {/* )} */}
+                    {selectedLead && (
+                      <>
+                        <div>
+                          <strong>Email Opt In:</strong>{" "}
+                          {selectedLead.email_opt_in ? "True" : "False"}
+                        </div>
+                        <div>
+                          <strong>Consent:</strong>{" "}
+                          {selectedLead.consent ? "Granted" : "Missing"}
+                        </div>
+                      </>
+                    )}
                   </div>
-                  
-                  {/* Right: Image - FIXED CONTAINER */}
+
+                  {/* Right: Image */}
                   {selectedLead?.image_url && (
                     <div className="flex flex-col items-center gap-4 p-4 bg-muted/20 rounded-lg h-fit max-h-[calc(90vh-200px)]">
                       <div className="flex-1 flex flex-col items-center justify-center">
@@ -637,11 +664,13 @@ export default function Teams() {
                         </div>
                       </div>
                       <div className="text-center">
-                        <p className="text-sm text-muted-foreground">Click image to view full size</p>
+                        <p className="text-sm text-muted-foreground">
+                          Click image to view full size
+                        </p>
                       </div>
                     </div>
                   )}
-                  
+
                   {/* Signature Image */}
                   {selectedLead?.signature && (
                     <div className="col-span-2 flex justify-center">
@@ -650,9 +679,9 @@ export default function Teams() {
                           <strong className="text-lg">Signature</strong>
                         </div>
                         <div className="w-full h-32 bg-background border rounded-lg shadow-md overflow-hidden flex items-center justify-center">
-                          <img 
-                            src={`data:image/png;base64,${selectedLead.signature}`} 
-                            alt="Signature" 
+                          <img
+                            src={`data:image/png;base64,${selectedLead.signature}`}
+                            alt="Signature"
                             className="w-full h-full object-contain p-2"
                           />
                         </div>
