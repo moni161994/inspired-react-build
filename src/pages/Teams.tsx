@@ -627,14 +627,14 @@ export default function Teams() {
                     )}
                     {selectedLead?.consent && (
                       <div>
-                        <strong>Consent:</strong> {selectedLead.consent}
+                        <strong>Consent:</strong> {selectedLead.consent ? "Yes" : "No"}
                       </div>
                     )}
                     {selectedLead && (
                       <>
                         <div>
                           <strong>Email Opt In:</strong>{" "}
-                          {selectedLead.email_opt_in ? "True" : "False"}
+                          {selectedLead.email_opt_in ? "Yes" : "No"}
                         </div>
                         <div>
                           <strong>Consent:</strong>{" "}
