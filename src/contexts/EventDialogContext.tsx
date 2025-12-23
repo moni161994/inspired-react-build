@@ -169,23 +169,23 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
         title: "✅ Event Created",
         description: "Event has been created successfully.",
       });
-      closeEventDialog();
+      // closeEventDialog();
 
-      setFormData({
-        status: "Upcoming",
-        team: "",
-        eventName: "",
-        startDate: "",
-        endDate: "",
-        location: "",
-        totalLeads: 0,
-        priorityLeads: 0,
-        budget: 0,
-        eventSize: "",
-        template_id: "", // ⭐ RESET
-      });
+      // setFormData({
+      //   status: "Upcoming",
+      //   team: "",
+      //   eventName: "",
+      //   startDate: "",
+      //   endDate: "",
+      //   location: "",
+      //   totalLeads: 0,
+      //   priorityLeads: 0,
+      //   budget: 0,
+      //   eventSize: "",
+      //   template_id: "", // ⭐ RESET
+      // });
 
-      window.location.href = "/events";
+      // window.location.href = "/events";
     } else {
       toast({
         variant: "destructive",

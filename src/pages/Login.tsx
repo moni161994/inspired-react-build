@@ -49,6 +49,7 @@ export default function LoginPage() {
         localStorage.setItem("token", data.auth_token);
         localStorage.setItem("isLoggedIn", "true");
         localStorage.setItem("email", loginInfo.email);
+        localStorage.setItem("user_id", JSON.stringify(data.user_id));
       }
 
       toast({
