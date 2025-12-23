@@ -27,6 +27,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+const TEMPLATE_DATA = [
+  { id: 12, template_name: "UK_Template" },
+  { id: 11, template_name: "India_Template" },
+  { id: 10, template_name: "APAC_Template" },
+  { id: 9, template_name: "EU_GDPR_Template" },
+  { id: 8, template_name: "US_Template" },
+];
+
 export default function Reports() {
   const { request, loading, error } = useApi<any>();
   const [summary, setSummary] = useState<any>(null);
@@ -34,13 +42,12 @@ export default function Reports() {
   const [filter, setFilter] = useState<string>("all");
   const [nameFilter, setNameFilter] = useState<string>("");
   const [eventFilter, setEventFilter] = useState<string>("");
-  const [locationFilter, setLocationFilter] = useState<string>("");
+  const [templateId, setTemplateId] = useState<string>("all"); // New template filter
 
-  // Build query string for API (only server-side filters)
+  // Build query string for API (server-side filters)
   const buildQuery = () => {
     const params = new URLSearchParams();
-    if (locationFilter) params.set("location", locationFilter);
-    // if in future you want server-side status/template filters, add them here too
+    if (templateId !== "all") params.set("template_id", templateId); // Add template_id filter
     const qs = params.toString();
     return qs ? `/consent_report?${qs}` : "/consent_report";
   };
@@ -56,7 +63,7 @@ export default function Reports() {
     };
 
     fetchReports();
-  }, [request, locationFilter]);
+  }, [request, templateId]); // Add templateId to dependencies
 
   // Client-side filters (status, name, event)
   const filteredReports = useMemo(() => {
@@ -247,17 +254,24 @@ export default function Reports() {
                   </Select>
                 </div>
 
-                {/* Location Filter (server-side) */}
+                {/* Template Filter (NEW) */}
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-muted-foreground">
-                    Filter by Location (API)
+                    Template Filter
                   </label>
-                  <Input
-                    placeholder="City / State / Country..."
-                    value={locationFilter}
-                    onChange={(e) => setLocationFilter(e.target.value)}
-                    className="border border-gray-300 rounded"
-                  />
+                  <Select value={templateId} onValueChange={setTemplateId}>
+                    <SelectTrigger className="border border-gray-300 rounded">
+                      <SelectValue placeholder="All Templates" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Templates</SelectItem>
+                      {TEMPLATE_DATA.map((template) => (
+                        <SelectItem key={template.id} value={template.id.toString()}>
+                          {template.template_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -269,7 +283,7 @@ export default function Reports() {
                     setNameFilter("");
                     setEventFilter("");
                     setFilter("all");
-                    setLocationFilter("");
+                    setTemplateId("all"); // Clear template filter
                   }}
                   className="border border-input"
                 >
@@ -290,8 +304,8 @@ export default function Reports() {
                 {filter !== "all" && (
                   <span className="ml-2">• Status: {filter}</span>
                 )}
-                {locationFilter && (
-                  <span className="ml-2">• Location: "{locationFilter}"</span>
+                {templateId !== "all" && (
+                  <span className="ml-2">• Template: {TEMPLATE_DATA.find(t => t.id.toString() === templateId)?.template_name}</span>
                 )}
               </div>
 
