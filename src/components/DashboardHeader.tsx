@@ -36,6 +36,12 @@ type User = {
   user_name: string;
 };
 
+type AccessPointData = {
+  page: string[];
+  point: string[];
+  user_id: number;
+};
+
 const AVAILABLE_FIELDS = [
   "Designation",
   "Company",
@@ -55,7 +61,6 @@ const AVAILABLE_FIELDS = [
   "Email Opt In",
 ];
 
-// helper to convert label to API key style
 const convertToApiKey = (label: string) =>
   label.toLowerCase().replace(/ /g, "_");
 
@@ -80,9 +85,63 @@ export function DashboardHeader() {
   // CREATE TEMPLATE STATES
   const [templateName, setTemplateName] = useState("");
   const [templateDescription, setTemplateDescription] = useState("");
-  const [selectedFields, setSelectedFields] = useState<string[]>([]); // stores api keys like "phone_numbers"
+  const [selectedFields, setSelectedFields] = useState<string[]>([]);
   const [templateLogoBase64, setTemplateLogoBase64] = useState<string>("");
 
+  // ACCESS STATES
+  const [access, setAccess] = useState<AccessPointData | null>(null);
+  const [canCreateTeam, setCanCreateTeam] = useState(false);
+  const [canCreateTemplate, setCanCreateTemplate] = useState(false);
+  const [canCreateEvent, setCanCreateEvent] = useState(false);
+
+  const getCurrentUserId = (): number => {
+    try {
+      const raw = localStorage.getItem("user_id");
+      return raw ? parseInt(raw, 10) : 0;
+    } catch {
+      return 0;
+    }
+  };
+
+  const loadAccess = async () => {
+    const userId = getCurrentUserId();
+    if (!userId) return;
+
+    try {
+      const res = await request(`/get_single_access/${userId}`, "GET");
+      if (res?.status_code === 200 && res.data) {
+        const parsed: AccessPointData = {
+          page: JSON.parse(res.data.page),
+          point: JSON.parse(res.data.point),
+          user_id: Number(res.data.user_id),
+        };
+        setAccess(parsed);
+
+        const hasPage = (p: string) => parsed.page.includes(p);
+        const hasAction = (page: string, action: string) => {
+          const pageName = page.replace("/", "").replace(/\/+$/, "") || "dashboard";
+          const suffix = `${action}_${pageName}`;
+          return parsed.point.includes(suffix);
+        };
+
+        // /team + add_team
+        setCanCreateTeam(hasPage("/team") && hasAction("/team", "add_team"));
+        // /template + create_template
+        setCanCreateTemplate(
+          hasPage("/template") && hasAction("/template", "create_template")
+        );
+        // /events + create_event
+        setCanCreateEvent(
+          hasPage("/events") && hasAction("/events", "create_event")
+        );
+      }
+    } catch (e) {
+      console.error("access fetch error", e);
+      setCanCreateTeam(false);
+      setCanCreateTemplate(false);
+      setCanCreateEvent(false);
+    }
+  };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -90,14 +149,11 @@ export function DashboardHeader() {
 
     const reader = new FileReader();
     reader.onloadend = () => {
-      setTemplateLogoBase64(reader.result as string); // store Base64
-      console.log("Base64 file:", reader.result); // ✅ this will log Base64
+      setTemplateLogoBase64(reader.result as string);
     };
-    reader.readAsDataURL(file); // converts file to Base64
+    reader.readAsDataURL(file);
   };
 
-
-  // Toggle field selection
   const toggleField = (label: string) => {
     const api = convertToApiKey(label);
     setSelectedFields((prev) =>
@@ -105,14 +161,10 @@ export function DashboardHeader() {
     );
   };
 
-  // Build fields payload (array of objects) for API
   const buildFieldsPayload = () => {
     return selectedFields.map((field_name) => {
-      // Default field_type mapping
       let field_type = "text";
       if (field_name === "phone_numbers") field_type = "number";
-      // If you need dropdowns for specific fields later, you can add logic here
-
       return {
         field_name,
         field_type,
@@ -121,7 +173,6 @@ export function DashboardHeader() {
     });
   };
 
-  // Handle Template Create API
   const handleCreateTemplate = async () => {
     if (!templateName.trim()) {
       toast({
@@ -141,22 +192,32 @@ export function DashboardHeader() {
       return;
     }
 
-    setLoading(true);
+    if (!canCreateTemplate) {
+      toast({
+        variant: "destructive",
+        title: "Permission Denied",
+        description: "You are not allowed to create templates.",
+      });
+      return;
+    }
 
+    setLoading(true);
 
     const payload = {
       templateName: templateName,
       description: templateDescription,
       fields: buildFieldsPayload(),
-      template_image_base64: templateLogoBase64
+      template_image_base64: templateLogoBase64,
     };
 
     try {
       const res = await request("/create_form_template", "POST", payload);
 
-      // The API in your example returned { "success": true, "message": "Template updated successfully" }
-      // Adjust success detection depending on actual API shape:
-      if (res?.success || res?.message?.toLowerCase()?.includes("created") || res?.msg?.toLowerCase()?.includes("created")) {
+      if (
+        res?.success ||
+        res?.message?.toLowerCase()?.includes("created") ||
+        res?.msg?.toLowerCase()?.includes("created")
+      ) {
         toast({
           title: "Template Created",
           description: "Your new template has been added.",
@@ -171,7 +232,8 @@ export function DashboardHeader() {
         toast({
           variant: "destructive",
           title: "Failed to Create Template",
-          description: res?.message || res?.msg || "Unexpected error occurred.",
+          description:
+            res?.message || res?.msg || "Unexpected error occurred.",
         });
       }
     } catch (err: any) {
@@ -186,7 +248,6 @@ export function DashboardHeader() {
     }
   };
 
-  // Fetch all users
   useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -202,6 +263,10 @@ export function DashboardHeader() {
     };
     fetchUsers();
   }, [teamDialogOpen]);
+
+  useEffect(() => {
+    loadAccess();
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -224,6 +289,15 @@ export function DashboardHeader() {
   };
 
   const handleCreateTeam = async () => {
+    if (!canCreateTeam) {
+      toast({
+        variant: "destructive",
+        title: "Permission Denied",
+        description: "You are not allowed to create teams.",
+      });
+      return;
+    }
+
     const { team_name, manager_id, employees_id } = formData;
 
     if (!team_name || !manager_id || employees_id?.length === 0) {
@@ -269,31 +343,37 @@ export function DashboardHeader() {
 
         <div className="flex items-center space-x-4">
           {/* Add New Team */}
-          <Button
-            className="bg-primary hover:bg-primary/90 text-primary-foreground"
-            onClick={() => setTeamDialogOpen(true)}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add New Team
-          </Button>
+          {canCreateTeam && (
+            <Button
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              onClick={() => setTeamDialogOpen(true)}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add New Team
+            </Button>
+          )}
 
           {/* Create Template */}
-          <Button
-            className="bg-primary hover:bg-primary/90 text-primary-foreground"
-            onClick={() => setTemplateDialogOpen(true)}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Create Template
-          </Button>
+          {canCreateTemplate && (
+            <Button
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              onClick={() => setTemplateDialogOpen(true)}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create Template
+            </Button>
+          )}
 
           {/* Add Event */}
-          <Button
-            className="bg-primary hover:bg-primary/90 text-primary-foreground"
-            onClick={openEventDialog}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add New Event
-          </Button>
+          {canCreateEvent && (
+            <Button
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              onClick={openEventDialog}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add New Event
+            </Button>
+          )}
 
           {/* Logout */}
           <Button variant="outline" onClick={handleLogout}>
@@ -356,10 +436,13 @@ export function DashboardHeader() {
                       onSelect={() => toggleEmployee(String(user.employee_id))}
                     >
                       <div
-                        className={`flex items-center justify-between w-full ${formData.employees_id.includes(String(user.employee_id))
+                        className={`flex items-center justify-between w-full ${
+                          formData.employees_id.includes(
+                            String(user.employee_id)
+                          )
                             ? "font-semibold text-primary"
                             : ""
-                          }`}
+                        }`}
                       >
                         <span>{user.user_name}</span>
                         {formData.employees_id.includes(
