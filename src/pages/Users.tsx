@@ -14,7 +14,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { LayoutGrid, Calendar, Clock, UsersIcon, User, Folder, LayoutList } from "lucide-react";
+import {
+  LayoutGrid,
+  Calendar,
+  Clock,
+  Users as UsersIcon,
+  User,
+  Folder,
+  LayoutList,
+} from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 
@@ -28,12 +36,18 @@ type UserData = {
   status: number;
 };
 
-type AccessPointData = {
+type AccessPointRow = {
   id: number;
-  page: string[]; 
-  point: string[];
+  page: string;
+  point: string;
   user_id: number;
   created_at: string;
+};
+
+type AccessPointData = {
+  page: string[];
+  point: string[];
+  user_id: number;
 };
 
 type PageOption = {
@@ -83,9 +97,7 @@ const ACTION_OPTIONS: Record<string, ActionOption[]> = {
     { label: "Change Access", action: "change_access" },
     { label: "Generate Code", action: "generate_code" },
   ],
-  "/report": [
-    { label: "Download Report", action: "download_report" },
-  ],
+  "/report": [{ label: "Download Report", action: "download_report" }],
   "/template": [
     { label: "Create Template", action: "create_template" },
     { label: "Edit Template", action: "edit_template" },
@@ -100,13 +112,32 @@ const UsersPage = () => {
   const [addUserOpen, setAddUserOpen] = useState(false);
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
-  
-  // Access Point Modal States
+
+  // Access Point Modal States (for selected row)
   const [accessPointOpen, setAccessPointOpen] = useState(false);
-  const [selectedUserForAccess, setSelectedUserForAccess] = useState<UserData | null>(null);
+  const [selectedUserForAccess, setSelectedUserForAccess] =
+    useState<UserData | null>(null);
   const [selectedPages, setSelectedPages] = useState<PageOption[]>([]);
-  const [selectedPageActions, setSelectedPageActions] = useState<Record<string, string[]>>({});
-  const [userAccessPoint, setUserAccessPoint] = useState<AccessPointData | null>(null);
+  const [selectedPageActions, setSelectedPageActions] = useState<
+    Record<string, string[]>
+  >({});
+  const [userAccessPointRow, setUserAccessPointRow] =
+    useState<AccessPointRow | null>(null);
+
+  // Current logged‑in user's own access (for hiding options)
+  const [myAccess, setMyAccess] = useState<AccessPointData | null>(null);
+  const [canCreateUser, setCanCreateUser] = useState(false);
+  const [canChangeAccess, setCanChangeAccess] = useState(false);
+  const [canGenerateCode, setCanGenerateCode] = useState(false);
+
+  const getCurrentUserId = (): number => {
+    try {
+      const raw = localStorage.getItem("user_id");
+      return raw ? parseInt(raw, 10) : 0;
+    } catch {
+      return 0;
+    }
+  };
 
   const fetchUser = async () => {
     const email = localStorage.getItem("email");
@@ -124,25 +155,72 @@ const UsersPage = () => {
     }
   };
 
+  // LOAD CURRENT USER ACCESS (for hiding buttons)
+  const loadMyAccess = async () => {
+    const userId = getCurrentUserId();
+    if (!userId) return;
+
+    try {
+      const res = await request(`/get_single_access/${userId}`, "GET");
+      if (res?.status_code === 200 && res.data) {
+        const parsed: AccessPointData = {
+          page: JSON.parse(res.data.page),
+          point: JSON.parse(res.data.point),
+          user_id: Number(res.data.user_id),
+        };
+        setMyAccess(parsed);
+
+        const hasPage = (p: string) => parsed.page.includes(p);
+        const hasAction = (page: string, action: string) => {
+          const pageName = page.replace("/", "").replace(/\/+$/, "") || "dashboard";
+          const suffix = `${action}_${pageName}`;
+          return parsed.point.includes(suffix);
+        };
+
+        setCanCreateUser(
+          hasPage("/users") && hasAction("/users", "create_user")
+        );
+        setCanChangeAccess(
+          hasPage("/users") && hasAction("/users", "change_access")
+        );
+        setCanGenerateCode(
+          hasPage("/users") && hasAction("/users", "generate_code")
+        );
+      }
+    } catch (e) {
+      console.error("loadMyAccess error", e);
+      setCanCreateUser(false);
+      setCanChangeAccess(false);
+      setCanGenerateCode(false);
+    }
+  };
+
+  // FETCH ACCESS FOR SELECTED USER (Access Point modal prefill)
   const fetchUserAccessPoint = async (userId: number) => {
     try {
-      // ✅ Use get_single_access/:user_id API
       const res = await request(`/get_single_access/${userId}`, "GET");
       if (res && res.status_code === 200 && res.data) {
         const rawData = res.data;
-        const parsedData: AccessPointData = {
+        const row: AccessPointRow = {
           id: rawData.id,
-          page: JSON.parse(rawData.page), // Parse JSON string to array
-          point: JSON.parse(rawData.point), // Parse JSON string to array
+          page: rawData.page,
+          point: rawData.point,
           user_id: parseInt(rawData.user_id),
-          created_at: rawData.created_at
+          created_at: rawData.created_at,
         };
-        setUserAccessPoint(parsedData);
-        return parsedData;
+        setUserAccessPointRow(row);
+
+        const parsed: AccessPointData = {
+          page: JSON.parse(rawData.page),
+          point: JSON.parse(rawData.point),
+          user_id: row.user_id,
+        };
+
+        return parsed;
       }
     } catch (error) {
       console.error("Error fetching user access point:", error);
-      setUserAccessPoint(null);
+      setUserAccessPointRow(null);
     }
     return null;
   };
@@ -186,57 +264,58 @@ const UsersPage = () => {
     setSelectedUserForAccess(user);
     setSelectedPages([]);
     setSelectedPageActions({});
-    
-    // ✅ Fetch single user access point using get_single_access/:user_id
+
     const accessPoint = await fetchUserAccessPoint(user.employee_id);
-    
-    // ✅ Prefill form with DB data
+
     if (accessPoint && accessPoint.page && accessPoint.page.length > 0) {
-      // Prefill selected pages
       const dbPages = accessPoint.page
-        .map((pagePath: string) => PAGE_OPTIONS.find(page => page.path === pagePath))
+        .map((pagePath: string) =>
+          PAGE_OPTIONS.find((page) => page.path === pagePath)
+        )
         .filter(Boolean) as PageOption[];
       setSelectedPages(dbPages);
-      
-      // Prefill selected actions
+
       const dbPoints = accessPoint.point;
       const pageActionsMap: Record<string, string[]> = {};
-      
+
       dbPages.forEach((page) => {
-        const pageName = page.path.replace('/', '').replace(/\/+$/, '') || 'dashboard';
+        const pageName =
+          page.path.replace("/", "").replace(/\/+$/, "") || "dashboard";
         const pageActions = dbPoints
-          .filter(point => point.endsWith(`_${pageName}`))
-          .map(point => {
-            const action = point.replace(`_${pageName}`, '');
-            // Verify action exists for this page
-            return ACTION_OPTIONS[page.path]?.find(a => a.action === action)?.action || null;
+          .filter((point) => point.endsWith(`_${pageName}`))
+          .map((point) => {
+            const action = point.replace(`_${pageName}`, "");
+            return (
+              ACTION_OPTIONS[page.path]?.find((a) => a.action === action)
+                ?.action || null
+            );
           })
           .filter(Boolean) as string[];
-        
+
         if (pageActions.length > 0) {
           pageActionsMap[page.path] = pageActions;
         }
       });
-      
+
       setSelectedPageActions(pageActionsMap);
     }
-    
+
     setAccessPointOpen(true);
   };
 
   const handlePageSelect = (page: PageOption, checked: boolean) => {
     if (checked) {
-      setSelectedPages(prev => {
-        if (prev.some(p => p.path === page.path)) return prev;
+      setSelectedPages((prev) => {
+        if (prev.some((p) => p.path === page.path)) return prev;
         return [...prev, page];
       });
-      setSelectedPageActions(prev => ({
+      setSelectedPageActions((prev) => ({
         ...prev,
-        [page.path]: []
+        [page.path]: prev[page.path] || [],
       }));
     } else {
-      setSelectedPages(prev => prev.filter(p => p.path !== page.path));
-      setSelectedPageActions(prev => {
+      setSelectedPages((prev) => prev.filter((p) => p.path !== page.path));
+      setSelectedPageActions((prev) => {
         const newActions = { ...prev };
         delete newActions[page.path];
         return newActions;
@@ -244,27 +323,29 @@ const UsersPage = () => {
     }
   };
 
-  const handleActionSelect = (pagePath: string, action: string, checked: boolean) => {
-    setSelectedPageActions(prev => {
+  const handleActionSelect = (
+    pagePath: string,
+    action: string,
+    checked: boolean
+  ) => {
+    setSelectedPageActions((prev) => {
       const currentActions = prev[pagePath] || [];
       if (checked) {
         if (!currentActions.includes(action)) {
           return {
             ...prev,
-            [pagePath]: [...currentActions, action]
+            [pagePath]: [...currentActions, action],
           };
         }
       } else {
-        const filtered = currentActions.filter(a => a !== action);
+        const filtered = currentActions.filter((a) => a !== action);
+        const newState = { ...prev };
         if (filtered.length === 0) {
-          const newActions = { ...prev };
-          delete newActions[pagePath];
-          return newActions;
+          delete newState[pagePath];
+        } else {
+          newState[pagePath] = filtered;
         }
-        return {
-          ...prev,
-          [pagePath]: filtered
-        };
+        return newState;
       }
       return prev;
     });
@@ -280,24 +361,23 @@ const UsersPage = () => {
       return;
     }
 
-    // Delete existing access point if it exists
-    if (userAccessPoint) {
+    if (userAccessPointRow) {
       try {
-        await request(`/delete_access/${userAccessPoint.id}`, "DELETE");
+        await request(`/delete_access/${userAccessPointRow.id}`, "DELETE");
       } catch (error) {
         console.log("Delete failed, continuing...");
       }
     }
 
-    // Create new access point with single API call
-    const pagesArray: string[] = selectedPages.map(page => page.path);
+    const pagesArray: string[] = selectedPages.map((page) => page.path);
     const pointsArray: string[] = [];
 
     selectedPages.forEach((page) => {
       const pageActions = selectedPageActions[page.path] || [];
-      const pageName = page.path.replace('/', '').replace(/\/+$/, '') || 'dashboard';
-      const pageSpecificActions = pageActions.map(action => 
-        `${action}_${pageName}`
+      const pageName =
+        page.path.replace("/", "").replace(/\/+$/, "") || "dashboard";
+      const pageSpecificActions = pageActions.map(
+        (action) => `${action}_${pageName}`
       );
       pointsArray.push(...pageSpecificActions);
     });
@@ -306,7 +386,7 @@ const UsersPage = () => {
       const res = await request("/create_access", "POST", {
         user_id: selectedUserForAccess.employee_id,
         page: pagesArray,
-        point: pointsArray
+        point: pointsArray,
       });
 
       if (res?.status_code === 201) {
@@ -317,7 +397,6 @@ const UsersPage = () => {
         setAccessPointOpen(false);
         setSelectedPages([]);
         setSelectedPageActions({});
-        // Refresh user access point data
         fetchUserAccessPoint(selectedUserForAccess.employee_id);
       } else {
         toast({
@@ -337,6 +416,7 @@ const UsersPage = () => {
 
   useEffect(() => {
     fetchUser();
+    loadMyAccess();
   }, []);
 
   const filteredUsers = user
@@ -375,7 +455,9 @@ const UsersPage = () => {
                   />
                 </div>
                 <div className="flex items-center gap-3">
-                  <Button onClick={openAddUser}>+ Add App User</Button>
+                  {canCreateUser && (
+                    <Button onClick={openAddUser}>+ Add App User</Button>
+                  )}
                 </div>
               </CardHeader>
 
@@ -396,7 +478,9 @@ const UsersPage = () => {
                           <th className="py-3 px-4 text-left">Name</th>
                           <th className="py-3 px-4 text-left">Email</th>
                           <th className="py-3 px-4 text-left">Designation</th>
-                          <th className="py-3 px-4 text-left">Manager User Id</th>
+                          <th className="py-3 px-4 text-left">
+                            Manager User Id
+                          </th>
                           <th className="py-3 px-4 text-left">Status</th>
                           <th className="py-3 px-4 text-center">Actions</th>
                         </tr>
@@ -427,6 +511,7 @@ const UsersPage = () => {
                             </td>
                             <td className="py-3 px-4 text-center whitespace-nowrap">
                               <div className="flex gap-2 justify-center flex-wrap">
+                                {/* Edit: agar chaho to iske liye bhi permission check add kar sakte ho */}
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -434,20 +519,28 @@ const UsersPage = () => {
                                 >
                                   Edit
                                 </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleAccessPoint(data)}
-                                >
-                                  Access Point
-                                </Button>
-                                <Button
-                                  className="bg-primary hover:bg-primary/90"
-                                  size="sm"
-                                  onClick={() => sendCode(data.email_address)}
-                                >
-                                  Generate Code
-                                </Button>
+
+                                {canChangeAccess && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleAccessPoint(data)}
+                                  >
+                                    Access Point
+                                  </Button>
+                                )}
+
+                                {canGenerateCode && (
+                                  <Button
+                                    className="bg-primary hover:bg-primary/90"
+                                    size="sm"
+                                    onClick={() =>
+                                      sendCode(data.email_address)
+                                    }
+                                  >
+                                    Generate Code
+                                  </Button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -463,35 +556,42 @@ const UsersPage = () => {
             <Dialog open={accessPointOpen} onOpenChange={setAccessPointOpen}>
               <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-6">
                 <DialogHeader>
-                  <DialogTitle className="text-xl">Configure Access Points</DialogTitle>
+                  <DialogTitle className="text-xl">
+                    Configure Access Points
+                  </DialogTitle>
                   <p className="text-sm text-muted-foreground">
-                    Select pages and specific actions for {selectedUserForAccess?.user_name}
+                    Select pages and specific actions for{" "}
+                    {selectedUserForAccess?.user_name}
                   </p>
                 </DialogHeader>
-                
+
                 <div className="space-y-6 py-4">
                   <div>
                     <h3 className="font-semibold mb-4 text-lg">Select Pages</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-64 overflow-y-auto">
                       {PAGE_OPTIONS.map((page) => {
-                        const hasAccess = userAccessPoint?.page?.includes(page.path);
-                        const isChecked = selectedPages.some(p => p.path === page.path);
-                        
+                        const isChecked = selectedPages.some(
+                          (p) => p.path === page.path
+                        );
+
                         return (
-                          <div key={page.path} className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors">
+                          <div
+                            key={page.path}
+                            className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                          >
                             <Checkbox
                               id={`page-${page.path}`}
                               checked={isChecked}
-                              onCheckedChange={(checked) => handlePageSelect(page, !!checked)}
+                              onCheckedChange={(checked) =>
+                                handlePageSelect(page, !!checked)
+                              }
                             />
-                            <Label htmlFor={`page-${page.path}`} className="flex items-center space-x-2 cursor-pointer flex-1 font-medium">
+                            <Label
+                              htmlFor={`page-${page.path}`}
+                              className="flex items-center space-x-2 cursor-pointer flex-1 font-medium"
+                            >
                               <page.icon className="w-4 h-4 flex-shrink-0" />
                               <span>{page.label}</span>
-                              {hasAccess && !isChecked && (
-                                <Badge variant="secondary" className="ml-2 text-xs">
-                                  Current
-                                </Badge>
-                              )}
                             </Label>
                           </div>
                         );
@@ -501,46 +601,53 @@ const UsersPage = () => {
 
                   {selectedPages.length > 0 && (
                     <div>
-                      <h3 className="font-semibold mb-4 text-lg">Select Actions for Pages</h3>
+                      <h3 className="font-semibold mb-4 text-lg">
+                        Select Actions for Pages
+                      </h3>
                       <div className="space-y-4 max-h-96 overflow-y-auto">
-                        {selectedPages.map((page) => {
-                          const existingPoints = userAccessPoint?.point || [];
-                          
-                          return (
-                            <div key={page.path} className="border p-4 rounded-lg bg-card">
-                              <h4 className="font-medium mb-3 flex items-center space-x-2 text-foreground">
-                                <page.icon className="w-4 h-4 flex-shrink-0" />
-                                <span>{page.label}</span>
-                              </h4>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                {ACTION_OPTIONS[page.path]?.map((action) => {
-                                  const pageName = page.path.replace('/', '').replace(/\/+$/, '') || 'dashboard';
-                                  const suffixedAction = `${action.action}_${pageName}`;
-                                  const isChecked = (selectedPageActions[page.path] || []).includes(action.action) || 
-                                                   existingPoints.includes(suffixedAction);
-                                  
-                                  return (
-                                    <div key={action.action} className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded cursor-pointer transition-colors">
-                                      <Checkbox
-                                        id={`action-${page.path}-${action.action}`}
-                                        checked={isChecked}
-                                        onCheckedChange={(checked) => 
-                                          handleActionSelect(page.path, action.action, !!checked)
-                                        }
-                                      />
-                                      <Label 
-                                        htmlFor={`action-${page.path}-${action.action}`}
-                                        className="cursor-pointer text-sm font-normal"
-                                      >
-                                        {action.label}
-                                      </Label>
-                                    </div>
-                                  );
-                                })}
-                              </div>
+                        {selectedPages.map((page) => (
+                          <div
+                            key={page.path}
+                            className="border p-4 rounded-lg bg-card"
+                          >
+                            <h4 className="font-medium mb-3 flex items-center space-x-2 text-foreground">
+                              <page.icon className="w-4 h-4 flex-shrink-0" />
+                              <span>{page.label}</span>
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {ACTION_OPTIONS[page.path]?.map((action) => {
+                                const isChecked = (
+                                  selectedPageActions[page.path] || []
+                                ).includes(action.action);
+
+                                return (
+                                  <div
+                                    key={action.action}
+                                    className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded cursor-pointer transition-colors"
+                                  >
+                                    <Checkbox
+                                      id={`action-${page.path}-${action.action}`}
+                                      checked={isChecked}
+                                      onCheckedChange={(checked) =>
+                                        handleActionSelect(
+                                          page.path,
+                                          action.action,
+                                          !!checked
+                                        )
+                                      }
+                                    />
+                                    <Label
+                                      htmlFor={`action-${page.path}-${action.action}`}
+                                      className="cursor-pointer text-sm font-normal"
+                                    >
+                                      {action.label}
+                                    </Label>
+                                  </div>
+                                );
+                              })}
                             </div>
-                          );
-                        })}
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}
@@ -553,13 +660,13 @@ const UsersPage = () => {
                       setAccessPointOpen(false);
                       setSelectedPages([]);
                       setSelectedPageActions({});
-                      setUserAccessPoint(null);
+                      setUserAccessPointRow(null);
                     }}
                   >
                     Cancel
                   </Button>
-                  <Button 
-                    onClick={saveAccessPoints} 
+                  <Button
+                    onClick={saveAccessPoints}
                     disabled={selectedPages.length === 0}
                   >
                     Save Access Points
