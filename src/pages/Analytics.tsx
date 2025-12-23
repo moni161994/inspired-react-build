@@ -78,6 +78,57 @@ export default function Analytics() {
   const { request, loading } = useApi();
   const { toast } = useToast();
 
+
+  type AccessPointData = {
+    page: string[];
+    point: string[];
+    user_id: number;
+  };
+
+  const [access, setAccess] = useState<AccessPointData | null>(null);
+  const [canDownloadCsv, setCanDownloadCsv] = useState(false);
+
+  const getCurrentUserId = (): number => {
+    try {
+      const raw = localStorage.getItem("user_id");
+      return raw ? parseInt(raw, 10) : 0;
+    } catch {
+      return 0;
+    }
+  };
+
+
+  useEffect(() => {
+    const fetchAccess = async () => {
+      const userId = getCurrentUserId();
+      if (!userId) return;
+
+      try {
+        const res = await request(`/get_single_access/${userId}`, "GET");
+        if (res?.status_code === 200 && res.data) {
+          const parsed: AccessPointData = {
+            page: JSON.parse(res.data.page),
+            point: JSON.parse(res.data.point),
+            user_id: Number(res.data.user_id),
+          };
+          setAccess(parsed);
+
+          const pageName = "report"; // /report → report
+          const allowed = parsed.point.some((p) =>
+            p === `download_reports_dashboard` ||
+            p === `download_reports_${pageName}`
+          );
+          setCanDownloadCsv(allowed);
+        }
+      } catch (e) {
+        console.error("access error", e);
+        setCanDownloadCsv(false);
+      }
+    };
+
+    fetchAccess();
+  }, []);
+
   // Modal states
   const [teamDialogOpen, setTeamDialogOpen] = useState(false);
   const [editTeamObj, setEditTeamObj] = useState<Team | null>(null);
@@ -470,7 +521,7 @@ export default function Analytics() {
                   {/* Filters Row */}
                   <div className="flex gap-6 items-end justify-between p-6">
                     <div className="flex flex-col">
-                      
+
                       <DateInput
                         label="Start Date *"
                         value={startDate}
@@ -482,7 +533,7 @@ export default function Analytics() {
                     </div>
 
                     <div className="flex flex-col">
-                    <DateInput
+                      <DateInput
                         label="End Date *"
                         value={endDate}
                         required
@@ -521,9 +572,12 @@ export default function Analytics() {
                 <CardHeader>
                   <CardTitle className="flex items-end justify-between">
                     <h1>Employee Activity Report</h1>
-                    <Button onClick={handleDownloadCSV} disabled={loading}>
-                      Download CSV
-                    </Button>
+                    {canDownloadCsv && (
+                      <Button onClick={handleDownloadCSV} disabled={loading || employeeReport.length === 0}>
+                        Download CSV
+                      </Button>
+                    )}
+
                   </CardTitle>
                 </CardHeader>
                 <div className="flex gap-6 items-end justify-between p-4">
@@ -535,13 +589,13 @@ export default function Analytics() {
                       onChange={(e) => setStartDateEvent(e.target.value)}
                     /> */}
                     <DateInput
-                        label="Start Date *"
-                        value={startDateEvent}
-                        required
-                        onChange={(val: string) => {
-                          setStartDateEvent(val);
-                        }}
-                      />
+                      label="Start Date *"
+                      value={startDateEvent}
+                      required
+                      onChange={(val: string) => {
+                        setStartDateEvent(val);
+                      }}
+                    />
                   </div>
 
                   <div className="flex flex-col">
@@ -552,13 +606,13 @@ export default function Analytics() {
                       onChange={(e) => setEndDateEvent(e.target.value)}
                     /> */}
                     <DateInput
-                        label="End Date *"
-                        value={endDateEvent}
-                        required
-                        onChange={(val: string) => {
-                          setEndDateEvent(val);
-                        }}
-                      />
+                      label="End Date *"
+                      value={endDateEvent}
+                      required
+                      onChange={(val: string) => {
+                        setEndDateEvent(val);
+                      }}
+                    />
                   </div>
 
                   <div className="flex flex-col">
@@ -589,10 +643,10 @@ export default function Analytics() {
                     />
                   </div>
                   <div className="flex flex-col">
-                  <Button onClick={handleClearDateforEvent} disabled={loading}>
-                    Clear Filter
-                  </Button>
-                </div>
+                    <Button onClick={handleClearDateforEvent} disabled={loading}>
+                      Clear Filter
+                    </Button>
+                  </div>
                 </div>
 
                 {filteredReport.length > 0 ? (
@@ -624,7 +678,7 @@ export default function Analytics() {
                   <p className="text-center mt-4">No records found</p>
                 )}
 
-                
+
               </Card>
             </TabsContent>
 
@@ -754,8 +808,8 @@ export default function Analytics() {
                         className={`flex items-center justify-between w-full ${formData.employees_id.includes(
                           String(user.employee_id)
                         )
-                            ? "font-semibold text-primary"
-                            : ""
+                          ? "font-semibold text-primary"
+                          : ""
                           }`}
                       >
                         <span>{user.user_name}</span>
