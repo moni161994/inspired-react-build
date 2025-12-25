@@ -518,7 +518,7 @@ export default function Events() {
                   }
                 }}
               >
-                <SelectTrigger className="w-48"> {/* Slightly smaller */}
+                <SelectTrigger className="w-40 border border-gray-300 rounded"> {/* Slightly smaller */}
                   <SelectValue placeholder="Select User" />
                 </SelectTrigger>
                 <SelectContent>
