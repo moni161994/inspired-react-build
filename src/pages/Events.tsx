@@ -31,7 +31,11 @@ export interface Event {
   template_id: number | null; // <-- ADD THIS
 
 }
-
+export interface User {
+  employee_id: number;
+  user_name: string;
+  profile: string;
+}
 function UpdateEventPopup({
   event,
   onClose,
@@ -352,6 +356,74 @@ export default function Events() {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [status, setStatus] = useState("All");
   const [searchTerm, setSearchTerm] = useState("");
+  const [users, setUsers] = useState<any[]>([]); // any[] to avoid TS errors
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+
+  // 3. Add users fetch useEffect (after your existing events useEffect)
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await fetch("https://api.inditechit.com/get_users");
+        const result = await response.json();
+
+        if (result.status_code === 200 && Array.isArray(result.data)) {
+          setUsers(result.data);
+        }
+      } catch (err) {
+        console.error("Users fetch error:", err);
+      }
+    };
+    fetchUsers();
+  }, []);
+
+    const handleUserSelect = async (userId: number) => {
+    console.log("🎯 SELECTED USER ID:", userId);
+    const getNewEvents = await fetch(`https://api.inditechit.com/get_user_team_events?id=${userId}`)
+            const result = await getNewEvents.json();
+    console.log(result.data);
+    
+    if (result?.data) setEvents(result.data);
+      else setEvents([]);
+    setSelectedUserId(userId);
+  };
+
+  // const handleUserSelect = async (userId: number) => {
+  //   console.log("🎯 SELECTED USER ID:", userId);
+
+  //   try {
+  //     const getNewEvents = await fetch(`https://api.inditechit.com/get_user_team_events?id=${userId}`);
+  //     const result = await getNewEvents.json();
+  //     console.log("📋 Team events response:", result);
+
+  //     if (result?.status_code === 200 && result?.data) {
+  //       setEvents(Array.isArray(result.data) ? result.data : []);
+  //     } else {
+  //       setEvents([]);
+  //     }
+  //   } catch (err) {
+  //     console.error("❌ Team events error:", err);
+  //     setEvents([]);
+  //   }
+
+  //   setSelectedUserId(userId);
+  // };
+
+  // 🔹 NEW: Reset to ALL events
+  const handleResetToAllEvents = async () => {
+    console.log("🔄 Loading ALL events...");
+    try {
+      const data: any = await request("/get_all_event_details", "GET");
+      if (data?.data) {
+        setEvents(data.data);
+      } else {
+        setEvents([]);
+      }
+    } catch (err) {
+      console.error("❌ All events error:", err);
+      setEvents([]);
+    }
+    setSelectedUserId(null);
+  };
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -419,8 +491,8 @@ export default function Events() {
         <main className="flex-1 overflow-auto p-6 space-y-6">
           <div className="flex justify-between items-center">
             <div className="flex justify-between items-center space-x-6">
-            <h1 className="text-2xl font-semibold text-foreground">Your Events</h1>
-            <div className="relative">
+              <h1 className="text-2xl font-semibold text-foreground">Your Events</h1>
+              <div className="relative">
                 <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
@@ -430,10 +502,36 @@ export default function Events() {
                   className="pl-9 pr-3 py-2 border rounded-md w-60 focus:ring-2 focus:ring-primary focus:outline-none"
                 />
               </div>
-              </div>
+            </div>
             <div className="flex items-center space-x-4">
-              
+              {/* ✅ FIXED USER DROPDOWN */}
+              <Select
+                value={selectedUserId?.toString() || "all-events"}
+                onValueChange={async (value) => {
+                  if (value === "all-events") {
+                    // ✅ CALL INITIAL API
+                    await handleResetToAllEvents();
+                  } else {
+                    // ✅ CALL USER TEAM API
+                    const userId = Number(value);
+                    await handleUserSelect(userId);
+                  }
+                }}
+              >
+                <SelectTrigger className="w-48"> {/* Slightly smaller */}
+                  <SelectValue placeholder="Select User" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all-events">All Users</SelectItem>
+                  {users.map((user: any) => (
+                    <SelectItem key={user.employee_id} value={user.employee_id.toString()}>
+                      {user.user_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
+              {/* YOUR STATUS FILTER - UNCHANGED */}
               <Select value={status} onValueChange={(v) => setStatus(v)}>
                 <SelectTrigger className="w-40 border border-gray-300 rounded">
                   <SelectValue placeholder="Filter Status" />
@@ -445,10 +543,10 @@ export default function Events() {
                   <SelectItem value="Completed">Completed</SelectItem>
                 </SelectContent>
               </Select>
-              <Button onClick={handleClearFilters}>
-                Clear Filter
-              </Button>
+              <Button onClick={handleClearFilters}>Clear Filter</Button>
             </div>
+
+
           </div>
 
           {loading && <p>Loading events...</p>}
