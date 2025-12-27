@@ -138,14 +138,21 @@ const UsersPage = () => {
       return 0;
     }
   };
-
-  const fetchUser = async () => {
+const fetchUser = async () => {
+  const currentUserId = getCurrentUserId();
     const email = localStorage.getItem("email");
     if (!email) return;
 
     const res = await request("/get_users", "GET");
     if (res && res.status_code === 200 && res.data) {
-      setUser(res.data);
+      let list: UserData[] = res.data;
+
+      // ✅ If NOT 1015 → only users whose manager (parent_id) is current user
+      if (currentUserId !== 1015) {
+        list = list.filter((u) => (u.parent_id === currentUserId || u.employee_id ==currentUserId ));
+      }
+
+      setUser(list);
     } else {
       toast({
         title: "Failed to fetch users",
@@ -154,6 +161,21 @@ const UsersPage = () => {
       });
     }
   };
+  // const fetchUser = async () => {
+  //   const email = localStorage.getItem("email");
+  //   if (!email) return;
+
+  //   const res = await request("/get_users", "GET");
+  //   if (res && res.status_code === 200 && res.data) {
+  //     setUser(res.data);
+  //   } else {
+  //     toast({
+  //       title: "Failed to fetch users",
+  //       description: "An error occurred while fetching user data.",
+  //       variant: "destructive",
+  //     });
+  //   }
+  // };
 
   // LOAD CURRENT USER ACCESS (for hiding buttons)
   const loadMyAccess = async () => {

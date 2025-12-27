@@ -158,10 +158,38 @@ export default function Teams() {
   });
 
   // Fetch lead data
+  // const fetchLeadData = async () => {
+  //   const res = await request(`/get_all_leads`, "GET");
+  //   if (res && res.success === true && res.data) {
+  //     setLeadData(res.data);
+  //   } else {
+  //     toast({
+  //       variant: "destructive",
+  //       title: "❌ Failed to Fetch Data",
+  //       description: res?.msg || "Unable to load leads at the moment.",
+  //     });
+  //   }
+  // };
+  const getCurrentUserId = (): number => {
+    try {
+      const raw = localStorage.getItem("user_id");
+      return raw ? parseInt(raw, 10) : 0;
+    } catch {
+      return 0;
+    }
+  };
+
   const fetchLeadData = async () => {
+    const currentUserId = getCurrentUserId();
     const res = await request(`/get_all_leads`, "GET");
     if (res && res.success === true && res.data) {
-      setLeadData(res.data);
+      let data: any[] = res.data;
+      if (currentUserId !== 1015) {
+        data = data.filter(
+          (lead: any) => lead.captured_by_id === currentUserId
+        );
+      }
+      setLeadData(data);
     } else {
       toast({
         variant: "destructive",
@@ -170,6 +198,7 @@ export default function Teams() {
       });
     }
   };
+
 
   useEffect(() => {
     fetchLeadData();

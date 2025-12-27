@@ -376,14 +376,13 @@ export default function Events() {
     fetchUsers();
   }, []);
 
-    const handleUserSelect = async (userId: number) => {
-    console.log("🎯 SELECTED USER ID:", userId);
+  const handleUserSelect = async (userId: number) => {
     const getNewEvents = await fetch(`https://api.inditechit.com/get_user_team_events?id=${userId}`)
-            const result = await getNewEvents.json();
+    const result = await getNewEvents.json();
     console.log(result.data);
-    
+
     if (result?.data) setEvents(result.data);
-      else setEvents([]);
+    else setEvents([]);
     setSelectedUserId(userId);
   };
 
@@ -410,7 +409,6 @@ export default function Events() {
 
   // 🔹 NEW: Reset to ALL events
   const handleResetToAllEvents = async () => {
-    console.log("🔄 Loading ALL events...");
     try {
       const data: any = await request("/get_all_event_details", "GET");
       if (data?.data) {
@@ -424,12 +422,26 @@ export default function Events() {
     }
     setSelectedUserId(null);
   };
-
+  const getCurrentUserId = (): number => {
+    try {
+      const raw = localStorage.getItem("user_id");
+      return raw ? parseInt(raw, 10) : 0;
+    } catch {
+      return 0;
+    }
+  };
   useEffect(() => {
     const fetchEvents = async () => {
-      const data: any = await request("/get_all_event_details", "GET");
-      if (data?.data) setEvents(data.data);
-      else setEvents([]);
+      const user_id = getCurrentUserId()
+      if (user_id == 1015) {
+        const data: any = await request("/get_all_event_details", "GET");
+        if (data?.data) setEvents(data.data);
+        else setEvents([]);
+      } else {
+        const getNewEvents = await fetch(`https://api.inditechit.com/get_user_team_events?id=${user_id}`)
+        const result = await getNewEvents.json();
+        if (result?.data) setEvents(result.data);
+      }
     };
     fetchEvents();
   }, []);
