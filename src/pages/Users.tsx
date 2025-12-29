@@ -80,11 +80,13 @@ const ACTION_OPTIONS: Record<string, ActionOption[]> = {
     { label: "Create Event", action: "create_event" },
     { label: "View Events", action: "view_events" },
     { label: "Edit Event", action: "edit_event" },
+    { label: "User Filter", action: "filter" },
   ],
   "/lead": [
     { label: "Download Reports", action: "download_reports" },
     { label: "View Leads", action: "view_leads" },
     { label: "Delete Lead", action: "delete_lead" },
+    { label: "User Filter", action: "filter" },
   ],
   "/team": [
     { label: "View Team", action: "view_team" },
@@ -97,7 +99,10 @@ const ACTION_OPTIONS: Record<string, ActionOption[]> = {
     { label: "Change Access", action: "change_access" },
     { label: "Generate Code", action: "generate_code" },
   ],
-  "/report": [{ label: "Download Report", action: "download_report" }],
+  "/report": [
+    { label: "Download Report", action: "download_report" },
+    { label: "User Filter", action: "filter" },
+  ],
   "/template": [
     { label: "Create Template", action: "create_template" },
     { label: "Edit Template", action: "edit_template" },
@@ -142,12 +147,9 @@ const fetchUser = async () => {
   const currentUserId = getCurrentUserId();
     const email = localStorage.getItem("email");
     if (!email) return;
-
     const res = await request("/get_users", "GET");
     if (res && res.status_code === 200 && res.data) {
       let list: UserData[] = res.data;
-
-      // ✅ If NOT 1015 → only users whose manager (parent_id) is current user
       if (currentUserId !== 1015) {
         list = list.filter((u) => (u.parent_id === currentUserId || u.employee_id ==currentUserId ));
       }

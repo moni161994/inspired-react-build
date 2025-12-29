@@ -15,6 +15,9 @@ import { Edit, Search } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
 import { DateInput } from "@/components/ui/DateInput";
 
+// 🔹 IMPORT MISSING ICONS
+import { LayoutGrid, Calendar, Clock, UsersIcon, User, Folder, LayoutList } from "lucide-react";
+
 export interface Event {
   event_id: number;
   event_name: string;
@@ -28,14 +31,83 @@ export interface Event {
   event_size: string;
   is_active: string;
   team: string;
-  template_id: number | null; // <-- ADD THIS
-
+  template_id: number | null;
 }
+
 export interface User {
   employee_id: number;
   user_name: string;
   profile: string;
 }
+
+// 🔹 ACCESS CONTROL TYPES
+interface PageOption {
+  icon: any;
+  label: string;
+  path: string;
+}
+
+interface ActionOption {
+  label: string;
+  action: string;
+}
+
+interface AccessPointData {
+  page: string[];
+  point: string[];
+  user_id: number;
+}
+
+// 🔹 PAGE & ACTION OPTIONS
+const PAGE_OPTIONS: PageOption[] = [
+  { icon: LayoutGrid, label: "Dashboard", path: "/" },
+  { icon: Calendar, label: "Events", path: "/events" },
+  { icon: Clock, label: "Leads", path: "/lead" },
+  { icon: UsersIcon, label: "Team", path: "/team" },
+  { icon: User, label: "Users", path: "/users" },
+  { icon: Folder, label: "Report", path: "/report" },
+  { icon: LayoutList, label: "Template", path: "/template" },
+];
+
+const ACTION_OPTIONS: Record<string, ActionOption[]> = {
+  "/": [
+    { label: "View Dashboard", action: "view_dashboard" },
+    { label: "Download Reports", action: "download_reports" },
+  ],
+  "/events": [
+    { label: "Create Event", action: "create_event" },
+    { label: "View Events", action: "view_events" },
+    { label: "Edit Event", action: "edit_event" },
+    { label: "User Filter", action: "filter" },
+  ],
+  "/lead": [
+    { label: "Download Reports", action: "download_reports" },
+    { label: "View Leads", action: "view_leads" },
+    { label: "Delete Lead", action: "delete_lead" },
+    { label: "User Filter", action: "filter" },
+  ],
+  "/team": [
+    { label: "View Team", action: "view_team" },
+    { label: "Add Team", action: "add_team" },
+    { label: "Edit Team", action: "edit_team" },
+  ],
+  "/users": [
+    { label: "Create User", action: "create_user" },
+    { label: "Update User", action: "update_user" },
+    { label: "Change Access", action: "change_access" },
+    { label: "Generate Code", action: "generate_code" },
+  ],
+  "/report": [
+    { label: "Download Report", action: "download_report" },
+    { label: "User Filter", action: "filter" },
+  ],
+  "/template": [
+    { label: "Create Template", action: "create_template" },
+    { label: "Edit Template", action: "edit_template" },
+    { label: "Delete Template", action: "delete_template" },
+  ],
+};
+
 function UpdateEventPopup({
   event,
   onClose,
@@ -67,11 +139,9 @@ function UpdateEventPopup({
 
   const { request, loading } = useApi<any>();
 
-  // 🔹 Fetch Teams + Templates
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // TEAM API
         const teamsRes = await request("/get_all_teams", "GET");
 
         if (Array.isArray(teamsRes)) {
@@ -82,7 +152,6 @@ function UpdateEventPopup({
           setTeams(teamNames);
         }
 
-        // TEMPLATE API (response inside data)
         const templateRes = await request("/form_template_list", "GET");
 
         if (templateRes?.data && Array.isArray(templateRes.data)) {
@@ -96,7 +165,6 @@ function UpdateEventPopup({
     fetchData();
   }, []);
 
-  // 🔹 Pre-fill template_id as string
   useEffect(() => {
     if (event) {
       setUpdatedEvent({
@@ -106,7 +174,6 @@ function UpdateEventPopup({
     }
   }, [event]);
 
-  // 🔹 Handle all input changes
   const handleChange = (e: any) => {
     const { name, value } = e.target;
 
@@ -119,11 +186,9 @@ function UpdateEventPopup({
     }));
   };
 
-  // 🔹 Save API using useApi
   const handleSave = async () => {
     setError(null);
 
-    // ✅ Remove fields from payload using destructuring
     const { fields, ...cleanEvent } = updatedEvent;
 
     const payload = {
@@ -147,7 +212,6 @@ function UpdateEventPopup({
     }
   };
 
-
   return (
     <>
       <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
@@ -157,7 +221,6 @@ function UpdateEventPopup({
           {error && <p className="text-red-500 mb-4">{error}</p>}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Event Status */}
             <label className="block">
               <span className="text-sm font-medium">Event Status</span>
               <select
@@ -172,7 +235,6 @@ function UpdateEventPopup({
               </select>
             </label>
 
-            {/* Event Name */}
             <label className="block">
               <span className="text-sm font-medium">Event Name</span>
               <input
@@ -184,7 +246,6 @@ function UpdateEventPopup({
               />
             </label>
 
-            {/* Dates */}
             <DateInput
               label="Start Date"
               value={updatedEvent.start_date}
@@ -200,7 +261,6 @@ function UpdateEventPopup({
               }
             />
 
-            {/* Location */}
             <label className="block">
               <span className="text-sm font-medium">Location</span>
               <input
@@ -212,7 +272,6 @@ function UpdateEventPopup({
               />
             </label>
 
-            {/* Team */}
             <label className="block">
               <span className="text-sm font-medium">Team</span>
               <select
@@ -230,7 +289,6 @@ function UpdateEventPopup({
               </select>
             </label>
 
-            {/* Leads */}
             <label className="block">
               <span className="text-sm font-medium">Total Leads</span>
               <input
@@ -267,7 +325,6 @@ function UpdateEventPopup({
               />
             </label>
 
-            {/* Event Size */}
             <label className="block">
               <span className="text-sm font-medium">Event Size</span>
               <select
@@ -282,7 +339,6 @@ function UpdateEventPopup({
               </select>
             </label>
 
-            {/* Template Dropdown */}
             <label className="block col-span-2">
               <span className="text-sm font-medium">Form Template</span>
               <select
@@ -320,10 +376,6 @@ function UpdateEventPopup({
   );
 }
 
-
-
-
-
 const getStatusBadge = (status: string) => {
   switch (status) {
     case "Upcoming":
@@ -349,6 +401,15 @@ const getStatusBadge = (status: string) => {
   }
 };
 
+const getCurrentUserId = (): number => {
+  try {
+    const raw = localStorage.getItem("user_id");
+    return raw ? parseInt(raw, 10) : 0;
+  } catch {
+    return 0;
+  }
+};
+
 export default function Events() {
   const { request, loading, error } = useApi<Event[]>();
   const [events, setEvents] = useState<Event[]>([]);
@@ -356,10 +417,53 @@ export default function Events() {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [status, setStatus] = useState("All");
   const [searchTerm, setSearchTerm] = useState("");
-  const [users, setUsers] = useState<any[]>([]); // any[] to avoid TS errors
+  const [users, setUsers] = useState<any[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
-  // 3. Add users fetch useEffect (after your existing events useEffect)
+  // 🔹 ACCESS CONTROL STATES
+  const [myAccess, setMyAccess] = useState<AccessPointData | null>(null);
+  const [canViewEvents, setCanViewEvents] = useState(false);
+  const [canEditEvent, setCanEditEvent] = useState(false);
+  const [canFilterEvents, setCanFilterEvents] = useState(false);
+
+  // 🔹 LOAD USER ACCESS
+  const loadMyAccess = async () => {
+    const userId = getCurrentUserId();
+    if (!userId) return;
+
+    try {
+      const res:any = await request(`/get_single_access/${userId}`, "GET");
+      if (res?.status_code === 200 && res.data) {
+        const parsed: AccessPointData = {
+          page: JSON.parse(res.data.page),
+          point: JSON.parse(res.data.point),
+          user_id: Number(res.data.user_id),
+        };
+        setMyAccess(parsed);
+
+        const hasPage = (p: string) => parsed.page.includes(p);
+        const hasAction = (page: string, action: string) => {
+          const pageName = page.replace("/", "").replace(/\/+$/, "") || "dashboard";
+          const suffix = `${action}_${pageName}`;
+          return parsed.point.includes(suffix);
+        };
+
+        setCanViewEvents(hasPage("/events") && hasAction("/events", "view_events"));
+        setCanEditEvent(hasPage("/events") && hasAction("/events", "edit_event"));
+        setCanFilterEvents(hasPage("/events") && hasAction("/events", "filter"));
+      }
+    } catch (e) {
+      console.error("loadMyAccess error", e);
+      setCanViewEvents(false);
+      setCanEditEvent(false);
+      setCanFilterEvents(false);
+    }
+  };
+
+  useEffect(() => {
+    loadMyAccess();
+  }, []);
+
   useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -376,8 +480,24 @@ export default function Events() {
     fetchUsers();
   }, []);
 
+  useEffect(() => {
+    const fetchEvents = async () => {
+      const user_id = getCurrentUserId();
+      if (user_id == 1015) {
+        const data: any = await request("/get_all_event_details", "GET");
+        if (data?.data) setEvents(data.data);
+        else setEvents([]);
+      } else {
+        const getNewEvents = await fetch(`https://api.inditechit.com/get_user_team_events?id=${user_id}`);
+        const result = await getNewEvents.json();
+        if (result?.data) setEvents(result.data);
+      }
+    };
+    fetchEvents();
+  }, []);
+
   const handleUserSelect = async (userId: number) => {
-    const getNewEvents = await fetch(`https://api.inditechit.com/get_user_team_events?id=${userId}`)
+    const getNewEvents = await fetch(`https://api.inditechit.com/get_user_team_events?id=${userId}`);
     const result = await getNewEvents.json();
     console.log(result.data);
 
@@ -386,28 +506,6 @@ export default function Events() {
     setSelectedUserId(userId);
   };
 
-  // const handleUserSelect = async (userId: number) => {
-  //   console.log("🎯 SELECTED USER ID:", userId);
-
-  //   try {
-  //     const getNewEvents = await fetch(`https://api.inditechit.com/get_user_team_events?id=${userId}`);
-  //     const result = await getNewEvents.json();
-  //     console.log("📋 Team events response:", result);
-
-  //     if (result?.status_code === 200 && result?.data) {
-  //       setEvents(Array.isArray(result.data) ? result.data : []);
-  //     } else {
-  //       setEvents([]);
-  //     }
-  //   } catch (err) {
-  //     console.error("❌ Team events error:", err);
-  //     setEvents([]);
-  //   }
-
-  //   setSelectedUserId(userId);
-  // };
-
-  // 🔹 NEW: Reset to ALL events
   const handleResetToAllEvents = async () => {
     try {
       const data: any = await request("/get_all_event_details", "GET");
@@ -422,31 +520,12 @@ export default function Events() {
     }
     setSelectedUserId(null);
   };
-  const getCurrentUserId = (): number => {
-    try {
-      const raw = localStorage.getItem("user_id");
-      return raw ? parseInt(raw, 10) : 0;
-    } catch {
-      return 0;
-    }
-  };
-  useEffect(() => {
-    const fetchEvents = async () => {
-      const user_id = getCurrentUserId()
-      if (user_id == 1015) {
-        const data: any = await request("/get_all_event_details", "GET");
-        if (data?.data) setEvents(data.data);
-        else setEvents([]);
-      } else {
-        const getNewEvents = await fetch(`https://api.inditechit.com/get_user_team_events?id=${user_id}`)
-        const result = await getNewEvents.json();
-        if (result?.data) setEvents(result.data);
-      }
-    };
-    fetchEvents();
-  }, []);
 
   const openUpdatePopup = (event: Event) => {
+    if (!canEditEvent) {
+      alert("You don't have permission to edit events.");
+      return;
+    }
     setSelectedEvent(event);
     setPopupOpen(true);
   };
@@ -494,6 +573,27 @@ export default function Events() {
     setSearchTerm("");
   };
 
+  const showFilters = canFilterEvents;
+
+  // 🔹 ACCESS DENIED SCREEN
+  if (!canViewEvents) {
+    return (
+      <div className="flex h-screen bg-background">
+        <DashboardSidebar />
+        <div className="flex flex-col flex-1">
+          <DashboardHeader />
+          <main className="flex-1 overflow-auto p-6 space-y-6">
+            <Card>
+              <CardContent className="p-6 text-center">
+                <h1 className="text-2xl font-semibold mb-4">Access Denied</h1>
+                <p>You don't have permission to view Events.</p>
+              </CardContent>
+            </Card>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-background">
@@ -504,61 +604,67 @@ export default function Events() {
           <div className="flex justify-between items-center">
             <div className="flex justify-between items-center space-x-6">
               <h1 className="text-2xl font-semibold text-foreground">Your Events</h1>
-              <div className="relative">
-                <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search events..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 pr-3 py-2 border rounded-md w-60 focus:ring-2 focus:ring-primary focus:outline-none"
-                />
+              {/* 🔹 SEARCH - HIDE IF NO FILTER PERMISSION */}
+              {showFilters && (
+                <div className="relative">
+                  <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search events..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9 pr-3 py-2 border rounded-md w-60 focus:ring-2 focus:ring-primary focus:outline-none"
+                  />
+                </div>
+              )}
+            </div>
+            {/* 🔹 FILTERS - HIDE ENTIRE SECTION IF NO FILTER PERMISSION */}
+            {showFilters && (
+              <div className="flex items-center space-x-4">
+                <Select
+                  value={selectedUserId?.toString() || "all-events"}
+                  onValueChange={async (value) => {
+                    if (value === "all-events") {
+                      await handleResetToAllEvents();
+                    } else {
+                      const userId = Number(value);
+                      await handleUserSelect(userId);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-40 border border-gray-300 rounded">
+                    <SelectValue placeholder="Select User" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all-events">All Users</SelectItem>
+                    {users.map((user: any) => (
+                      <SelectItem key={user.employee_id} value={user.employee_id.toString()}>
+                        {user.user_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select 
+                  value={status} 
+                  onValueChange={(v) => setStatus(v)}
+                >
+                  <SelectTrigger className="w-40 border border-gray-300 rounded">
+                    <SelectValue placeholder="Filter Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="All">All</SelectItem>
+                    <SelectItem value="Upcoming">Upcoming</SelectItem>
+                    <SelectItem value="Active">Active</SelectItem>
+                    <SelectItem value="Completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <Button onClick={handleClearFilters}>
+                  Clear Filter
+                </Button>
               </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              {/* ✅ FIXED USER DROPDOWN */}
-              <Select
-                value={selectedUserId?.toString() || "all-events"}
-                onValueChange={async (value) => {
-                  if (value === "all-events") {
-                    // ✅ CALL INITIAL API
-                    await handleResetToAllEvents();
-                  } else {
-                    // ✅ CALL USER TEAM API
-                    const userId = Number(value);
-                    await handleUserSelect(userId);
-                  }
-                }}
-              >
-                <SelectTrigger className="w-40 border border-gray-300 rounded"> {/* Slightly smaller */}
-                  <SelectValue placeholder="Select User" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all-events">All Users</SelectItem>
-                  {users.map((user: any) => (
-                    <SelectItem key={user.employee_id} value={user.employee_id.toString()}>
-                      {user.user_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {/* YOUR STATUS FILTER - UNCHANGED */}
-              <Select value={status} onValueChange={(v) => setStatus(v)}>
-                <SelectTrigger className="w-40 border border-gray-300 rounded">
-                  <SelectValue placeholder="Filter Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="All">All</SelectItem>
-                  <SelectItem value="Upcoming">Upcoming</SelectItem>
-                  <SelectItem value="Active">Active</SelectItem>
-                  <SelectItem value="Completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button onClick={handleClearFilters}>Clear Filter</Button>
-            </div>
-
-
+            )}
           </div>
 
           {loading && <p>Loading events...</p>}
@@ -581,35 +687,46 @@ export default function Events() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredEvents.map((event) => (
-                      <tr
-                        key={event.event_id}
-                        className="border-b hover:bg-muted/20 transition-colors"
-                      >
-                        <td className="py-3 px-4">
-                          {getStatusBadge(
-                            getStatusFromDates(event, event.start_date, event.end_date)
-                          )}
-                        </td>
-                        <td className="py-3 px-4">{event.event_name}</td>
-                        <td className="py-3 px-4">
-                          {event.start_date} → {event.end_date}
-                        </td>
-                        <td className="py-3 px-4">{event.location}</td>
-                        <td className="py-3 px-4">{event.team}</td>
-                        <td className="py-3 px-4">{event.total_leads}</td>
-                        <td className="py-3 px-4">{event.priority_leads}</td>
-                        <td className="py-3 px-4">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => openUpdatePopup(event)}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
+                    {filteredEvents.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-12 text-center text-muted-foreground">
+                          {/* 🔹 NO EVENTS MESSAGE */}
+                          {events.length === 0 ? "No events found." : "No events match your filters."}
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      filteredEvents.map((event) => (
+                        <tr
+                          key={event.event_id}
+                          className="border-b hover:bg-muted/20 transition-colors"
+                        >
+                          <td className="py-3 px-4">
+                            {getStatusBadge(
+                              getStatusFromDates(event, event.start_date, event.end_date)
+                            )}
+                          </td>
+                          <td className="py-3 px-4">{event.event_name}</td>
+                          <td className="py-3 px-4">
+                            {event.start_date} → {event.end_date}
+                          </td>
+                          <td className="py-3 px-4">{event.location}</td>
+                          <td className="py-3 px-4">{event.team}</td>
+                          <td className="py-3 px-4">{event.total_leads}</td>
+                          <td className="py-3 px-4">{event.priority_leads}</td>
+                          <td className="py-3 px-4">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openUpdatePopup(event)}
+                              disabled={!canEditEvent}
+                              title={!canEditEvent ? "No edit permission" : "Edit event"}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
