@@ -17,6 +17,7 @@ import TeamAnalytics from "./pages/TeamAna";
 import Analytics from "./pages/Analytics";
 import Reports from "./pages/Reports";
 import Templates from "./pages/Templates";
+import LanguageManagement from "./pages/Language";
 
 const queryClient = new QueryClient();
 
@@ -94,6 +95,7 @@ const App = () => (
             <Route path="/events" element={<ProtectedRoute><Events /></ProtectedRoute>} />
             <Route path="/team" element={<ProtectedRoute><TeamAnalytics /></ProtectedRoute>} />
             <Route path="/lead" element={<ProtectedRoute><Teams /></ProtectedRoute>} />
+            <Route path="/language" element={<ProtectedRoute><LanguageManagement /></ProtectedRoute>} />
             <Route path="/report" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
             <Route path="/template" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />

@@ -38,16 +38,33 @@ const TEMPLATE_DATA = [
 export default function Reports() {
   const { request, loading, error } = useApi<any>();
   const [summary, setSummary] = useState<any>(null);
-  const [reports, setReports] = useState<any[]>([]);
+  const [allReports, setAllReports] = useState<any[]>([]); // Raw API data
   const [filter, setFilter] = useState<string>("all");
   const [nameFilter, setNameFilter] = useState<string>("");
   const [eventFilter, setEventFilter] = useState<string>("");
-  const [templateId, setTemplateId] = useState<string>("all"); // New template filter
+  const [templateId, setTemplateId] = useState<string>("all");
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [users, setUsers] = useState<any[]>([]);
 
-  // Build query string for API (server-side filters)
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await fetch("https://api.inditechit.com/get_users");
+        const result = await response.json();
+        if (result.status_code === 200 && Array.isArray(result.data)) {
+          setUsers(result.data);
+        }
+      } catch (err) {
+        console.error("Users fetch error:", err);
+      }
+    };
+    fetchUsers();
+  }, []);
+
+  // Fetch raw data from API (only template filter goes to server)
   const buildQuery = () => {
     const params = new URLSearchParams();
-    if (templateId !== "all") params.set("template_id", templateId); // Add template_id filter
+    if (templateId !== "all") params.set("template_id", templateId);
     const qs = params.toString();
     return qs ? `/consent_report?${qs}` : "/consent_report";
   };
@@ -58,20 +75,25 @@ export default function Reports() {
       const data: any = await request(endpoint, "GET");
 
       if (data?.summary) setSummary(data.summary);
-      if (data?.data) setReports(data.data);
-      else setReports([]);
+      if (data?.data) {
+        setAllReports(data.data); // Store raw data for client-side filtering
+      } else {
+        setAllReports([]);
+      }
     };
 
     fetchReports();
-  }, [request, templateId]); // Add templateId to dependencies
+  }, [request, templateId]); // Only templateId affects server call
 
-  // Client-side filters (status, name, event)
+  // ✅ CLIENT-SIDE FILTERING - ALL FILTERS WORK ON LOCAL DATA
   const filteredReports = useMemo(() => {
-    return reports.filter((item) => {
+    return allReports.filter((item) => {
+      // Consent status filter
       if (filter !== "all" && item.consent_status !== filter) {
         return false;
       }
 
+      // Name filter
       if (
         nameFilter &&
         !item.name?.toLowerCase().includes(nameFilter.toLowerCase())
@@ -79,6 +101,7 @@ export default function Reports() {
         return false;
       }
 
+      // Event filter
       if (
         eventFilter &&
         !item.event_name?.toLowerCase().includes(eventFilter.toLowerCase())
@@ -86,9 +109,22 @@ export default function Reports() {
         return false;
       }
 
+      // ✅ CAPTURED BY FILTER - Works on captured_by field (number)
+      if (selectedUserId && item.captured_by !== selectedUserId) {
+        return false;
+      }
+
       return true;
     });
-  }, [reports, filter, nameFilter, eventFilter]);
+  }, [allReports, filter, nameFilter, eventFilter, selectedUserId]);
+
+  const handleUserSelect = (userId: number) => {
+    setSelectedUserId(userId);
+  };
+
+  const handleResetToAllUsers = () => {
+    setSelectedUserId(null);
+  };
 
   const handleDownloadCSV = () => {
     if (!filteredReports || filteredReports.length === 0) return;
@@ -103,6 +139,7 @@ export default function Reports() {
       "City",
       "State",
       "Country",
+      "Captured By",
     ];
 
     const rows = filteredReports.map((item: any) => [
@@ -115,6 +152,7 @@ export default function Reports() {
       item.city ?? "",
       item.state ?? "",
       item.country ?? "",
+      users.find(u => u.employee_id === item.captured_by)?.user_name || item.captured_by || "—",
     ]);
 
     const csvContent = [headers, ...rows].map((r) => r.join(",")).join("\n");
@@ -128,6 +166,9 @@ export default function Reports() {
     URL.revokeObjectURL(url);
   };
 
+  // Get selected user name for display
+  const selectedUserName = users.find(u => u.employee_id === selectedUserId)?.user_name;
+
   return (
     <div className="flex h-screen bg-background">
       <DashboardSidebar />
@@ -139,8 +180,13 @@ export default function Reports() {
             <h1 className="text-2xl font-semibold text-foreground">Reports</h1>
           </div>
 
-          {loading && <p>Loading reports...</p>}
-          {error && <p className="text-red-500">Error: {error}</p>}
+          {loading && <p className="text-center py-8 text-muted-foreground">Loading reports...</p>}
+          {error && (
+            <div className="text-center py-8">
+              <p className="text-red-500 mb-4">Error: {error}</p>
+              <Button onClick={() => window.location.reload()}>Retry</Button>
+            </div>
+          )}
 
           {summary && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -201,48 +247,47 @@ export default function Reports() {
                     size="sm"
                     onClick={handleDownloadCSV}
                     disabled={filteredReports.length === 0}
-                    className="border border-border"
                   >
                     Download CSV
                   </Button>
                 </div>
               </div>
 
-              {/* Filters */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Filters - All in single responsive row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                 {/* Name Filter */}
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-muted-foreground">
+                  <label className="text-xs font-medium text-muted-foreground">
                     Filter by Name
                   </label>
                   <Input
                     placeholder="Enter name..."
                     value={nameFilter}
                     onChange={(e) => setNameFilter(e.target.value)}
-                    className="border border-gray-300 rounded"
+                    className="h-9 text-sm"
                   />
                 </div>
 
                 {/* Event Name Filter */}
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-muted-foreground">
+                  <label className="text-xs font-medium text-muted-foreground">
                     Filter by Event
                   </label>
                   <Input
                     placeholder="Enter event name..."
                     value={eventFilter}
                     onChange={(e) => setEventFilter(e.target.value)}
-                    className="border border-gray-300 rounded"
+                    className="h-9 text-sm"
                   />
                 </div>
 
                 {/* Consent Status Filter */}
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-muted-foreground">
+                  <label className="text-xs font-medium text-muted-foreground">
                     Consent Status
                   </label>
                   <Select value={filter} onValueChange={setFilter}>
-                    <SelectTrigger className="border border-gray-300 rounded">
+                    <SelectTrigger className="h-9">
                       <SelectValue placeholder="All Status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -254,13 +299,42 @@ export default function Reports() {
                   </Select>
                 </div>
 
-                {/* Template Filter (NEW) */}
+                {/* Captured By Filter - ✅ FULLY WORKING CLIENT-SIDE */}
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-muted-foreground">
-                    Template Filter
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Captured By
+                  </label>
+                  <Select
+                    value={selectedUserId?.toString() || "all-users"}
+                    onValueChange={(value) => {
+                      if (value === "all-users") {
+                        handleResetToAllUsers();
+                      } else {
+                        handleUserSelect(Number(value));
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="All Users" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all-users">All Users</SelectItem>
+                      {users.map((user) => (
+                        <SelectItem key={user.employee_id} value={user.employee_id.toString()}>
+                          {user.user_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Template Filter */}
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Template
                   </label>
                   <Select value={templateId} onValueChange={setTemplateId}>
-                    <SelectTrigger className="border border-gray-300 rounded">
+                    <SelectTrigger className="h-9">
                       <SelectValue placeholder="All Templates" />
                     </SelectTrigger>
                     <SelectContent>
@@ -276,36 +350,37 @@ export default function Reports() {
               </div>
 
               {/* Clear Filters */}
-              <div className="flex items-end space-x-2">
+              <div className="pt-2">
                 <Button
                   size="sm"
+                  variant="outline"
                   onClick={() => {
                     setNameFilter("");
                     setEventFilter("");
                     setFilter("all");
-                    setTemplateId("all"); // Clear template filter
+                    setTemplateId("all");
+                    handleResetToAllUsers();
                   }}
-                  className="border border-input"
+                  className="w-full sm:w-auto"
                 >
-                  Clear All
+                  Clear All Filters
                 </Button>
               </div>
             </CardHeader>
 
             <CardContent>
               <div className="text-sm text-muted-foreground mb-4">
-                Showing {filteredReports.length} of {reports.length} leads
-                {nameFilter && (
-                  <span className="ml-2">• Name: "{nameFilter}"</span>
-                )}
-                {eventFilter && (
-                  <span className="ml-2">• Event: "{eventFilter}"</span>
-                )}
-                {filter !== "all" && (
-                  <span className="ml-2">• Status: {filter}</span>
-                )}
+                Showing {filteredReports.length} of {allReports.length} leads
+                {nameFilter && <span className="ml-2">• Name: "{nameFilter}"</span>}
+                {eventFilter && <span className="ml-2">• Event: "{eventFilter}"</span>}
+                {filter !== "all" && <span className="ml-2">• Status: {filter}</span>}
                 {templateId !== "all" && (
-                  <span className="ml-2">• Template: {TEMPLATE_DATA.find(t => t.id.toString() === templateId)?.template_name}</span>
+                  <span className="ml-2">
+                    • Template: {TEMPLATE_DATA.find(t => t.id.toString() === templateId)?.template_name}
+                  </span>
+                )}
+                {selectedUserId && selectedUserName && (
+                  <span className="ml-2">• Captured By: "{selectedUserName}"</span>
                 )}
               </div>
 
@@ -319,6 +394,7 @@ export default function Reports() {
                     <TableHead>City</TableHead>
                     <TableHead>State</TableHead>
                     <TableHead>Country</TableHead>
+                    <TableHead>Captured By</TableHead>
                     <TableHead>Consent</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
@@ -334,7 +410,10 @@ export default function Reports() {
                       <TableCell>{item.city}</TableCell>
                       <TableCell>{item.state}</TableCell>
                       <TableCell>{item.country}</TableCell>
-                      <TableCell>{item.consent ?? "—"}</TableCell>
+                      <TableCell>
+                        {users.find(u => u.employee_id === item.captured_by)?.user_name || item.captured_by || "—"}
+                      </TableCell>
+                      <TableCell>{item.consent === 1 ? "Yes" : "No"}</TableCell>
                       <TableCell>
                         {item.consent_status === "granted" && (
                           <Badge className="bg-green-600">Granted</Badge>
@@ -343,9 +422,7 @@ export default function Reports() {
                           <Badge className="bg-red-600">Denied</Badge>
                         )}
                         {item.consent_status === "missing" && (
-                          <Badge className="bg-yellow-600 text-black">
-                            Missing
-                          </Badge>
+                          <Badge className="bg-yellow-600 text-black">Missing</Badge>
                         )}
                       </TableCell>
                     </TableRow>
@@ -353,9 +430,32 @@ export default function Reports() {
                 </TableBody>
               </Table>
 
-              {filteredReports.length === 0 && !loading && (
-                <div className="text-center py-8 text-muted-foreground">
-                  No leads match the selected filters
+              {filteredReports.length === 0 && !loading && !error && (
+                <div className="text-center py-12">
+                  <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-xl">📋</span>
+                  </div>
+                  <h3 className="text-lg font-semibold text-muted-foreground mb-2">
+                    No leads found
+                  </h3>
+                  <p className="text-sm text-muted-foreground mb-6">
+                    {nameFilter || eventFilter || filter !== "all" || templateId !== "all" || selectedUserId
+                      ? "Try adjusting your search or filter criteria."
+                      : "No leads available."
+                    }
+                  </p>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setNameFilter("");
+                      setEventFilter("");
+                      setFilter("all");
+                      setTemplateId("all");
+                      handleResetToAllUsers();
+                    }}
+                  >
+                    Clear All Filters
+                  </Button>
                 </div>
               )}
             </CardContent>

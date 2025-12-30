@@ -126,22 +126,35 @@ export default function Teams() {
   }
 
   const filteredLeads = leadData.filter((lead: any) => {
-    const eventName = (lead.event_name || "").toLowerCase();
-    const leadName = (lead.name || "").toLowerCase();
+  const eventName = (lead.event_name || "").toLowerCase();
+  const leadName = (lead.name || "").toLowerCase();
 
-    const filterEvent = eventNameFilter.toLowerCase();
-    const filterName = leadNameFilter.toLowerCase();
+  const filterEvent = eventNameFilter.toLowerCase();
+  const filterName = leadNameFilter.toLowerCase();
 
-    const matchesEvent = eventName.includes(filterEvent);
-    const matchesName = leadName.includes(filterName);
-    const matchesType = !leadTypeFilter || getLeadType(lead) === leadTypeFilter;
-    const matchesUser = !selectedUserId || lead.captured_by_id === selectedUserId;
+  const matchesEvent = eventName.includes(filterEvent);
+  const matchesName = leadName.includes(filterName);
+  const matchesType = !leadTypeFilter || getLeadType(lead) === leadTypeFilter;
+  
+  // Fix: Ensure both are numbers for comparison
+  const leadCapturedId = Number(lead.captured_by);
+  const matchesUser = !selectedUserId || leadCapturedId === selectedUserId;
 
-    console.log(lead.captured_by_id);
-    
-
-    return matchesEvent && matchesName && matchesType && matchesUser;
+  // Debug logging
+  console.log({
+    leadId: lead.lead_id,
+    captured_by_id: lead.captured_by,
+    leadCapturedId,
+    selectedUserId,
+    matchesUser,
+    matchesEvent,
+    matchesName,
+    matchesType
   });
+
+  return matchesEvent && matchesName && matchesType && matchesUser;
+});
+
 
   const fetchLeadData = async () => {
     const currentUserId = getCurrentUserId();

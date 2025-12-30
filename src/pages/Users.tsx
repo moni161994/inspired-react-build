@@ -4,6 +4,7 @@ import { DashboardHeader } from "@/components/DashboardHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import AddUser from "@/components/AddUser";
 import { useApi } from "@/hooks/useApi";
 import { Button } from "@/components/ui/button";
@@ -117,6 +118,7 @@ const UsersPage = () => {
   const [addUserOpen, setAddUserOpen] = useState(false);
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   // Access Point Modal States (for selected row)
   const [accessPointOpen, setAccessPointOpen] = useState(false);
@@ -143,17 +145,17 @@ const UsersPage = () => {
       return 0;
     }
   };
-const fetchUser = async () => {
-  const currentUserId = getCurrentUserId();
+
+  const fetchUser = async () => {
+    const currentUserId = getCurrentUserId();
     const email = localStorage.getItem("email");
     if (!email) return;
     const res = await request("/get_users", "GET");
     if (res && res.status_code === 200 && res.data) {
       let list: UserData[] = res.data;
       if (currentUserId !== 1015) {
-        list = list.filter((u) => (u.parent_id === currentUserId || u.employee_id ==currentUserId ));
+        list = list.filter((u) => (u.parent_id === currentUserId || u.employee_id == currentUserId ));
       }
-
       setUser(list);
     } else {
       toast({
@@ -163,21 +165,6 @@ const fetchUser = async () => {
       });
     }
   };
-  // const fetchUser = async () => {
-  //   const email = localStorage.getItem("email");
-  //   if (!email) return;
-
-  //   const res = await request("/get_users", "GET");
-  //   if (res && res.status_code === 200 && res.data) {
-  //     setUser(res.data);
-  //   } else {
-  //     toast({
-  //       title: "Failed to fetch users",
-  //       description: "An error occurred while fetching user data.",
-  //       variant: "destructive",
-  //     });
-  //   }
-  // };
 
   // LOAD CURRENT USER ACCESS (for hiding buttons)
   const loadMyAccess = async () => {
@@ -443,10 +430,13 @@ const fetchUser = async () => {
     loadMyAccess();
   }, []);
 
+  // Updated filteredUsers with status filter
   const filteredUsers = user
-    ? user.filter((u) =>
-        u.user_name.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+    ? user.filter((u) => {
+        const nameMatch = u.user_name.toLowerCase().includes(searchQuery.toLowerCase());
+        const statusMatch = statusFilter === "all" || u.status.toString() === statusFilter;
+        return nameMatch && statusMatch;
+      })
     : [];
 
   return (
@@ -471,12 +461,24 @@ const fetchUser = async () => {
               <CardHeader className="flex justify-between flex-row space-y-0 items-center">
                 <div className="flex flex-row space-y-0 items-center gap-8">
                   <CardTitle>App User Management</CardTitle>
-                  <Input
-                    className="w-64"
-                    placeholder="Search by name..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
+                  <div className="flex gap-4">
+                    <Input
+                      className="w-64"
+                      placeholder="Search by name..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="All Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="1">Active</SelectItem>
+                        <SelectItem value="0">Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div className="flex items-center gap-3">
                   {canCreateUser && (
@@ -486,14 +488,46 @@ const fetchUser = async () => {
               </CardHeader>
 
               <CardContent>
-                {loading && <p>Loading users...</p>}
+                {loading && <p className="text-center py-8 text-muted-foreground">Loading users...</p>}
                 {error && (
-                  <p className="text-red-500">
-                    {typeof error === "string" ? error : "Something went wrong"}
-                  </p>
+                  <div className="text-center py-8">
+                    <p className="text-red-500 mb-2">
+                      {typeof error === "string" ? error : "Something went wrong"}
+                    </p>
+                    <Button onClick={fetchUser} variant="outline">Retry</Button>
+                  </div>
                 )}
 
-                {!loading && !error && user && (
+                {!loading && !error && user && filteredUsers.length === 0 && (
+                  <div className="text-center py-12">
+                    <UsersIcon className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-muted-foreground mb-2">
+                      No users found
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-6">
+                      {searchQuery || statusFilter !== "all" 
+                        ? "Try adjusting your search or filter criteria." 
+                        : "No users available for this account."
+                      }
+                    </p>
+                    <div className="flex gap-2 justify-center">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          setSearchQuery("");
+                          setStatusFilter("all");
+                        }}
+                      >
+                        Clear Filters
+                      </Button>
+                      {canCreateUser && (
+                        <Button onClick={openAddUser}>Add First User</Button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {!loading && !error && user && filteredUsers.length > 0 && (
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
@@ -535,7 +569,6 @@ const fetchUser = async () => {
                             </td>
                             <td className="py-3 px-4 text-center whitespace-nowrap">
                               <div className="flex gap-2 justify-center flex-wrap">
-                                {/* Edit: agar chaho to iske liye bhi permission check add kar sakte ho */}
                                 <Button
                                   variant="outline"
                                   size="sm"
