@@ -23,6 +23,7 @@ import {
   User,
   Folder,
   LayoutList,
+  Languages,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -70,6 +71,7 @@ const PAGE_OPTIONS: PageOption[] = [
   { icon: User, label: "Users", path: "/users" },
   { icon: Folder, label: "Report", path: "/report" },
   { icon: LayoutList, label: "Template", path: "/template" },
+  { icon: Languages, label: "Language", path: "/language" },
 ];
 
 const ACTION_OPTIONS: Record<string, ActionOption[]> = {
@@ -109,6 +111,12 @@ const ACTION_OPTIONS: Record<string, ActionOption[]> = {
     { label: "Edit Template", action: "edit_template" },
     { label: "Delete Template", action: "delete_template" },
   ],
+  "/language":[
+    { label: "Create Language", action: "create_language" },
+    { label: "Edit Language", action: "edit_language" },
+    { label: "Edit Transation", action: "edit_transation" },
+    { label: "Delete Language", action: "delete_language" },
+  ]
 };
 
 const UsersPage = () => {

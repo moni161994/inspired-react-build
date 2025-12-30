@@ -1,4 +1,4 @@
-import { LayoutGrid, Calendar, Clock, Users, User, Folder, LayoutList } from "lucide-react";
+import { LayoutGrid, Calendar, Clock, Users, User, Folder, LayoutList, Languages } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -30,6 +30,7 @@ const ALL_NAVIGATION_ITEMS: PageOption[] = [
   { icon: User, label: "Users", path: "/users" },
   { icon: Folder, label: "Report", path: "/report" },
   { icon: LayoutList, label: "Template", path: "/template" },
+  { icon: Languages, label: "Language", path: "/language" },
 ];
 
 export function DashboardSidebar() {
@@ -135,12 +136,12 @@ export function DashboardSidebar() {
       </TooltipProvider>
 
       {/* Debug info (remove in production) */}
-      {process.env.NODE_ENV === 'development' && (
+      {/* {process.env.NODE_ENV === 'development' && (
         <div className="p-2 border-t border-border text-xs text-muted-foreground">
           <div>Allowed: {allowedPages.length}</div>
           <div>User ID: {getCurrentUserId()}</div>
         </div>
-      )}
+      )} */}
     </div>
   );
 }
