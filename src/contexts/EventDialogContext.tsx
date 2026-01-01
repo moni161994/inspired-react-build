@@ -24,6 +24,21 @@ import {
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/components/ui/use-toast";
 import { DateInput } from "@/components/ui/DateInput";
+// ⭐ ADDED — Multi-select components
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Check, ChevronsUpDown, Search } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 type EventDialogContextType = {
   openEventDialog: () => void;
@@ -40,13 +55,11 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
 
   const [isOpen, setIsOpen] = useState(false);
   const [teams, setTeams] = useState<any[]>([]);
-
-  // ⭐ ADDED — list of templates
   const [templates, setTemplates] = useState<any[]>([]);
 
   const [formData, setFormData] = useState({
     status: "Upcoming",
-    team: "",
+    team: "", // ⭐ CHANGED — Now stores comma-separated team names
     eventName: "",
     startDate: "",
     endDate: "",
@@ -55,8 +68,11 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     priorityLeads: 0,
     budget: 0,
     eventSize: "",
-    template_id: "", // ⭐ ADDED
+    template_id: "",
   });
+
+  // ⭐ ADDED — Selected teams array for UI management
+  const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
 
   // ================= FETCH TEAMS =================
   useEffect(() => {
@@ -115,16 +131,29 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  // ⭐ ADDED — Handle multiple team selection
+  const handleTeamSelection = (team: string) => {
+    const newSelectedTeams = selectedTeams.includes(team)
+      ? selectedTeams.filter((t) => t !== team)
+      : [...selectedTeams, team];
+    
+    setSelectedTeams(newSelectedTeams);
+    setFormData((prev) => ({
+      ...prev,
+      team: newSelectedTeams.join(", "), // Comma-separated for API
+    }));
+  };
+
   // ================= SUBMIT FORM =================
   const handleSubmit = async () => {
     const requiredFields = [
       { field: "status", label: "Event Status" },
-      { field: "team", label: "Team" },
+      { field: "team", label: "Team(s)" }, // ⭐ UPDATED label
       { field: "eventName", label: "Event Name" },
       { field: "startDate", label: "Start Date" },
       { field: "endDate", label: "End Date" },
       { field: "location", label: "Event Location" },
-      { field: "template_id", label: "Template" }, // ⭐ ADDED REQUIRED TEMPLATE
+      { field: "template_id", label: "Template" },
     ];
 
     for (const { field, label } of requiredFields) {
@@ -147,19 +176,18 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // ⭐ ADDED template_id to payload
     const payload = {
       event_status: formData.status,
       event_name: formData.eventName,
       start_date: formData.startDate,
       end_date: formData.endDate,
       location: formData.location,
-      team: formData.team,
+      team: formData.team, // ⭐ Already comma-separated
       total_leads: formData.totalLeads,
       priority_leads: formData.priorityLeads,
       budget: formData.budget,
       event_size: formData.eventSize,
-      template_id: formData.template_id, // ⭐ SEND TEMPLATE ID
+      template_id: formData.template_id,
     };
 
     const res = await request("/create_events", "POST", payload);
@@ -169,23 +197,6 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
         title: "✅ Event Created",
         description: "Event has been created successfully.",
       });
-      // closeEventDialog();
-
-      // setFormData({
-      //   status: "Upcoming",
-      //   team: "",
-      //   eventName: "",
-      //   startDate: "",
-      //   endDate: "",
-      //   location: "",
-      //   totalLeads: 0,
-      //   priorityLeads: 0,
-      //   budget: 0,
-      //   eventSize: "",
-      //   template_id: "", // ⭐ RESET
-      // });
-
-      // window.location.href = "/events";
     } else {
       toast({
         variant: "destructive",
@@ -208,8 +219,9 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
       priorityLeads: 0,
       budget: 0,
       eventSize: "",
-      template_id: "", // ⭐ RESET
+      template_id: "",
     });
+    setSelectedTeams([]); // ⭐ RESET selected teams
   };
 
   const closeEventDialog = () => {
@@ -229,8 +241,6 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
 
           <div className="grid grid-cols-2 gap-6 mt-4">
             
-            {/* ================= TEMPLATE DROPDOWN ⭐ NEW ================= */}
-      
             {/* EVENT STATUS */}
             <div>
               <Label>Event Status *</Label>
@@ -248,30 +258,62 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
               </Select>
             </div>
 
-            {/* TEAM */}
+            {/* ⭐ MULTI-SELECT TEAMS */}
             <div>
-              <Label>Select Team *</Label>
-              <Select
-                value={formData.team}
-                onValueChange={(val) => handleSelectChange("team", val)}
-              >
-                <SelectTrigger className="border-gray focus:border-gray">
-                  <SelectValue placeholder="Select Team" />
-                </SelectTrigger>
-                <SelectContent>
-                  {teams.length > 0 ? (
-                    teams.map((team, idx) => (
-                      <SelectItem key={idx} value={team}>
-                        {team}
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem value="none" disabled>
-                      No teams available
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+              <Label>Select Team(s) *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between border-gray focus:border-gray h-10"
+                  >
+                    {selectedTeams.length > 0
+                      ? `${selectedTeams.length} team(s) selected`
+                      : "Select teams..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0 max-h-64">
+                  <Command>
+                    <CommandInput placeholder="Search teams..." className="h-9" />
+                    <CommandEmpty>No teams found.</CommandEmpty>
+                    <CommandGroup className="max-h-48 overflow-auto">
+                      {teams.map((team) => (
+                        <CommandItem
+                          key={team}
+                          value={team}
+                          onSelect={() => handleTeamSelection(team)}
+                        >
+                          <Check
+                            className={`mr-2 h-4 w-4 ${
+                              selectedTeams.includes(team)
+                                ? "opacity-100"
+                                : "opacity-0"
+                            }`}
+                          />
+                          {team}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              {/* ⭐ SHOW SELECTED TEAMS AS BADGES */}
+              {selectedTeams.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {selectedTeams.map((team) => (
+                    <Badge
+                      key={team}
+                      variant="secondary"
+                      className="text-xs"
+                      onClick={() => handleTeamSelection(team)}
+                    >
+                      {team} ×
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* EVENT NAME */}
@@ -374,7 +416,9 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 className="border-gray focus:border-gray"
               />
             </div>
-            <div>
+
+            {/* TEMPLATE */}
+            <div className="col-span-2">
               <Label>Select Template *</Label>
               <Select
                 value={formData.template_id}
@@ -385,7 +429,6 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 <SelectTrigger className="border-gray focus:border-gray">
                   <SelectValue placeholder="Select Template" />
                 </SelectTrigger>
-
                 <SelectContent>
                   {templates.length > 0 ? (
                     templates.map((tpl) => (
@@ -401,7 +444,6 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 </SelectContent>
               </Select>
             </div>
-
           </div>
 
           {/* ACTION BUTTONS */}
