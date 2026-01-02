@@ -183,7 +183,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
       end_date: formData.endDate,
       location: formData.location,
       team: formData.team, // ⭐ Already comma-separated
-      total_leads: formData.totalLeads,
+      total_leads: 0,
       priority_leads: formData.priorityLeads,
       budget: formData.budget,
       event_size: formData.eventSize,
@@ -394,16 +394,16 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
             </div>
 
             {/* TOTAL LEADS */}
-            <div>
+            {/* <div>
               <Label htmlFor="totalLeads">Total Leads</Label>
               <Input
                 id="totalLeads"
                 type="number"
-                value={formData.totalLeads}
+                value={0}
                 onChange={handleChange}
                 className="border-gray focus:border-gray"
               />
-            </div>
+            </div> */}
 
             {/* PRIORITY LEADS */}
             <div>
