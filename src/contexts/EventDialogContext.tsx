@@ -24,7 +24,7 @@ import {
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/components/ui/use-toast";
 import { DateInput } from "@/components/ui/DateInput";
-// ⭐ ADDED — Multi-select components
+// ⭐ Multi-select components
 import {
   Command,
   CommandEmpty,
@@ -37,7 +37,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Check, ChevronsUpDown, Search } from "lucide-react";
+import { Check, ChevronsUpDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 type EventDialogContextType = {
@@ -54,12 +54,13 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
   const { request } = useApi<any>();
 
   const [isOpen, setIsOpen] = useState(false);
-  const [teams, setTeams] = useState<any[]>([]);
+  const [teams, setTeams] = useState<string[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
 
+  // ⭐ Form state with capture_type array
   const [formData, setFormData] = useState({
     status: "Upcoming",
-    team: "", // ⭐ CHANGED — Now stores comma-separated team names
+    team: "",
     eventName: "",
     startDate: "",
     endDate: "",
@@ -69,10 +70,12 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     budget: 0,
     eventSize: "",
     template_id: "",
+    capture_type: [],  // 👈 Array: ["Visiting Card", "Badge", "Manual"]
   });
 
-  // ⭐ ADDED — Selected teams array for UI management
+  // ⭐ UI states for multi-selects
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
+  const [captureTypes, setCaptureTypes] = useState<string[]>([]);
 
   // ================= FETCH TEAMS =================
   useEffect(() => {
@@ -80,7 +83,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
       try {
         const res = await request("/get_all_teams", "GET");
         if (res?.length > 0) {
-          const teamNames = Array.from(
+          const teamNames:any = Array.from(
             new Set(res.map((team: any) => team.team_name).filter(Boolean))
           );
           setTeams(teamNames);
@@ -103,7 +106,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     fetchTeams();
   }, []);
 
-  // ================= FETCH TEMPLATE LIST =================
+  // ================= FETCH TEMPLATES =================
   useEffect(() => {
     const fetchTemplates = async () => {
       const res = await request("/form_template_list", "GET");
@@ -131,7 +134,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  // ⭐ ADDED — Handle multiple team selection
+  // ⭐ Team multi-select handler
   const handleTeamSelection = (team: string) => {
     const newSelectedTeams = selectedTeams.includes(team)
       ? selectedTeams.filter((t) => t !== team)
@@ -140,24 +143,40 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     setSelectedTeams(newSelectedTeams);
     setFormData((prev) => ({
       ...prev,
-      team: newSelectedTeams.join(", "), // Comma-separated for API
+      team: newSelectedTeams.join(", "),
     }));
   };
 
-  // ================= SUBMIT FORM =================
+  // ⭐ Capture type checkbox handler
+  const toggleCaptureType = (type: string) => {
+    const newCaptureTypes = captureTypes.includes(type)
+      ? captureTypes.filter((t) => t !== type)
+      : [...captureTypes, type];
+    
+    setCaptureTypes(newCaptureTypes);
+    setFormData((prev) => ({
+      ...prev,
+      capture_type: newCaptureTypes,  // 👈 Direct array to API
+    }));
+  };
+
+  // ================= VALIDATION & SUBMIT =================
   const handleSubmit = async () => {
     const requiredFields = [
       { field: "status", label: "Event Status" },
-      { field: "team", label: "Team(s)" }, // ⭐ UPDATED label
+      { field: "team", label: "Team(s)" },
       { field: "eventName", label: "Event Name" },
       { field: "startDate", label: "Start Date" },
       { field: "endDate", label: "End Date" },
       { field: "location", label: "Event Location" },
+      { field: "capture_type", label: "Capture Type(s)" },  // 👈 NEW
       { field: "template_id", label: "Template" },
     ];
 
+    // Check required fields
     for (const { field, label } of requiredFields) {
-      if (!formData[field as keyof typeof formData]) {
+      const value = formData[field as keyof typeof formData];
+      if (!value || (Array.isArray(value) && value.length === 0)) {
         toast({
           variant: "destructive",
           title: "⚠️ Missing Required Field",
@@ -167,6 +186,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    // Date validation
     if (formData.endDate < formData.startDate) {
       toast({
         variant: "destructive",
@@ -176,32 +196,38 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // 👈 API payload with capture_type array
     const payload = {
       event_status: formData.status,
       event_name: formData.eventName,
       start_date: formData.startDate,
       end_date: formData.endDate,
       location: formData.location,
-      team: formData.team, // ⭐ Already comma-separated
+      team: formData.team,
       total_leads: 0,
       priority_leads: formData.priorityLeads,
       budget: formData.budget,
       event_size: formData.eventSize,
       template_id: formData.template_id,
+      capture_type: formData.capture_type,  // 👈 ["Visiting Card", "Badge", "Manual"]
     };
+
+    console.log("📤 Creating event:", payload);
 
     const res = await request("/create_events", "POST", payload);
 
-    if (res?.message === "Event updated successfully") {
+    if (res?.message === "Event created successfully" || res?.success) {
       toast({
         title: "✅ Event Created",
         description: "Event has been created successfully.",
       });
+      closeEventDialog();
+      window.location.href="/events"; // Refresh to events list
     } else {
       toast({
         variant: "destructive",
         title: "❌ Failed",
-        description: res?.msg || "Failed to save event details.",
+        description: res?.msg || res?.message || "Failed to save event details.",
       });
     }
   };
@@ -220,8 +246,10 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
       budget: 0,
       eventSize: "",
       template_id: "",
+      capture_type: [],  // 👈 Reset
     });
-    setSelectedTeams([]); // ⭐ RESET selected teams
+    setSelectedTeams([]);
+    setCaptureTypes([]);  // 👈 Reset
   };
 
   const closeEventDialog = () => {
@@ -232,16 +260,15 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     <EventDialogContext.Provider value={{ openEventDialog, closeEventDialog }}>
       {children}
 
-      {/* Main Create Event Dialog */}
+      {/* 👇 MAIN CREATE EVENT DIALOG */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create a New Event</DialogTitle>
           </DialogHeader>
 
           <div className="grid grid-cols-2 gap-6 mt-4">
-            
-            {/* EVENT STATUS */}
+            {/* STATUS */}
             <div>
               <Label>Event Status *</Label>
               <Select
@@ -258,7 +285,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
               </Select>
             </div>
 
-            {/* ⭐ MULTI-SELECT TEAMS */}
+            {/* 👇 MULTI-SELECT TEAMS */}
             <div>
               <Label>Select Team(s) *</Label>
               <Popover>
@@ -299,7 +326,6 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                   </Command>
                 </PopoverContent>
               </Popover>
-              {/* ⭐ SHOW SELECTED TEAMS AS BADGES */}
               {selectedTeams.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
                   {selectedTeams.map((team) => (
@@ -321,7 +347,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
               <Label htmlFor="eventName">Event Name *</Label>
               <Input
                 id="eventName"
-                placeholder="Enter event name"
+                placeholder="e.g., Tech Summit 2026"
                 value={formData.eventName}
                 onChange={handleChange}
                 className="border-gray focus:border-gray"
@@ -339,9 +365,9 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                   <SelectValue placeholder="Select Event Size" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="small">Small</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="large">Large</SelectItem>
+                  <SelectItem value="small">Small (&lt; 100)</SelectItem>
+                  <SelectItem value="medium">Medium (100-500)</SelectItem>
+                  <SelectItem value="large">Large (&gt; 500)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -361,9 +387,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
               label="End Date *"
               value={formData.endDate}
               required
-              minDate={
-                formData.startDate ? new Date(formData.startDate) : new Date()
-              }
+              minDate={formData.startDate ? new Date(formData.startDate) : new Date()}
               onChange={(val) =>
                 setFormData((prev) => ({ ...prev, endDate: val }))
               }
@@ -374,7 +398,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
               <Label htmlFor="location">Event Location *</Label>
               <Input
                 id="location"
-                placeholder="Enter location"
+                placeholder="e.g., Mumbai Exhibition Centre"
                 value={formData.location}
                 onChange={handleChange}
                 className="border-gray focus:border-gray"
@@ -383,48 +407,91 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
 
             {/* BUDGET */}
             <div>
-              <Label htmlFor="budget">Approximate Budget (USD)</Label>
+              <Label htmlFor="budget">Budget (USD)</Label>
               <Input
                 id="budget"
                 type="number"
+                placeholder="5000"
                 value={formData.budget}
                 onChange={handleChange}
                 className="border-gray focus:border-gray"
               />
             </div>
 
-            {/* TOTAL LEADS */}
-            {/* <div>
-              <Label htmlFor="totalLeads">Total Leads</Label>
-              <Input
-                id="totalLeads"
-                type="number"
-                value={0}
-                onChange={handleChange}
-                className="border-gray focus:border-gray"
-              />
-            </div> */}
+            {/* 👇 NEW: CAPTURE TYPE CHECKBOXES */}
+            <div className="col-span-2">
+              <Label>Capture Type(s) *</Label>
+              <div className="grid grid-cols-3 gap-3 mt-2 p-4 border border-gray rounded-lg bg-gradient-to-r from-muted to-gray">
+                {[
+                  { id: "visiting-card", label: "Visiting Card", value: "Visiting Card" },
+                  { id: "badge", label: "Badge", value: "Badge" },
+                  { id: "manual", label: "Manual", value: "Manual" },
+                ].map(({ id, label, value }) => (
+                  <label
+                    key={id}
+                    className="flex items-center space-x-3 p-3 hover:bg-accent rounded-lg cursor-pointer transition-all group"
+                  >
+                    <input
+                      type="checkbox"
+                      id={id}
+                      checked={captureTypes.includes(value)}
+                      onChange={() => toggleCaptureType(value)}
+                      className="w-5 h-5 text-primary focus:ring-primary border-gray rounded group-hover:border-primary transition-all"
+                    />
+                    <div>
+                      <span className="font-medium text-sm">{label}</span>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {value === "Visiting Card" && "Business card scanning"}
+                        {value === "Badge" && "ID badge OCR"}
+                        {value === "Manual" && "Form entry"}
+                      </p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+              
+              {/* Selected badges */}
+              {captureTypes.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-3 p-2 bg-accent rounded">
+                  {captureTypes.map((type) => (
+                    <Badge
+                      key={type}
+                      variant="default"
+                      className="text-xs cursor-pointer hover:bg-primary"
+                      onClick={() => toggleCaptureType(type)}
+                    >
+                      {type} ×
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              
+              {captureTypes.length === 0 && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Select at least one capture method
+                </p>
+              )}
+            </div>
 
             {/* PRIORITY LEADS */}
             <div>
-              <Label htmlFor="priorityLeads">Priority Leads</Label>
+              <Label htmlFor="priorityLeads">Priority Leads Target</Label>
               <Input
                 id="priorityLeads"
                 type="number"
+                placeholder="50"
                 value={formData.priorityLeads}
                 onChange={handleChange}
                 className="border-gray focus:border-gray"
               />
             </div>
 
-            {/* TEMPLATE */}
+            {/* TEMPLATE - Full width */}
             <div className="col-span-2">
-              <Label>Select Template *</Label>
+              <Label>Lead Capture Template *</Label>
               <Select
                 value={formData.template_id}
-                onValueChange={(val) =>
-                  handleSelectChange("template_id", val)
-                }
+                onValueChange={(val) => handleSelectChange("template_id", val)}
               >
                 <SelectTrigger className="border-gray focus:border-gray">
                   <SelectValue placeholder="Select Template" />
@@ -433,12 +500,15 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                   {templates.length > 0 ? (
                     templates.map((tpl) => (
                       <SelectItem key={tpl.id} value={String(tpl.id)}>
-                        {tpl.template_name}
+                        {tpl.template_name} 
+                        <span className="text-xs text-muted-foreground ml-2">
+                          ID: {tpl.id}
+                        </span>
                       </SelectItem>
                     ))
                   ) : (
                     <SelectItem value="none" disabled>
-                      No Templates Available
+                      🔄 Loading templates...
                     </SelectItem>
                   )}
                 </SelectContent>
@@ -446,12 +516,17 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
             </div>
           </div>
 
-          {/* ACTION BUTTONS */}
-          <div className="flex justify-center space-x-2 pt-6">
-            <Button variant="outline" onClick={closeEventDialog}>
+          {/* 👇 ACTION BUTTONS */}
+          <div className="flex justify-end space-x-3 pt-8 border-t mt-8">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={closeEventDialog}
+              className="px-8"
+            >
               Cancel
             </Button>
-            <Button type="button" onClick={handleSubmit}>
+            <Button type="button" onClick={handleSubmit} className="px-8">
               Create Event
             </Button>
           </div>
