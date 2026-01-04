@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { DashboardHeader } from "@/components/DashboardHeader";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -39,72 +39,141 @@ type Team = {
   members: Member[];
 };
 
-type EventSummary = {
-  total_events: number;
-  active_events: string;
-};
+// 🔹 ACCESS CONTROL TYPES
+interface AccessPointData {
+  page: string[];
+  point: string[];
+  user_id: number;
+}
 
 export default function TeamAnalytics() {
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [users, setUsers] = useState<Member[]>([]);
-  const [analyticsData, setAnalyticsData] = useState<EventSummary | null>(null);
-
   const { request, loading } = useApi();
   const { toast } = useToast();
 
+  // 🔹 ACCESS CONTROL STATES
+  const [myAccess, setMyAccess] = useState<AccessPointData | null>(null);
+  const [canViewTeam, setCanViewTeam] = useState(false);
+  const [canAddTeam, setCanAddTeam] = useState(false);
+  const [canEditTeam, setCanEditTeam] = useState(false);
+
+  // 🔹 EXISTING STATES
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [users, setUsers] = useState<Member[]>([]);
   const [teamDialogOpen, setTeamDialogOpen] = useState(false);
   const [editTeamObj, setEditTeamObj] = useState<Team | null>(null);
-
   const [formData, setFormData] = useState({
     team_name: "",
     manager_id: "",
     employees_id: [] as string[],
   });
 
+  const getCurrentUserId = (): number => {
+    try {
+      const raw = localStorage.getItem("user_id");
+      return raw ? parseInt(raw, 10) : 0;
+    } catch {
+      return 0;
+    }
+  };
+
+  // 🔹 LOAD USER ACCESS FOR TEAM PAGE
+  const loadMyAccess = async () => {
+    const userId = getCurrentUserId();
+    if (!userId) return;
+
+    try {
+      const res: any = await request(`/get_single_access/${userId}`, "GET");
+      if (res?.status_code === 200 && res.data) {
+        const parsed: AccessPointData = {
+          page: JSON.parse(res.data.page),
+          point: JSON.parse(res.data.point),
+          user_id: Number(res.data.user_id),
+        };
+        setMyAccess(parsed);
+
+        const hasPage = (p: string) => parsed.page.includes(p);
+        const hasAction = (page: string, action: string) => {
+          const pageName = page.replace("/", "").replace(/\/+$/, "") || "dashboard";
+          const suffix = `${action}_${pageName}`;
+          return parsed.point.includes(suffix);
+        };
+
+        setCanViewTeam(hasPage("/team") && hasAction("/team", "view_team"));
+        setCanAddTeam(hasPage("/team") && hasAction("/team", "add_team"));
+        setCanEditTeam(hasPage("/team") && hasAction("/team", "edit_team"));
+      }
+    } catch (e) {
+      console.error("loadMyAccess error", e);
+    }
+  };
+
   useEffect(() => {
-    fetchUsers();
-    fetchTeams();
-    fetchEventSummary();
+    loadMyAccess();
   }, []);
 
+  // 🔹 FIXED ACCESS DENIED SCREEN - Only show when permissions LOADED + DENIED
+  if (!canViewTeam && myAccess !== null) {
+    return (
+      <div className="flex h-screen bg-background">
+        <DashboardSidebar />
+        <div className="flex flex-col flex-1">
+          <DashboardHeader />
+          <main className="flex-1 overflow-auto p-6 space-y-6">
+            <Card>
+              <CardContent className="p-6 text-center">
+                <h1 className="text-2xl font-semibold mb-4">Access Denied</h1>
+                <p>You don't have permission to view Teams.</p>
+              </CardContent>
+            </Card>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  // Data loading functions
   const fetchUsers = async () => {
-    const res = await request("/get_users", "GET");
-    setUsers(Array.isArray(res?.data) ? res.data : []);
+    try {
+      const res = await request("/get_users", "GET");
+      setUsers(Array.isArray(res?.data) ? res.data : []);
+    } catch (e) {
+      console.error("fetchUsers error", e);
+    }
   };
 
   const fetchTeams = async () => {
-    const res = await request("/get_all_teams", "GET");
-    if (Array.isArray(res)) {
-      setTeams(res);
-    } else if (res?.success && Array.isArray(res.data)) {
-      setTeams(res.data);
-    } else {
+    try {
+      const res = await request("/get_all_teams", "GET");
+      if (Array.isArray(res)) {
+        setTeams(res);
+      } else if (res?.success && Array.isArray(res.data)) {
+        setTeams(res.data);
+      } else {
+        setTeams([]);
+      }
+    } catch (e) {
+      console.error("fetchTeams error", e);
       setTeams([]);
-      toast({
-        title: "Failed to load teams",
-        description: res?.msg || "Could not fetch team data from server.",
-        variant: "destructive",
-      });
     }
   };
 
-  const fetchEventSummary = async () => {
-    const res = await request("/event_summary", "GET");
-    if (res?.success) {
-      setAnalyticsData({
-        total_events: res.data.total_events,
-        active_events: res.data.active_events,
-      });
-    } else {
-      toast({
-        title: "Failed to load analytics",
-        description: res?.msg || "Something went wrong while fetching event summary.",
-        variant: "destructive",
-      });
+  // Load data ONLY after permissions are granted
+  useEffect(() => {
+    if (canViewTeam) {
+      fetchUsers();
+      fetchTeams();
     }
-  };
+  }, [canViewTeam]);
 
   const openTeamDialog = (team?: Team) => {
+    if (!canAddTeam && !canEditTeam) {
+      toast({
+        title: "❌ No Permission",
+        description: "You don't have permission to create or edit teams.",
+        variant: "destructive",
+      });
+      return;
+    }
     setTeamDialogOpen(true);
     setEditTeamObj(team || null);
     if (team) {
@@ -139,36 +208,48 @@ export default function TeamAnalytics() {
       toast({ title: "All fields are required", variant: "destructive" });
       return;
     }
-    let res;
-    if (editTeamObj) {
-      res = await request("/update_team", "POST", {
-        team_id: editTeamObj.team_id,
-        team_name: formData.team_name,
-        manager_id: formData.manager_id,
-        employee_ids: formData.employees_id,
-      });
-    } else {
-      res = await request("/create_team", "POST", {
-        team_name: formData.team_name,
-        manager_id: formData.manager_id,
-        employee_ids: formData.employees_id,
-      });
-    }
-    if (res?.success || res?.message?.includes("success")) {
-      toast({ title: editTeamObj ? "Team updated" : "Team created" });
-      setTeamDialogOpen(false);
-      setEditTeamObj(null);
-      fetchTeams();
-    } else {
-      toast({
-        title: "Operation failed",
-        description: res?.error || res?.msg || "Server error",
-        variant: "destructive",
-      });
+
+    try {
+      let res;
+      if (editTeamObj) {
+        if (!canEditTeam) {
+          toast({ title: "❌ No edit permission", variant: "destructive" });
+          return;
+        }
+        res = await request("/update_team", "POST", {
+          team_id: editTeamObj.team_id,
+          team_name: formData.team_name,
+          manager_id: formData.manager_id,
+          employee_ids: formData.employees_id,
+        });
+      } else {
+        if (!canAddTeam) {
+          toast({ title: "❌ No create permission", variant: "destructive" });
+          return;
+        }
+        res = await request("/create_team", "POST", {
+          team_name: formData.team_name,
+          manager_id: formData.manager_id,
+          employee_ids: formData.employees_id,
+        });
+      }
+
+      if (res?.success || res?.message?.includes("success")) {
+        toast({ title: editTeamObj ? "Team updated" : "Team created" });
+        setTeamDialogOpen(false);
+        setEditTeamObj(null);
+        fetchTeams();
+      } else {
+        toast({
+          title: "Operation failed",
+          description: res?.error || res?.msg || "Server error",
+          variant: "destructive",
+        });
+      }
+    } catch (e) {
+      toast({ title: "Network error", variant: "destructive" });
     }
   };
-
-  
 
   return (
     <div className="flex h-screen bg-background">
@@ -176,17 +257,27 @@ export default function TeamAnalytics() {
       <div className="flex flex-col flex-1">
         <DashboardHeader />
         <main className="flex-1 overflow-auto p-6">
-        <div className="flex items-center space-x-4">
-          <h2 className="text-lg font-semibold text-foreground">All Teams</h2>
-        </div>
-          <div className="py-12">
-            <Card>
-              <CardContent className="p-0">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-semibold text-foreground">All Teams</h2>
+            {/* {canAddTeam && (
+              <Button onClick={() => openTeamDialog()}>
+                Create New Team
+              </Button>
+            )} */}
+          </div>
+
+          <Card>
+            <CardContent className="p-6">
+              {teams.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  {canViewTeam ? "No teams found." : "Loading teams..."}
+                </div>
+              ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead className="bg-muted/30">
                       <tr>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Team Id</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Team ID</th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Manager</th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Team Name</th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Members</th>
@@ -194,126 +285,102 @@ export default function TeamAnalytics() {
                       </tr>
                     </thead>
                     <tbody>
-                      {teams?.map((team) => (
+                      {teams.map((team) => (
                         <tr key={team.team_id} className="border-b hover:bg-muted/20">
-                          <td className="py-3 px-4">{team.team_id}</td>
+                          <td className="py-3 px-4 font-mono text-sm">{team.team_id}</td>
                           <td className="py-3 px-4">{team.manager_name}</td>
-                          <td className="py-3 px-4">{team.team_name}</td>
-                          <td className="py-3 px-4">{team.members.length}</td>
+                          <td className="py-3 px-4 font-medium">{team.team_name}</td>
                           <td className="py-3 px-4">
-                            <Button onClick={() => openTeamDialog(team)} variant="outline">
-                              Edit Team
-                            </Button>
+                            <Badge variant="secondary">{team.members.length}</Badge>
+                          </td>
+                          <td className="py-3 px-4">
+                            {canEditTeam ? (
+                              <Button 
+                                onClick={() => openTeamDialog(team)} 
+                                variant="outline" 
+                                size="sm"
+                              >
+                                Edit
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">No access</span>
+                            )}
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+              )}
+            </CardContent>
+          </Card>
         </main>
       </div>
 
-      {/* Single Team Edit Modal */}
+      {/* Team Dialog */}
       <Dialog open={teamDialogOpen} onOpenChange={setTeamDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editTeamObj ? "Edit Team" : "Create a New Team"}</DialogTitle>
+            <DialogTitle>{editTeamObj ? "Edit Team" : "Create New Team"}</DialogTitle>
           </DialogHeader>
-
-          <div className="space-y-4 mt-4">
-            {/* Team Name */}
+          <div className="space-y-4">
             <div>
-              <Label htmlFor="team_name">Team Name *</Label>
+              <Label>Team Name *</Label>
               <Input
                 id="team_name"
-                placeholder="Enter team name"
                 value={formData.team_name}
                 onChange={handleChange}
+                placeholder="Enter team name"
               />
             </div>
-
-            {/* Manager Selection */}
             <div>
               <Label>Manager *</Label>
-              <Select
-                value={formData.manager_id}
-                onValueChange={(val) =>
-                  setFormData((prev) => ({ ...prev, manager_id: val }))
-                }
-              >
+              <Select value={formData.manager_id} onValueChange={(val) => setFormData(prev => ({ ...prev, manager_id: val }))}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select Manager" />
+                  <SelectValue placeholder="Select manager" />
                 </SelectTrigger>
                 <SelectContent>
-                  {users.length > 0 ? (
-                    users.map((user) => (
-                      <SelectItem key={user.employee_id} value={String(user.employee_id)}>
-                        {user.user_name}
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem value="none" disabled>
-                      No users available
+                  {users.map(user => (
+                    <SelectItem key={user.employee_id} value={String(user.employee_id)}>
+                      {user.user_name}
                     </SelectItem>
-                  )}
+                  ))}
                 </SelectContent>
               </Select>
             </div>
-
-            {/* Employees Multi-Select */}
             <div>
               <Label>Employees *</Label>
               <Command className="border rounded-md">
                 <CommandInput placeholder="Search employees..." />
-                <CommandEmpty>No results found.</CommandEmpty>
+                <CommandEmpty>No employees found.</CommandEmpty>
                 <CommandGroup className="max-h-48 overflow-auto">
-                  {users.map((user) => (
-                    <CommandItem
-                      key={user.employee_id}
-                      onSelect={() => toggleEmployee(String(user.employee_id))}
-                    >
-                      <div
-                        className={`flex items-center justify-between w-full ${
-                          formData.employees_id.includes(String(user.employee_id))
-                            ? "font-semibold text-primary"
-                            : ""
-                        }`}
-                      >
+                  {users.map(user => (
+                    <CommandItem key={user.employee_id} onSelect={() => toggleEmployee(String(user.employee_id))}>
+                      <div className={`flex items-center justify-between w-full ${formData.employees_id.includes(String(user.employee_id)) ? "font-semibold text-primary" : ""}`}>
                         <span>{user.user_name}</span>
-                        {formData.employees_id.includes(String(user.employee_id)) && (
-                          <X className="w-4 h-4" />
-                        )}
+                        {formData.employees_id.includes(String(user.employee_id)) && <X className="w-4 h-4" />}
                       </div>
                     </CommandItem>
                   ))}
                 </CommandGroup>
               </Command>
-
-              {/* Selected Employees as Badges */}
               <div className="flex flex-wrap gap-2 mt-2">
-                {formData.employees_id.map((id) => {
-                  const emp = users.find((u) => String(u.employee_id) === id);
+                {formData.employees_id.map(id => {
+                  const emp = users.find(u => String(u.employee_id) === id);
                   return (
-                    <Badge key={id} className="flex items-center space-x-1" variant="secondary">
-                      <span>{emp?.user_name || `User ${id}`}</span>
-                      <X className="w-3 h-3 cursor-pointer" onClick={() => toggleEmployee(id)} />
+                    <Badge key={id} variant="secondary" className="flex items-center space-x-1">
+                      <span>{emp?.user_name || id}</span>
+                      <X className="w-3 h-3 cursor-pointer hover:text-red-600" onClick={() => toggleEmployee(id)} />
                     </Badge>
                   );
                 })}
               </div>
             </div>
           </div>
-
-          {/* Footer Buttons */}
-          <div className="flex justify-end space-x-3 pt-6">
-            <Button variant="outline" onClick={() => setTeamDialogOpen(false)}>
-              Cancel
-            </Button>
+          <div className="flex justify-end space-x-2 pt-6">
+            <Button variant="outline" onClick={() => setTeamDialogOpen(false)}>Cancel</Button>
             <Button onClick={handleCreateOrUpdateTeam} disabled={loading}>
-              {loading ? (editTeamObj ? "Updating..." : "Creating...") : editTeamObj ? "Update" : "Create"}
+              {loading ? "Saving..." : editTeamObj ? "Update" : "Create"}
             </Button>
           </div>
         </DialogContent>

@@ -14,9 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useEffect, useState } from "react";
-import { useApi } from "@/hooks/useApi";
-import { useToast } from "@/components/ui/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -25,71 +22,22 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { useEffect, useState } from "react";
+import { useApi } from "@/hooks/useApi";
+import { useToast } from "@/components/ui/use-toast";
 
-// Helper to format ISO date to locale string
-const formatDate = (isoStr: string | null | undefined): string => {
-  if (!isoStr) return "-";
-  const d = new Date(isoStr);
-  return d.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-};
-
-// CSV conversion function
-const convertLeadsToCSV = (leads: any[]): string => {
-  const headers = [
-    "Name", "Company", "Designation", "Phone Number", "Email", "Lead Type",
-    "Event Name", "Created At", "City", "State", "ZIP", "Country",
-    "Area of Interest", "Disclaimer"
-  ];
-
-  const getLeadType = (lead: any): string => {
-    if (!lead.image_url) return "Manual Lead";
-    if (lead.image_url && (!lead.emails || lead.emails.length === 0)) return "Badge";
-    if (lead.image_url && lead.emails && lead.emails.length > 0) return "Visiting Card";
-    return "Manual Lead";
-  };
-
-  const rows = leads.map((lead) => [
-    lead.name || "",
-    lead.company || "",
-    lead.designation || "",
-    (lead.phone_numbers && lead.phone_numbers[0]) || "",
-    (lead.emails && lead.emails[0]) || "",
-    getLeadType(lead),
-    lead.event_name || "",
-    lead.created_at ? formatDate(lead.created_at) : "",
-    lead.city || "",
-    lead.state || "",
-    lead.zip || "",
-    lead.country || "",
-    lead.area_of_interest || "",
-    lead.disclaimer || "",
-  ]);
-
-  const csvContent = [
-    headers.join(","),
-    ...rows.map((row) =>
-      row.map((item) => `"${String(item).replace(/"/g, '""')}"`).join(",")
-    ),
-  ].join("\n");
-
-  return csvContent;
-};
-
-const getCurrentUserId = (): number => {
-  try {
-    const raw = localStorage.getItem("user_id");
-    return raw ? parseInt(raw, 10) : 0;
-  } catch {
-    return 0;
-  }
-};
+// 🔹 ACCESS CONTROL TYPES
+interface AccessPointData {
+  page: string[];
+  point: string[];
+  user_id: number;
+}
 
 export default function Teams() {
   const { request, loading } = useApi<any>();
+  const { toast } = useToast();
+
+  // 🔹 ALL STATES INSIDE COMPONENT
   const [leadData, setLeadData] = useState<any[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -100,7 +48,124 @@ export default function Teams() {
   const [users, setUsers] = useState<any[]>([]);
   const [selectedLead, setSelectedLead] = useState<any | null>(null);
 
-  const { toast } = useToast();
+  // 🔹 ACCESS CONTROL STATES
+  const [myAccess, setMyAccess] = useState<AccessPointData | null>(null);
+  const [canViewLeads, setCanViewLeads] = useState(false);
+  const [canDeleteLead, setCanDeleteLead] = useState(false);
+  const [canFilterLeads, setCanFilterLeads] = useState(false);
+  const [canDownloadReports, setCanDownloadReports] = useState(false);
+
+  // Helper to format ISO date to locale string
+  const formatDate = (isoStr: string | null | undefined): string => {
+    if (!isoStr) return "-";
+    const d = new Date(isoStr);
+    return d.toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  // CSV conversion function
+  const convertLeadsToCSV = (leads: any[]): string => {
+    const headers = [
+      "Name", "Company", "Designation", "Phone Number", "Email", "Lead Type",
+      "Event Name", "Created At", "City", "State", "ZIP", "Country",
+      "Area of Interest", "Disclaimer"
+    ];
+
+    const getLeadType = (lead: any): string => {
+      if (!lead.image_url) return "Manual Lead";
+      if (lead.image_url && (!lead.emails || lead.emails.length === 0)) return "Badge";
+      if (lead.image_url && lead.emails && lead.emails.length > 0) return "Visiting Card";
+      return "Manual Lead";
+    };
+
+    const rows = leads.map((lead) => [
+      lead.name || "",
+      lead.company || "",
+      lead.designation || "",
+      (lead.phone_numbers && lead.phone_numbers[0]) || "",
+      (lead.emails && lead.emails[0]) || "",
+      getLeadType(lead),
+      lead.event_name || "",
+      lead.created_at ? formatDate(lead.created_at) : "",
+      lead.city || "",
+      lead.state || "",
+      lead.zip || "",
+      lead.country || "",
+      lead.area_of_interest || "",
+      lead.disclaimer || "",
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) =>
+        row.map((item) => `"${String(item).replace(/"/g, '""')}"`).join(",")
+      ),
+    ].join("\n");
+
+    return csvContent;
+  };
+
+  const getCurrentUserId = (): number => {
+    try {
+      const raw = localStorage.getItem("user_id");
+      return raw ? parseInt(raw, 10) : 0;
+    } catch {
+      return 0;
+    }
+  };
+
+  // 🔹 LOAD USER ACCESS FOR LEADS PAGE
+  const loadMyAccess = async () => {
+    const userId = getCurrentUserId();
+    if (!userId) {
+      setCanViewLeads(false);
+      return;
+    }
+
+    try {
+      const res: any = await request(`/get_single_access/${userId}`, "GET");
+      if (res?.status_code === 200 && res.data) {
+        const parsed: AccessPointData = {
+          page: JSON.parse(res.data.page),
+          point: JSON.parse(res.data.point),
+          user_id: Number(res.data.user_id),
+        };
+        setMyAccess(parsed);
+
+        const hasPage = (p: string) => parsed.page.includes(p);
+        const hasAction = (page: string, action: string) => {
+          const pageName = page.replace("/", "").replace(/\/+$/, "") || "dashboard";
+          const suffix = `${action}_${pageName}`;
+          return parsed.point.includes(suffix);
+        };
+
+        // 👈 LEAD-SPECIFIC PERMISSIONS
+        setCanViewLeads(hasPage("/lead") && hasAction("/lead", "view_leads"));
+        setCanDeleteLead(hasPage("/lead") && hasAction("/lead", "delete_lead"));
+        setCanFilterLeads(hasPage("/lead") && hasAction("/lead", "filter"));
+        setCanDownloadReports(hasPage("/lead") && hasAction("/lead", "download_reports"));
+      } else {
+        setCanViewLeads(false);
+        setCanDeleteLead(false);
+        setCanFilterLeads(false);
+        setCanDownloadReports(false);
+      }
+    } catch (e) {
+      console.error("loadMyAccess error", e);
+      setCanViewLeads(false);
+      setCanDeleteLead(false);
+      setCanFilterLeads(false);
+      setCanDownloadReports(false);
+    }
+  };
+
+  // 🔹 LOAD ACCESS ON MOUNT
+  useEffect(() => {
+    loadMyAccess();
+  }, []);
 
   // Fetch users
   useEffect(() => {
@@ -126,35 +191,21 @@ export default function Teams() {
   }
 
   const filteredLeads = leadData.filter((lead: any) => {
-  const eventName = (lead.event_name || "").toLowerCase();
-  const leadName = (lead.name || "").toLowerCase();
+    const eventName = (lead.event_name || "").toLowerCase();
+    const leadName = (lead.name || "").toLowerCase();
 
-  const filterEvent = eventNameFilter.toLowerCase();
-  const filterName = leadNameFilter.toLowerCase();
+    const filterEvent = eventNameFilter.toLowerCase();
+    const filterName = leadNameFilter.toLowerCase();
 
-  const matchesEvent = eventName.includes(filterEvent);
-  const matchesName = leadName.includes(filterName);
-  const matchesType = !leadTypeFilter || getLeadType(lead) === leadTypeFilter;
-  
-  // Fix: Ensure both are numbers for comparison
-  const leadCapturedId = Number(lead.captured_by);
-  const matchesUser = !selectedUserId || leadCapturedId === selectedUserId;
+    const matchesEvent = eventName.includes(filterEvent);
+    const matchesName = leadName.includes(filterName);
+    const matchesType = !leadTypeFilter || getLeadType(lead) === leadTypeFilter;
+    
+    const leadCapturedId = Number(lead.captured_by);
+    const matchesUser = !selectedUserId || leadCapturedId === selectedUserId;
 
-  // Debug logging
-  console.log({
-    leadId: lead.lead_id,
-    captured_by_id: lead.captured_by,
-    leadCapturedId,
-    selectedUserId,
-    matchesUser,
-    matchesEvent,
-    matchesName,
-    matchesType
+    return matchesEvent && matchesName && matchesType && matchesUser;
   });
-
-  return matchesEvent && matchesName && matchesType && matchesUser;
-});
-
 
   const fetchLeadData = async () => {
     const currentUserId = getCurrentUserId();
@@ -175,20 +226,35 @@ export default function Teams() {
   };
 
   useEffect(() => {
-    fetchLeadData();
-  }, []);
+    if (canViewLeads) {
+      fetchLeadData();
+    }
+  }, [canViewLeads]);
 
   const handleUserSelect = (userId: number) => {
-    setSelectedUserId(userId);
-    setCurrentPage(1);
+    if (canFilterLeads) {
+      setSelectedUserId(userId);
+      setCurrentPage(1);
+    }
   };
 
   const handleResetToAllUsers = () => {
-    setSelectedUserId(null);
-    setCurrentPage(1);
+    if (canFilterLeads) {
+      setSelectedUserId(null);
+      setCurrentPage(1);
+    }
   };
 
   const handleDelete = async (lead_id: any) => {
+    if (!canDeleteLead) {
+      toast({
+        variant: "destructive",
+        title: "❌ No Permission",
+        description: "You don't have permission to delete leads.",
+      });
+      return;
+    }
+
     try {
       const res = await request(`/delete_lead?lead_id=${lead_id}`, "DELETE");
       if (res && res.success === true) {
@@ -214,6 +280,15 @@ export default function Teams() {
   };
 
   const handleDownloadCSV = () => {
+    if (!canDownloadReports) {
+      toast({
+        variant: "destructive",
+        title: "❌ No Permission",
+        description: "You don't have permission to download reports.",
+      });
+      return;
+    }
+
     if (filteredLeads.length === 0) {
       toast({
         variant: "destructive",
@@ -246,6 +321,33 @@ export default function Teams() {
     setCurrentPage(page);
   };
 
+  // 🔹 ACCESS DENIED SCREEN
+  if (!canViewLeads) {
+    return (
+      <div className="flex h-screen bg-background">
+        <DashboardSidebar />
+        <div className="flex flex-col flex-1">
+          <DashboardHeader />
+          <main className="flex-1 overflow-auto p-6 space-y-6">
+            <Card>
+              <CardContent className="p-6 text-center">
+                <h1 className="text-2xl font-semibold mb-4">
+                  {myAccess ? "Access Denied" : "Loading Permissions..."}
+                </h1>
+                <p>
+                  {myAccess 
+                    ? "You don't have permission to view Leads." 
+                    : "Please wait while checking your permissions."
+                  }
+                </p>
+              </CardContent>
+            </Card>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-background">
       <DashboardSidebar />
@@ -257,80 +359,83 @@ export default function Teams() {
             <p className="text-muted-foreground mb-4">Here is your Lead Data</p>
           </div>
 
-          <Card className="mb-4">
-            <CardContent className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                <div>
-                  <Label>Filter by Event Name</Label>
-                  <Input
-                    placeholder="Search event"
-                    value={eventNameFilter}
-                    onChange={(e) => {
-                      setEventNameFilter(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                  />
+          {/* 🔹 FILTERS - HIDE IF NO FILTER PERMISSION */}
+          {canFilterLeads && (
+            <Card className="mb-4">
+              <CardContent className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                  <div>
+                    <Label>Filter by Event Name</Label>
+                    <Input
+                      placeholder="Search event"
+                      value={eventNameFilter}
+                      onChange={(e) => {
+                        setEventNameFilter(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <Label>Filter by Lead Name</Label>
+                    <Input
+                      placeholder="Search lead"
+                      value={leadNameFilter}
+                      onChange={(e) => {
+                        setLeadNameFilter(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <Label>Captured By</Label>
+                    <Select
+                      value={selectedUserId?.toString() || "all-users"}
+                      onValueChange={(value) => {
+                        if (value === "all-users") {
+                          handleResetToAllUsers();
+                        } else {
+                          handleUserSelect(Number(value));
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select User" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all-users">All Users</SelectItem>
+                        {users.map((user) => (
+                          <SelectItem key={user.employee_id} value={user.employee_id.toString()}>
+                            {user.user_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Lead Type</Label>
+                    <select
+                      value={leadTypeFilter}
+                      onChange={(e) => {
+                        setLeadTypeFilter(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="w-full border rounded px-3 py-2 mt-1"
+                    >
+                      <option value="">All Types</option>
+                      <option value="badge">Badge</option>
+                      <option value="visiting_card">Visiting Card</option>
+                      <option value="manual_lead">Manual Lead</option>
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <Label>Filter by Lead Name</Label>
-                  <Input
-                    placeholder="Search lead"
-                    value={leadNameFilter}
-                    onChange={(e) => {
-                      setLeadNameFilter(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                  />
+                <div className="flex justify-end">
+                  <Button onClick={handleDownloadCSV} disabled={loading}>
+                    Download CSV
+                  </Button>
                 </div>
-                <div>
-                  <Label>Captured By</Label>
-                  <Select
-                    value={selectedUserId?.toString() || "all-users"}
-                    onValueChange={(value) => {
-                      if (value === "all-users") {
-                        handleResetToAllUsers();
-                      } else {
-                        handleUserSelect(Number(value));
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select User" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all-users">All Users</SelectItem>
-                      {users.map((user) => (
-                        <SelectItem key={user.employee_id} value={user.employee_id.toString()}>
-                          {user.user_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Lead Type</Label>
-                  <select
-                    value={leadTypeFilter}
-                    onChange={(e) => {
-                      setLeadTypeFilter(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    className="w-full border rounded px-3 py-2 mt-1"
-                  >
-                    <option value="">All Types</option>
-                    <option value="badge">Badge</option>
-                    <option value="visiting_card">Visiting Card</option>
-                    <option value="manual_lead">Manual Lead</option>
-                  </select>
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <Button onClick={handleDownloadCSV} disabled={loading}>
-                  Download CSV
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardContent className="p-0">
@@ -380,7 +485,13 @@ export default function Teams() {
                               <Button variant="link" size="sm" onClick={() => setSelectedLead(lead)}>
                                 View
                               </Button>
-                              <Button variant="link" size="sm" onClick={() => handleDelete(lead?.lead_id)}>
+                              <Button 
+                                variant="link" 
+                                size="sm" 
+                                onClick={() => handleDelete(lead?.lead_id)}
+                                disabled={!canDeleteLead}
+                                title={!canDeleteLead ? "No delete permission" : "Delete lead"}
+                              >
                                 Delete
                               </Button>
                             </div>

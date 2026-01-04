@@ -11,12 +11,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Edit, Search } from "lucide-react";
+import { Check, ChevronsUpDown, Edit, Search } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
 import { DateInput } from "@/components/ui/DateInput";
 
 // 🔹 IMPORT MISSING ICONS
 import { LayoutGrid, Calendar, Clock, UsersIcon, User, Folder, LayoutList } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 
 export interface Event {
   event_id: number;
@@ -32,6 +35,7 @@ export interface Event {
   is_active: string;
   team: string;
   template_id: number | null;
+  capture_type: string[];  // 👈 Added for pre-selection
 }
 
 export interface User {
@@ -130,12 +134,15 @@ function UpdateEventPopup({
     budget: 1,
     event_size: "medium",
     template_id: "",
+    capture_type: [],
     ...event,
   });
 
   const [teams, setTeams] = useState<string[]>([]);
   const [templateList, setTemplateList] = useState<{ data: any[] }>({ data: [] });
   const [error, setError] = useState<string | null>(null);
+  const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
+  const [captureTypes, setCaptureTypes] = useState<string[]>([]);
 
   const { request, loading } = useApi<any>();
 
@@ -164,6 +171,39 @@ function UpdateEventPopup({
 
     fetchData();
   }, []);
+
+  // 🔹 SYNC SELECTED TEAMS FROM EVENT PROP (after teams load)
+  useEffect(() => {
+    if (event?.team && teams.length > 0) {
+      const initialTeams = event.team
+        .split(", ")
+        .filter((t: string) => teams.includes(t));
+      setSelectedTeams(initialTeams);
+      setUpdatedEvent((prev: any) => ({ ...prev, team: initialTeams.join(", ") }));
+    }
+  }, [event?.team, teams]);
+
+  useEffect(() => {
+    let parsedCaptureTypes: string[] = [];
+    
+    if (event?.capture_type) {
+      try {
+        // 👈 Parse JSON string like "[\"Badge\",\"Manual\"]"
+        if (typeof event.capture_type === 'string') {
+          parsedCaptureTypes = JSON.parse(event.capture_type);
+        } else if (Array.isArray(event.capture_type)) {
+          parsedCaptureTypes = event.capture_type;
+        }
+      } catch (err) {
+        console.error("Capture type parse error:", err);
+        parsedCaptureTypes = [];
+      }
+    }
+    
+    setCaptureTypes(parsedCaptureTypes);
+    setUpdatedEvent((prev: any) => ({ ...prev, capture_type: parsedCaptureTypes }));
+  }, [event?.capture_type]);
+
 
   useEffect(() => {
     if (event) {
@@ -212,6 +252,30 @@ function UpdateEventPopup({
     }
   };
 
+  const handleTeamSelection = (team: string) => {
+    const newSelectedTeams = selectedTeams.includes(team)
+      ? selectedTeams.filter((t) => t !== team)
+      : [...selectedTeams, team];
+    
+    setSelectedTeams(newSelectedTeams);
+    setUpdatedEvent((prev: any) => ({
+      ...prev,
+      team: newSelectedTeams.join(", "),
+    }));
+  };
+
+  const toggleCaptureType = (type: string) => {
+    const newCaptureTypes = captureTypes.includes(type)
+      ? captureTypes.filter((t) => t !== type)
+      : [...captureTypes, type];
+    
+    setCaptureTypes(newCaptureTypes);
+    setUpdatedEvent((prev) => ({
+      ...prev,
+      capture_type: newCaptureTypes,
+    }));
+  };
+
   return (
     <>
       <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
@@ -231,7 +295,6 @@ function UpdateEventPopup({
               >
                 <option value="Upcoming">Upcoming</option>
                 <option value="Active">Active</option>
-                <option value="Completed">Completed</option>
               </select>
             </label>
 
@@ -272,34 +335,60 @@ function UpdateEventPopup({
               />
             </label>
 
-            <label className="block">
-              <span className="text-sm font-medium">Team</span>
-              <select
-                name="team"
-                value={updatedEvent.team}
-                onChange={handleChange}
-                className="w-full border p-2 rounded"
-              >
-                <option value="">Select a team</option>
-                {teams.map((t, idx) => (
-                  <option key={idx} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="block">
-              <span className="text-sm font-medium">Total Leads</span>
-              <input
-                name="total_leads"
-                value={updatedEvent.total_leads}
-                onChange={handleChange}
-                className="w-full border p-2 rounded"
-                type="number"
-                min={0}
-              />
-            </label>
+            <div>
+              <Label>Select Team(s) *</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between border-gray focus:border-gray h-10"
+                  >
+                    {selectedTeams.length > 0
+                      ? `${selectedTeams.length} team(s) selected`
+                      : "Select teams..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0 max-h-64">
+                  <Command>
+                    <CommandInput placeholder="Search teams..." className="h-9" />
+                    <CommandEmpty>No teams found.</CommandEmpty>
+                    <CommandGroup className="max-h-48 overflow-auto">
+                      {teams.map((team) => (
+                        <CommandItem
+                          key={team}
+                          value={team}
+                          onSelect={() => handleTeamSelection(team)}
+                        >
+                          <Check
+                            className={`mr-2 h-4 w-4 ${selectedTeams.includes(team)
+                                ? "opacity-100"
+                                : "opacity-0"
+                              }`}
+                          />
+                          {team}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              {selectedTeams.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {selectedTeams.map((team) => (
+                    <Badge
+                      key={team}
+                      variant="secondary"
+                      className="text-xs"
+                      onClick={() => handleTeamSelection(team)}
+                    >
+                      {team} ×
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <label className="block">
               <span className="text-sm font-medium">Priority Leads</span>
@@ -324,6 +413,60 @@ function UpdateEventPopup({
                 min={0}
               />
             </label>
+
+            <div className="col-span-2">
+              <Label>Capture Type(s) *</Label>
+              <div className="grid grid-cols-3 gap-3 mt-2 p-4 border border-gray rounded-lg bg-gradient-to-r from-muted to-gray">
+                {[
+                  { id: "visiting-card", label: "Visiting Card", value: "Visiting Card" },
+                  { id: "badge", label: "Badge", value: "Badge" },
+                  { id: "manual", label: "Manual", value: "Manual" },
+                ].map(({ id, label, value }) => (
+                  <label
+                    key={id}
+                    className="flex items-center space-x-3 p-3 hover:bg-accent rounded-lg cursor-pointer transition-all group"
+                  >
+                    <input
+                      type="checkbox"
+                      id={id}
+                      checked={captureTypes.includes(value)}
+                      onChange={() => toggleCaptureType(value)}
+                      className="w-5 h-5 text-primary focus:ring-primary border-gray rounded group-hover:border-primary transition-all"
+                    />
+                    <div>
+                      <span className="font-medium text-sm">{label}</span>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {value === "Visiting Card" && "Business card scanning"}
+                        {value === "Badge" && "ID badge OCR"}
+                        {value === "Manual" && "Form entry"}
+                      </p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+              
+              {/* Selected badges */}
+              {captureTypes.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-3 p-2 bg-accent rounded">
+                  {captureTypes.map((type) => (
+                    <Badge
+                      key={type}
+                      variant="default"
+                      className="text-xs cursor-pointer hover:bg-primary"
+                      onClick={() => toggleCaptureType(type)}
+                    >
+                      {type} ×
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              
+              {captureTypes.length === 0 && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Select at least one capture method
+                </p>
+              )}
+            </div>
 
             <label className="block">
               <span className="text-sm font-medium">Event Size</span>
@@ -432,7 +575,7 @@ export default function Events() {
     if (!userId) return;
 
     try {
-      const res:any = await request(`/get_single_access/${userId}`, "GET");
+      const res: any = await request(`/get_single_access/${userId}`, "GET");
       if (res?.status_code === 200 && res.data) {
         const parsed: AccessPointData = {
           page: JSON.parse(res.data.page),
@@ -604,7 +747,6 @@ export default function Events() {
           <div className="flex justify-between items-center">
             <div className="flex justify-between items-center space-x-6">
               <h1 className="text-2xl font-semibold text-foreground">Your Events</h1>
-              {/* 🔹 SEARCH - HIDE IF NO FILTER PERMISSION */}
               {showFilters && (
                 <div className="relative">
                   <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
@@ -618,7 +760,6 @@ export default function Events() {
                 </div>
               )}
             </div>
-            {/* 🔹 FILTERS - HIDE ENTIRE SECTION IF NO FILTER PERMISSION */}
             {showFilters && (
               <div className="flex items-center space-x-4">
                 <Select
@@ -645,8 +786,8 @@ export default function Events() {
                   </SelectContent>
                 </Select>
 
-                <Select 
-                  value={status} 
+                <Select
+                  value={status}
                   onValueChange={(v) => setStatus(v)}
                 >
                   <SelectTrigger className="w-40 border border-gray-300 rounded">
@@ -659,7 +800,7 @@ export default function Events() {
                     <SelectItem value="Completed">Completed</SelectItem>
                   </SelectContent>
                 </Select>
-                
+
                 <Button onClick={handleClearFilters}>
                   Clear Filter
                 </Button>
@@ -690,7 +831,6 @@ export default function Events() {
                     {filteredEvents.length === 0 ? (
                       <tr>
                         <td colSpan={8} className="py-12 text-center text-muted-foreground">
-                          {/* 🔹 NO EVENTS MESSAGE */}
                           {events.length === 0 ? "No events found." : "No events match your filters."}
                         </td>
                       </tr>
