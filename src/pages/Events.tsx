@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Check, ChevronsUpDown, Edit, Search } from "lucide-react";
+import { Check, ChevronsUpDown, Edit, Search, X } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
 import { DateInput } from "@/components/ui/DateInput";
 
@@ -724,25 +724,73 @@ export default function Events() {
 
   const showFilters = canFilterEvents;
 
-  // 🔹 ACCESS DENIED SCREEN
-  // if (!canViewEvents) {
-  //   return (
-  //     <div className="flex h-screen bg-background">
-  //       <DashboardSidebar />
-  //       <div className="flex flex-col flex-1">
-  //         <DashboardHeader />
-  //         <main className="flex-1 overflow-auto p-6 space-y-6">
-  //           <Card>
-  //             <CardContent className="p-6 text-center">
-  //               <h1 className="text-2xl font-semibold mb-4">Access Denied</h1>
-  //               <p>You don't have permission to view Events.</p>
-  //             </CardContent>
-  //           </Card>
-  //         </main>
-  //       </div>
-  //     </div>
-  //   );
-  // }
+  if (myAccess === null) {  // 👈 Check if permissions still loading
+    return (
+      <div className="flex h-screen bg-background">
+        <DashboardSidebar />
+        <div className="flex flex-col flex-1">
+          <DashboardHeader />
+          <main className="flex-1 overflow-auto p-6 space-y-6">
+            <Card className="max-w-md mx-auto">
+              <CardContent className="p-8 text-center">
+                <div className="w-12 h-12 rounded-full bg-muted mx-auto mb-4 flex items-center justify-center animate-spin">
+                  <Calendar className="w-6 h-6 text-muted-foreground" />
+                </div>
+                <h2 className="text-xl font-semibold mb-2">Loading Permissions</h2>
+                <p className="text-muted-foreground mb-4">
+                  Checking your access to Events page...
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  This may take a few seconds
+                </p>
+              </CardContent>
+            </Card>
+          </main>
+        </div>
+      </div>
+    );
+  }
+  
+  // 🔒 Access Denied (only AFTER permissions load)
+  if (!canViewEvents) {
+    return (
+      <div className="flex h-screen bg-background">
+        <DashboardSidebar />
+        <div className="flex flex-col flex-1">
+          <DashboardHeader />
+          <main className="flex-1 overflow-auto p-6 space-y-6">
+            <Card className="max-w-md mx-auto">
+              <CardContent className="p-8 text-center">
+                <div className="w-16 h-16 bg-destructive/10 rounded-full mx-auto mb-6 flex items-center justify-center">
+                  <X className="w-8 h-8 text-destructive" />
+                </div>
+                <h2 className="text-2xl font-semibold mb-4 text-destructive">Access Denied</h2>
+                <p className="text-muted-foreground mb-6 max-w-sm mx-auto leading-relaxed">
+                  You don't have permission to view Events.
+                </p>
+                <div className="space-y-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={loadMyAccess}
+                    className="w-full"
+                  >
+                    Refresh Permissions
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    className="w-full"
+                    onClick={() => window.location.href = "/dashboard"}
+                  >
+                    Go to Dashboard
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-background">
@@ -857,7 +905,7 @@ export default function Events() {
                           </td>
                           <td className="py-3 px-4">{event.location}</td>
                           <td className="py-3 px-4">{event.team}</td>
-                          <td className="py-3 px-4">{event.total_leads}</td>
+                          {/* <td className="py-3 px-4">{event.total_leads}</td> */}
                           <td className="py-3 px-4">{event.priority_leads}</td>
                           <td className="py-3 px-4">
                             <Button
