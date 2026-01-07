@@ -374,7 +374,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
 
             {/* START DATE */}
             <DateInput
-              label="Start Date *"
+              label="Start Date "
               value={formData.startDate}
               required
               onChange={(val) =>
@@ -384,7 +384,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
 
             {/* END DATE */}
             <DateInput
-              label="End Date *"
+              label="End Date "
               value={formData.endDate}
               required
               minDate={formData.startDate ? new Date(formData.startDate) : new Date()}

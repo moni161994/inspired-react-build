@@ -279,14 +279,14 @@ function UpdateEventPopup({
   return (
     <>
       <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-        <div className="bg-white p-6 rounded-lg w-full max-w-2xl shadow-lg relative">
+        <div className="bg-white p-6 rounded-lg w-full max-w-3xl shadow-lg relative">
           <h2 className="text-lg font-semibold mb-6">Update Event</h2>
 
           {error && <p className="text-red-500 mb-4">{error}</p>}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label className="block">
-              <span className="text-sm font-medium">Event Status</span>
+              <span className="text-sm font-medium">Event Status *</span>
               <select
                 name="event_status"
                 value={updatedEvent.event_status}
@@ -297,44 +297,6 @@ function UpdateEventPopup({
                 <option value="Active">Active</option>
               </select>
             </label>
-
-            <label className="block">
-              <span className="text-sm font-medium">Event Name</span>
-              <input
-                name="event_name"
-                value={updatedEvent.event_name}
-                onChange={handleChange}
-                className="w-full border p-2 rounded"
-                type="text"
-              />
-            </label>
-
-            <DateInput
-              label="Start Date"
-              value={updatedEvent.start_date}
-              onChange={(val) =>
-                setUpdatedEvent((p: any) => ({ ...p, start_date: val }))
-              }
-            />
-            <DateInput
-              label="End Date"
-              value={updatedEvent.end_date}
-              onChange={(val) =>
-                setUpdatedEvent((p: any) => ({ ...p, end_date: val }))
-              }
-            />
-
-            <label className="block">
-              <span className="text-sm font-medium">Location</span>
-              <input
-                name="location"
-                value={updatedEvent.location}
-                onChange={handleChange}
-                className="w-full border p-2 rounded"
-                type="text"
-              />
-            </label>
-
             <div>
               <Label>Select Team(s) *</Label>
               <Popover>
@@ -389,21 +351,63 @@ function UpdateEventPopup({
                 </div>
               )}
             </div>
-
             <label className="block">
-              <span className="text-sm font-medium">Priority Leads</span>
+              <span className="text-sm font-medium">Event Name *</span>
               <input
-                name="priority_leads"
-                value={updatedEvent.priority_leads}
+                name="event_name"
+                value={updatedEvent.event_name}
                 onChange={handleChange}
                 className="w-full border p-2 rounded"
-                type="number"
-                min={0}
+                type="text"
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm font-medium">Event Size</span>
+              <select
+                name="event_size"
+                value={updatedEvent.event_size}
+                onChange={handleChange}
+                className="w-full border p-2 rounded"
+              >
+                <option value="small">Small</option>
+                <option value="medium">Medium</option>
+                <option value="large">Large</option>
+              </select>
+            </label>
+            <DateInput
+              label="Start Date"
+              value={updatedEvent.start_date}
+              required
+              onChange={(val) =>
+                setUpdatedEvent((p: any) => ({ ...p, start_date: val }))
+              }
+            />
+            <DateInput
+              label="End Date"
+              value={updatedEvent.end_date}
+              required
+              onChange={(val) =>
+                setUpdatedEvent((p: any) => ({ ...p, end_date: val }))
+              }
+            />
+
+            <label className="block">
+              <span className="text-sm font-medium">Event Location *</span>
+              <input
+                name="location"
+                value={updatedEvent.location}
+                onChange={handleChange}
+                className="w-full border p-2 rounded"
+                type="text"
               />
             </label>
 
+
+
+            
+
             <label className="block">
-              <span className="text-sm font-medium">Budget</span>
+              <span className="text-sm font-medium">Budget (USD)</span>
               <input
                 name="budget"
                 value={updatedEvent.budget}
@@ -469,21 +473,19 @@ function UpdateEventPopup({
             </div>
 
             <label className="block">
-              <span className="text-sm font-medium">Event Size</span>
-              <select
-                name="event_size"
-                value={updatedEvent.event_size}
+              <span className="text-sm font-medium">Priority Leads Target</span>
+              <input
+                name="priority_leads"
+                value={updatedEvent.priority_leads}
                 onChange={handleChange}
                 className="w-full border p-2 rounded"
-              >
-                <option value="small">Small</option>
-                <option value="medium">Medium</option>
-                <option value="large">Large</option>
-              </select>
+                type="number"
+                min={0}
+              />
             </label>
 
             <label className="block col-span-2">
-              <span className="text-sm font-medium">Form Template</span>
+              <span className="text-sm font-medium">Lead Capture Template *</span>
               <select
                 name="template_id"
                 value={updatedEvent.template_id || ""}
@@ -750,7 +752,7 @@ export default function Events() {
       </div>
     );
   }
-  
+
   // 🔒 Access Denied (only AFTER permissions load)
   if (!canViewEvents) {
     return (
@@ -769,15 +771,15 @@ export default function Events() {
                   You don't have permission to view Events.
                 </p>
                 <div className="space-y-2">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={loadMyAccess}
                     className="w-full"
                   >
                     Refresh Permissions
                   </Button>
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
                     className="w-full"
                     onClick={() => window.location.href = "/dashboard"}
                   >
