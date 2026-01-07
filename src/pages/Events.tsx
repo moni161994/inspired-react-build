@@ -185,7 +185,7 @@ function UpdateEventPopup({
 
   useEffect(() => {
     let parsedCaptureTypes: string[] = [];
-    
+
     if (event?.capture_type) {
       try {
         // 👈 Parse JSON string like "[\"Badge\",\"Manual\"]"
@@ -199,7 +199,7 @@ function UpdateEventPopup({
         parsedCaptureTypes = [];
       }
     }
-    
+
     setCaptureTypes(parsedCaptureTypes);
     setUpdatedEvent((prev: any) => ({ ...prev, capture_type: parsedCaptureTypes }));
   }, [event?.capture_type]);
@@ -256,7 +256,7 @@ function UpdateEventPopup({
     const newSelectedTeams = selectedTeams.includes(team)
       ? selectedTeams.filter((t) => t !== team)
       : [...selectedTeams, team];
-    
+
     setSelectedTeams(newSelectedTeams);
     setUpdatedEvent((prev: any) => ({
       ...prev,
@@ -268,7 +268,7 @@ function UpdateEventPopup({
     const newCaptureTypes = captureTypes.includes(type)
       ? captureTypes.filter((t) => t !== type)
       : [...captureTypes, type];
-    
+
     setCaptureTypes(newCaptureTypes);
     setUpdatedEvent((prev) => ({
       ...prev,
@@ -363,8 +363,8 @@ function UpdateEventPopup({
                         >
                           <Check
                             className={`mr-2 h-4 w-4 ${selectedTeams.includes(team)
-                                ? "opacity-100"
-                                : "opacity-0"
+                              ? "opacity-100"
+                              : "opacity-0"
                               }`}
                           />
                           {team}
@@ -444,7 +444,7 @@ function UpdateEventPopup({
                   </label>
                 ))}
               </div>
-              
+
               {/* Selected badges */}
               {captureTypes.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-3 p-2 bg-accent rounded">
@@ -460,7 +460,7 @@ function UpdateEventPopup({
                   ))}
                 </div>
               )}
-              
+
               {captureTypes.length === 0 && (
                 <p className="text-xs text-muted-foreground mt-2">
                   Select at least one capture method
@@ -610,11 +610,17 @@ export default function Events() {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
+        const currentUserId = getCurrentUserId();
         const response = await fetch("https://api.inditechit.com/get_users");
         const result = await response.json();
 
         if (result.status_code === 200 && Array.isArray(result.data)) {
-          setUsers(result.data);
+          let list: any = result.data;
+          if (currentUserId !== 1015) {
+            list = list.filter((u) => (u.parent_id === currentUserId || u.employee_id == currentUserId));
+          }
+          setUsers(list);
+          // setUsers(result.data);
         }
       } catch (err) {
         console.error("Users fetch error:", err);
@@ -822,7 +828,7 @@ export default function Events() {
                       <th className="py-3 px-4 text-left">Dates</th>
                       <th className="py-3 px-4 text-left">Location</th>
                       <th className="py-3 px-4 text-left">Team</th>
-                      <th className="py-3 px-4 text-left">Leads</th>
+                      {/* <th className="py-3 px-4 text-left">Leads</th> */}
                       <th className="py-3 px-4 text-left">Priority</th>
                       <th className="py-3 px-4 text-left">Actions</th>
                     </tr>

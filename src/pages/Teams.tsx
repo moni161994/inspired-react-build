@@ -171,10 +171,17 @@ export default function Teams() {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
+        const currentUserId = getCurrentUserId();
         const response = await fetch("https://api.inditechit.com/get_users");
         const result = await response.json();
+
         if (result.status_code === 200 && Array.isArray(result.data)) {
-          setUsers(result.data);
+          let list: any = result.data;
+          if (currentUserId !== 1015) {
+            list = list.filter((u) => (u.parent_id === currentUserId || u.employee_id == currentUserId));
+          }
+          setUsers(list);
+          // setUsers(result.data);
         }
       } catch (err) {
         console.error("Users fetch error:", err);

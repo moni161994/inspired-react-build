@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { X, Plus, Trash2 } from "lucide-react";
+import { X, Plus, Trash2, Edit3 } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/hooks/use-toast";
 
@@ -28,6 +28,16 @@ type LanguageTranslation = {
   translations: Record<string, string>;
 };
 
+// Predefined translation keys
+const PREDEFINED_KEYS = [
+  "Dashboard",
+  "Profile",
+  "Leads", 
+  "Support",
+  "Total Lead",
+  "Logout"
+] as const;
+
 export default function LanguageManagement() {
   const [languages, setLanguages] = useState<Language[]>([]);
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageTranslation | null>(null);
@@ -41,8 +51,7 @@ export default function LanguageManagement() {
   });
 
   const [translationEntries, setTranslationEntries] = useState<TranslationEntry[]>([]);
-  const [newTranslationKey, setNewTranslationKey] = useState("");
-  const [newTranslationValue, setNewTranslationValue] = useState("");
+  const [showAllKeys, setShowAllKeys] = useState(false);
 
   const { request, loading } = useApi();
   const { toast } = useToast();
@@ -51,37 +60,34 @@ export default function LanguageManagement() {
     fetchLanguages();
   }, []);
 
- const fetchLanguages = async () => {
-  try {
-    const res = await request("/get_languages", "GET");
-    
-    // Handle your API response format: { status_code: 200, data: [...] }
-    if (res?.status_code === 200 && Array.isArray(res.data)) {
-      // Convert is_active from 1/0 to boolean
-      const formattedLanguages: Language[] = res.data.map((lang: any) => ({
-        ...lang,
-        is_active: Boolean(lang.is_active)
-      }));
-      setLanguages(formattedLanguages);
-    } else {
+  const fetchLanguages = async () => {
+    try {
+      const res = await request("/get_languages", "GET");
+      
+      if (res?.status_code === 200 && Array.isArray(res.data)) {
+        const formattedLanguages: Language[] = res.data.map((lang: any) => ({
+          ...lang,
+          is_active: Boolean(lang.is_active)
+        }));
+        setLanguages(formattedLanguages);
+      } else {
+        setLanguages([]);
+        toast({
+          title: "Failed to load languages",
+          description: res?.error || "Could not fetch language data from server.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('fetchLanguages error:', error);
       setLanguages([]);
       toast({
         title: "Failed to load languages",
-        description: res?.error || "Could not fetch language data from server.",
+        description: "Network error occurred.",
         variant: "destructive",
       });
     }
-  } catch (error) {
-    console.error('fetchLanguages error:', error);
-    setLanguages([]);
-    toast({
-      title: "Failed to load languages",
-      description: "Network error occurred.",
-      variant: "destructive",
-    });
-  }
-};
-
+  };
 
   const openLanguageDialog = (language?: Language) => {
     setLanguageDialogOpen(true);
@@ -96,132 +102,107 @@ export default function LanguageManagement() {
     }
   };
 
- const handleCreateOrUpdateLanguage = async () => {
-  if (!formData.language_name.trim() || !formData.language_code.trim()) {
-    toast({ title: "Language name and code are required", variant: "destructive" });
-    return;
-  }
-
-  let res;
-  if (editLanguageObj) {
-    res = await request("/update_language", "POST", {
-      language_id: editLanguageObj.language_code,
-      language_name: formData.language_name,
-      language_code: formData.language_code,
-    });
-  } else {
-    res = await request("/create_language", "POST", formData);
-  }
-
-  // Check your API response format
-  if (res?.status_code === 200 || res?.status_code === 201) {
-    toast({ title: editLanguageObj ? "Language updated" : "Language created" });
-    setLanguageDialogOpen(false);
-    setEditLanguageObj(null);
-    fetchLanguages();
-  } else {
-    toast({
-      title: "Operation failed",
-      description: res?.error || "Server error",
-      variant: "destructive",
-    });
-  }
-};
-
-const handleDeleteLanguage = async (languageCode: string) => {
-  const res = await request("/delete_language", "POST", { language_code: languageCode });
-  if (res?.status_code === 200) {
-    toast({ title: "Language deleted successfully" });
-    fetchLanguages();
-  } else {
-    toast({
-      title: "Delete failed",
-      description: res?.error || "Could not delete language",
-      variant: "destructive",
-    });
-  }
-};
-
-const openTranslationEditor = async (language: Language) => {
-  const res = await request("/get_language_translations", "POST", {
-    language_code: language.language_code,
-  });
-  
-  if (res?.status_code === 200 && res.data) {
-    const entries: TranslationEntry[] = Object.entries(res.data).map(([key, value]) => ({
-      key,
-      value: value as string,
-    }));
-    setTranslationEntries(entries);
-    
-    setSelectedLanguage({
-      language_code: language.language_code,
-      translations: res.data,
-    });
-  } else {
-    setTranslationEntries([]);
-    setSelectedLanguage({
-      language_code: language.language_code,
-      translations: {},
-    });
-  }
-  setEditLanguageDialogOpen(true);
-};
-
-
-  const addTranslationEntry = () => {
-    if (newTranslationKey.trim() && newTranslationValue.trim()) {
-      const newEntry: TranslationEntry = {
-        key: newTranslationKey.trim(),
-        value: newTranslationValue.trim(),
-      };
-      setTranslationEntries([...translationEntries, newEntry]);
-      
-      setSelectedLanguage?.((prev) => prev ? {
-        ...prev,
-        translations: {
-          ...prev.translations,
-          [newTranslationKey.trim()]: newTranslationValue.trim(),
-        },
-      } : null);
-      
-      setNewTranslationKey("");
-      setNewTranslationValue("");
+  const handleCreateOrUpdateLanguage = async () => {
+    if (!formData.language_name.trim() || !formData.language_code.trim()) {
+      toast({ title: "Language name and code are required", variant: "destructive" });
+      return;
     }
-  };
 
-  const updateTranslation = (index: number, field: 'key' | 'value', value: string) => {
-    const updated = [...translationEntries];
-    updated[index] = { ...updated[index], [field]: value };
-    setTranslationEntries(updated);
+    let res;
+    if (editLanguageObj) {
+      res = await request("/update_language", "POST", {
+        language_id: editLanguageObj.language_code,
+        language_name: formData.language_name,
+        language_code: formData.language_code,
+      });
+    } else {
+      res = await request("/create_language", "POST", formData);
+    }
 
-    // Update selectedLanguage translations
-    if (selectedLanguage) {
-      const newTranslations = { ...selectedLanguage.translations };
-      // Remove old key if key changed
-      if (field === 'key' && updated[index].key !== value) {
-        Object.keys(newTranslations).forEach((k) => {
-          if (k === updated[index].key) delete newTranslations[k];
-        });
-      }
-      newTranslations[value] = updated[index].value;
-      setSelectedLanguage({
-        ...selectedLanguage,
-        translations: newTranslations,
+    if (res?.status_code === 200 || res?.status_code === 201) {
+      toast({ title: editLanguageObj ? "Language updated" : "Language created" });
+      setLanguageDialogOpen(false);
+      setEditLanguageObj(null);
+      fetchLanguages();
+    } else {
+      toast({
+        title: "Operation failed",
+        description: res?.error || "Server error",
+        variant: "destructive",
       });
     }
   };
 
-  const deleteTranslationEntry = (index: number) => {
-    const updated = translationEntries.filter((_, i) => i !== index);
+  const handleDeleteLanguage = async (languageCode: string) => {
+    const res = await request("/delete_language", "POST", { language_code: languageCode });
+    if (res?.status_code === 200) {
+      toast({ title: "Language deleted successfully" });
+      fetchLanguages();
+    } else {
+      toast({
+        title: "Delete failed",
+        description: res?.error || "Could not delete language",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const openTranslationEditor = async (language: Language) => {
+    const res = await request("/get_language_translations", "POST", {
+      language_code: language.language_code,
+    });
+    
+    if (res?.status_code === 200 && res.data) {
+      // Initialize all predefined keys with existing translations or empty strings
+      const initializedTranslations: Record<string, string> = {};
+      
+      PREDEFINED_KEYS.forEach(key => {
+        initializedTranslations[key] = res.data[key] || "";
+      });
+
+      const entries: TranslationEntry[] = PREDEFINED_KEYS.map(key => ({
+        key,
+        value: initializedTranslations[key],
+      }));
+
+      setTranslationEntries(entries);
+      setSelectedLanguage({
+        language_code: language.language_code,
+        translations: initializedTranslations,
+      });
+    } else {
+      // No existing translations, initialize with all predefined keys
+      const initializedTranslations: Record<string, string> = {};
+      PREDEFINED_KEYS.forEach(key => {
+        initializedTranslations[key] = "";
+      });
+
+      const entries: TranslationEntry[] = PREDEFINED_KEYS.map(key => ({
+        key,
+        value: "",
+      }));
+
+      setTranslationEntries(entries);
+      setSelectedLanguage({
+        language_code: language.language_code,
+        translations: initializedTranslations,
+      });
+    }
+    setEditLanguageDialogOpen(true);
+  };
+
+  const updateTranslation = (index: number, value: string) => {
+    const updated = [...translationEntries];
+    updated[index] = { ...updated[index], value };
     setTranslationEntries(updated);
 
     if (selectedLanguage) {
-      const newTranslations = { ...selectedLanguage.translations };
-      delete newTranslations[translationEntries[index].key];
       setSelectedLanguage({
         ...selectedLanguage,
-        translations: newTranslations,
+        translations: {
+          ...selectedLanguage.translations,
+          [updated[index].key]: value,
+        },
       });
     }
   };
@@ -232,7 +213,7 @@ const openTranslationEditor = async (language: Language) => {
       translations: selectedLanguage?.translations,
     });
 
-    if (res?.success) {
+    if (res?.success || res?.status_code === 200) {
       toast({ title: "Translations saved successfully" });
       setEditLanguageDialogOpen(false);
       setTranslationEntries([]);
@@ -240,7 +221,7 @@ const openTranslationEditor = async (language: Language) => {
     } else {
       toast({
         title: "Save failed",
-        description: res?.msg || "Could not save translations",
+        description: res?.msg || res?.error || "Could not save translations",
         variant: "destructive",
       });
     }
@@ -288,7 +269,8 @@ const openTranslationEditor = async (language: Language) => {
                             variant="outline"
                             onClick={() => openTranslationEditor(language)}
                           >
-                            Edit Translations
+                            <Edit3 className="w-4 h-4 mr-1" />
+                            Translations
                           </Button>
                           <Button 
                             size="sm" 
@@ -354,70 +336,55 @@ const openTranslationEditor = async (language: Language) => {
 
       {/* Translation Editor Dialog */}
       <Dialog open={editLanguageDialogOpen} onOpenChange={setEditLanguageDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>
-              {selectedLanguage?.language_code.toUpperCase()} Translations
+              {selectedLanguage?.language_code.toUpperCase()} - Translation Editor
             </DialogTitle>
           </DialogHeader>
 
-          <div className="flex-1 overflow-auto space-y-4 mt-4">
-            {/* Add New Translation */}
-            <div className="flex space-x-2">
-              <Input
-                placeholder="Translation Key (e.g., Login)"
-                value={newTranslationKey}
-                onChange={(e) => setNewTranslationKey(e.target.value)}
-                className="flex-1"
-              />
-              <Input
-                placeholder="Translation Value"
-                value={newTranslationValue}
-                onChange={(e) => setNewTranslationValue(e.target.value)}
-                className="flex-1"
-              />
-              <Button onClick={addTranslationEntry} size="sm">
-                Add
-              </Button>
-            </div>
-
-            {/* Translation Entries */}
-            <div className="space-y-2">
+          <div className="flex-1 overflow-auto space-y-4 mt-4 p-2">
+            <div className="grid gap-4">
               {translationEntries.map((entry, index) => (
-                <div key={index} className="flex items-start space-x-2 p-3 border rounded-lg bg-muted/20">
-                  <div className="flex-1 space-y-1">
-                    <Input
-                      value={entry.key}
-                      onChange={(e) => updateTranslation(index, 'key', e.target.value)}
-                      placeholder="Key"
-                      className="font-mono"
-                    />
-                    <Textarea
-                      value={entry.value}
-                      onChange={(e) => updateTranslation(index, 'value', e.target.value)}
-                      placeholder="Translation value"
-                      rows={2}
-                    />
+                <div key={entry.key} className="flex items-start space-x-3 p-4 border rounded-lg bg-muted/20 hover:bg-muted/30 transition-colors">
+                  {/* Fixed Key - Readonly */}
+                  <div className="flex items-center flex-1 min-w-0">
+                    <div className="w-28">
+                      <Label className="text-sm font-mono text-muted-foreground block mb-1">
+                        {entry.key}
+                      </Label>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <Label className="text-xs text-muted-foreground block mb-1">
+                        Translation:
+                      </Label>
+                      <Textarea
+                        value={entry.value}
+                        onChange={(e) => updateTranslation(index, e.target.value)}
+                        placeholder={`Enter ${entry.key} translation...`}
+                        rows={2}
+                        className="resize-none"
+                      />
+                    </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => deleteTranslationEntry(index)}
-                    className="mt-2"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
                 </div>
               ))}
             </div>
           </div>
 
           <div className="flex justify-end space-x-3 pt-6 border-t">
-            <Button variant="outline" onClick={() => setEditLanguageDialogOpen(false)}>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setEditLanguageDialogOpen(false);
+                setTranslationEntries([]);
+                setSelectedLanguage(null);
+              }}
+            >
               Cancel
             </Button>
             <Button onClick={saveTranslations} disabled={loading}>
-              {loading ? "Saving..." : "Save Translations"}
+              {loading ? "Saving..." : "Save All Translations"}
             </Button>
           </div>
         </DialogContent>
