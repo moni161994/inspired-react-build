@@ -29,14 +29,84 @@ type LanguageTranslation = {
 };
 
 // Predefined translation keys
+// Updated PREDEFINED_KEYS with ALL screens scanned 👇
+
 const PREDEFINED_KEYS = [
+  // Original
   "Dashboard",
-  "Profile",
-  "Leads", 
+  "Profile", 
+  "Leads",
   "Support",
   "Total Lead",
-  "Logout"
+  "Logout",
+  
+  // NEW from Notifications Screen
+  "New Lead Captured",
+  "CRM Sync Completed",
+  "CRM Sync",
+  "Hot Lead Identified",
+  
+  // NEW from Lead Details Screen  
+  "Hide Details",
+  "Designation",
+  "Company",
+  "Phone Numbers",
+  "Emails",
+  "Websites",
+  "Other",
+  "City",
+  "State",
+  "ZIP",
+  "Country",
+  "Area Of Interest",
+  "Disclaimer",
+  "Consent Form",
+  "Term And Condition",
+  "Signature",
+  "Email Opt In",
+  "Captured by",
+  
+  // NEW from Support Screen
+  "Support?",
+  "How we can help you",
+  "For any queries or support",
+  "please email us at",
+  "FAQs",
+  "How can I contact support?",
+  "What should I include in my email?",
+  "What are your support hours?",
+  
+  // NEW from Profile Screen
+  "My Profile",
+  "Employee ID",
+  "Teams",
+  "Parent ID",
+  "Status",
+  "Active",
+  
+  // NEW from Dashboard Summary
+  "Total Leads",
+  "Total Events",
+  "Active Events",
+  "Offline Leads",
+  "Recent Activity",
+  "All",
+  "View All",
+  
+  // NEW from Add Lead Capture Screen
+  "Add Lead Capture",
+  "Select Event",
+  "Photo",
+  "Manual",
+  "Click below to capture lead via camera",
+  "Take a Photo",
+  
+  // NEW from Leads Screen
+  "Lead Capture", 
+  "Badge Capture",
+  "No Records Found"
 ] as const;
+
 
 export default function LanguageManagement() {
   const [languages, setLanguages] = useState<Language[]>([]);
