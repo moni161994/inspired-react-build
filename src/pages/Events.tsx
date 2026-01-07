@@ -725,24 +725,24 @@ export default function Events() {
   const showFilters = canFilterEvents;
 
   // 🔹 ACCESS DENIED SCREEN
-  if (!canViewEvents) {
-    return (
-      <div className="flex h-screen bg-background">
-        <DashboardSidebar />
-        <div className="flex flex-col flex-1">
-          <DashboardHeader />
-          <main className="flex-1 overflow-auto p-6 space-y-6">
-            <Card>
-              <CardContent className="p-6 text-center">
-                <h1 className="text-2xl font-semibold mb-4">Access Denied</h1>
-                <p>You don't have permission to view Events.</p>
-              </CardContent>
-            </Card>
-          </main>
-        </div>
-      </div>
-    );
-  }
+  // if (!canViewEvents) {
+  //   return (
+  //     <div className="flex h-screen bg-background">
+  //       <DashboardSidebar />
+  //       <div className="flex flex-col flex-1">
+  //         <DashboardHeader />
+  //         <main className="flex-1 overflow-auto p-6 space-y-6">
+  //           <Card>
+  //             <CardContent className="p-6 text-center">
+  //               <h1 className="text-2xl font-semibold mb-4">Access Denied</h1>
+  //               <p>You don't have permission to view Events.</p>
+  //             </CardContent>
+  //           </Card>
+  //         </main>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="flex h-screen bg-background">
