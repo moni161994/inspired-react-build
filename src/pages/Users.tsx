@@ -111,7 +111,7 @@ const ACTION_OPTIONS: Record<string, ActionOption[]> = {
     { label: "Edit Template", action: "edit_template" },
     { label: "Delete Template", action: "delete_template" },
   ],
-  "/language":[
+  "/language": [
     { label: "Create Language", action: "create_language" },
     { label: "Edit Language", action: "edit_language" },
     { label: "Edit Transation", action: "edit_transation" },
@@ -127,6 +127,7 @@ const UsersPage = () => {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [canEditUser, setCanEditUser] = useState(false);  // ← NEW
 
   // Access Point Modal States (for selected row)
   const [accessPointOpen, setAccessPointOpen] = useState(false);
@@ -162,7 +163,7 @@ const UsersPage = () => {
     if (res && res.status_code === 200 && res.data) {
       let list: UserData[] = res.data;
       if (currentUserId !== 1015) {
-        list = list.filter((u) => (u.parent_id === currentUserId || u.employee_id == currentUserId ));
+        list = list.filter((u) => (u.parent_id === currentUserId || u.employee_id == currentUserId));
       }
       setUser(list);
     } else {
@@ -205,12 +206,16 @@ const UsersPage = () => {
         setCanGenerateCode(
           hasPage("/users") && hasAction("/users", "generate_code")
         );
+        setCanEditUser(
+          hasPage("/users") && hasAction("/users", "update_user")
+        );
       }
     } catch (e) {
       console.error("loadMyAccess error", e);
       setCanCreateUser(false);
       setCanChangeAccess(false);
       setCanGenerateCode(false);
+      setCanEditUser(false);
     }
   };
 
@@ -441,10 +446,10 @@ const UsersPage = () => {
   // Updated filteredUsers with status filter
   const filteredUsers = user
     ? user.filter((u) => {
-        const nameMatch = u.user_name.toLowerCase().includes(searchQuery.toLowerCase());
-        const statusMatch = statusFilter === "all" || u.status.toString() === statusFilter;
-        return nameMatch && statusMatch;
-      })
+      const nameMatch = u.user_name.toLowerCase().includes(searchQuery.toLowerCase());
+      const statusMatch = statusFilter === "all" || u.status.toString() === statusFilter;
+      return nameMatch && statusMatch;
+    })
     : [];
 
   return (
@@ -513,14 +518,14 @@ const UsersPage = () => {
                       No users found
                     </h3>
                     <p className="text-sm text-muted-foreground mb-6">
-                      {searchQuery || statusFilter !== "all" 
-                        ? "Try adjusting your search or filter criteria." 
+                      {searchQuery || statusFilter !== "all"
+                        ? "Try adjusting your search or filter criteria."
                         : "No users available for this account."
                       }
                     </p>
                     <div className="flex gap-2 justify-center">
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         onClick={() => {
                           setSearchQuery("");
                           setStatusFilter("all");
@@ -577,13 +582,15 @@ const UsersPage = () => {
                             </td>
                             <td className="py-3 px-4 text-center whitespace-nowrap">
                               <div className="flex gap-2 justify-center flex-wrap">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleEditUser(data)}
-                                >
-                                  Edit
-                                </Button>
+                                {canEditUser && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleEditUser(data)}
+                                  >
+                                    Edit
+                                  </Button>
+                                )}
 
                                 {canChangeAccess && (
                                   <Button

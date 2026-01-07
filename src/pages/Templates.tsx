@@ -59,6 +59,10 @@ const convertToApiKey = (label: string) =>
 function Templates() {
   const { request, loading } = useApi<any>();
   const { toast } = useToast();
+  // Access Control States - NEW
+  const [myAccess, setMyAccess] = useState<any>(null);
+  const [canEditTemplate, setCanEditTemplate] = useState(false);
+  const [canDeleteTemplate, setCanDeleteTemplate] = useState(false);
 
   const [templates, setTemplates] = useState<any[]>([]);
   const [originalTemplateImage, setOriginalTemplateImage] = useState("");
@@ -89,6 +93,7 @@ function Templates() {
   };
 
   useEffect(() => {
+    loadMyAccess();
     fetchTemplates();
   }, []);
 
@@ -112,6 +117,48 @@ function Templates() {
 
   //   setSelectedFields(fieldsForState);
   // };
+
+  const loadMyAccess = async () => {
+    const userId = getCurrentUserId();
+
+    if (!userId) return;
+
+    try {
+      const res = await request(`/get_single_access/${userId}`, "GET");
+      if (res?.status_code === 200 && res.data) {
+        const parsed: any = {
+          page: JSON.parse(res.data.page),
+          point: JSON.parse(res.data.point),
+          user_id: Number(res.data.user_id),
+        };
+        setMyAccess(parsed);
+
+        const hasPage = (p: string) => parsed.page.includes(p);
+        const hasAction = (page: string, action: string) => {
+          const pageName = page.replace("/", "").replace(/\/+$/, "") || "template";
+          const suffix = `${action}_${pageName}`;
+          return parsed.point.includes(suffix);
+        };
+
+        setCanEditTemplate(hasPage("/template") && hasAction("/template", "edit_template"));
+        setCanDeleteTemplate(hasPage("/template") && hasAction("/template", "delete_template"));
+      }
+    } catch (e) {
+      console.error("loadMyAccess error", e);
+      setCanEditTemplate(false);
+      setCanDeleteTemplate(false);
+    }
+  };
+
+  const getCurrentUserId = (): number => {
+    try {
+      const raw = localStorage.getItem("user_id");
+      return raw ? parseInt(raw, 10) : 0;
+    } catch {
+      return 0;
+    }
+  };
+
 
   const handleEdit = (tpl: any) => {
     setEditing(tpl);
@@ -304,7 +351,7 @@ function Templates() {
                 <TableHead>Fields</TableHead>
                 <TableHead>Image</TableHead>
                 <TableHead>Created At</TableHead>
-                <TableHead className="w-32">Actions</TableHead>
+                {(canDeleteTemplate ||canEditTemplate) && <TableHead className="w-32">Actions</TableHead>}
               </TableRow>
             </TableHeader>
 
@@ -338,10 +385,16 @@ function Templates() {
                       {new Date(tpl.created_at).toLocaleString()}
                     </TableCell>
                     <TableCell className="flex gap-2">
-                      <Button size="sm" onClick={() => handleEdit(tpl)}>
-                        Edit
-                      </Button>
-                      <AlertDialog open={deleteDialog.open && deleteDialog.templateId === tpl.id}>
+                      {canEditTemplate && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleEdit(tpl)}
+                          className="bg-blue-600 hover:bg-blue-700"
+                        >
+                          Edit
+                        </Button>
+                      )}
+                      {canDeleteTemplate && <AlertDialog open={deleteDialog.open && deleteDialog.templateId === tpl.id}>
                         <AlertDialogTrigger asChild>
                           <Button
                             variant="ghost"
@@ -369,7 +422,7 @@ function Templates() {
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
-                      </AlertDialog>
+                      </AlertDialog>}
                     </TableCell>
                   </TableRow>
                 ))

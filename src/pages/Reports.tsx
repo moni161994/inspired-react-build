@@ -45,6 +45,11 @@ export default function Reports() {
   const [templateId, setTemplateId] = useState<string>("all");
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [users, setUsers] = useState<any[]>([]);
+  // Access Control States - NEW
+  const [myAccess, setMyAccess] = useState<any>(null);
+  const [canDownloadReport, setCanDownloadReport] = useState(false);
+  const [canFilterReports, setCanFilterReports] = useState(false);
+
   const getCurrentUserId = (): number => {
     try {
       const raw = localStorage.getItem("user_id");
@@ -54,6 +59,7 @@ export default function Reports() {
     }
   };
   useEffect(() => {
+    loadMyAccess();
     const fetchUsers = async () => {
       try {
         const currentUserId = getCurrentUserId();
@@ -74,6 +80,40 @@ export default function Reports() {
     };
     fetchUsers();
   }, []);
+
+  // NEW FUNCTION - Reports access load करने के लिए
+  const loadMyAccess = async () => {
+    const userId = getCurrentUserId();
+    if (!userId) return;
+
+    try {
+      const res = await request(`/get_single_access/${userId}`, "GET");
+      if (res?.status_code === 200 && res.data) {
+        const parsed: any = {
+          page: JSON.parse(res.data.page),
+          point: JSON.parse(res.data.point),
+          user_id: Number(res.data.user_id),
+        };
+        setMyAccess(parsed);
+
+        const hasPage = (p: string) => parsed.page.includes(p);
+        const hasAction = (page: string, action: string) => {
+          const pageName = page.replace("/", "").replace(/\/+$/, "") || "report";
+          const suffix = `${action}_${pageName}`;
+          return parsed.point.includes(suffix);
+        };
+
+        // Report Page Permissions
+        setCanDownloadReport(hasPage("/report") && hasAction("/report", "download_report"));
+        setCanFilterReports(hasPage("/report") && hasAction("/report", "filter"));
+      }
+    } catch (e) {
+      console.error("loadMyAccess error", e);
+      setCanDownloadReport(false);
+      setCanFilterReports(false);
+    }
+  };
+
 
   // Fetch raw data from API (only template filter goes to server)
   const buildQuery = () => {
@@ -260,126 +300,131 @@ export default function Reports() {
                     variant="outline"
                     size="sm"
                     onClick={handleDownloadCSV}
-                    disabled={filteredReports.length === 0}
+                    disabled={filteredReports.length === 0 || !canDownloadReport}  // ✅ Permission check
                   >
-                    Download CSV
+                    {canDownloadReport ? "Download CSV" : "No Access"}
                   </Button>
+
                 </div>
               </div>
 
               {/* Filters - All in single responsive row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                {/* Name Filter */}
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">
-                    Filter by Name
-                  </label>
-                  <Input
-                    placeholder="Enter name..."
-                    value={nameFilter}
-                    onChange={(e) => setNameFilter(e.target.value)}
-                    className="h-9 text-sm"
-                  />
-                </div>
+              {canFilterReports && (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                    {/* Name Filter */}
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">
+                        Filter by Name
+                      </label>
+                      <Input
+                        placeholder="Enter name..."
+                        value={nameFilter}
+                        onChange={(e) => setNameFilter(e.target.value)}
+                        className="h-9 text-sm"
+                      />
+                    </div>
 
-                {/* Event Name Filter */}
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">
-                    Filter by Event
-                  </label>
-                  <Input
-                    placeholder="Enter event name..."
-                    value={eventFilter}
-                    onChange={(e) => setEventFilter(e.target.value)}
-                    className="h-9 text-sm"
-                  />
-                </div>
+                    {/* Event Name Filter */}
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">
+                        Filter by Event
+                      </label>
+                      <Input
+                        placeholder="Enter event name..."
+                        value={eventFilter}
+                        onChange={(e) => setEventFilter(e.target.value)}
+                        className="h-9 text-sm"
+                      />
+                    </div>
 
-                {/* Consent Status Filter */}
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">
-                    Consent Status
-                  </label>
-                  <Select value={filter} onValueChange={setFilter}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="All Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="granted">Granted</SelectItem>
-                      <SelectItem value="denied">Denied</SelectItem>
-                      <SelectItem value="missing">Missing</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                    {/* Consent Status Filter */}
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">
+                        Consent Status
+                      </label>
+                      <Select value={filter} onValueChange={setFilter}>
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="All Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Status</SelectItem>
+                          <SelectItem value="granted">Granted</SelectItem>
+                          <SelectItem value="denied">Denied</SelectItem>
+                          <SelectItem value="missing">Missing</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                {/* Captured By Filter - ✅ FULLY WORKING CLIENT-SIDE */}
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">
-                    Captured By
-                  </label>
-                  <Select
-                    value={selectedUserId?.toString() || "all-users"}
-                    onValueChange={(value) => {
-                      if (value === "all-users") {
+                    {/* Captured By Filter - ✅ FULLY WORKING CLIENT-SIDE */}
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">
+                        Captured By
+                      </label>
+                      <Select
+                        value={selectedUserId?.toString() || "all-users"}
+                        onValueChange={(value) => {
+                          if (value === "all-users") {
+                            handleResetToAllUsers();
+                          } else {
+                            handleUserSelect(Number(value));
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="All Users" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all-users">All Users</SelectItem>
+                          {users.map((user) => (
+                            <SelectItem key={user.employee_id} value={user.employee_id.toString()}>
+                              {user.user_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Template Filter */}
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">
+                        Template
+                      </label>
+                      <Select value={templateId} onValueChange={setTemplateId}>
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="All Templates" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Templates</SelectItem>
+                          {TEMPLATE_DATA.map((template) => (
+                            <SelectItem key={template.id} value={template.id.toString()}>
+                              {template.template_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Clear Filters */}
+                  <div className="pt-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setNameFilter("");
+                        setEventFilter("");
+                        setFilter("all");
+                        setTemplateId("all");
                         handleResetToAllUsers();
-                      } else {
-                        handleUserSelect(Number(value));
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="All Users" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all-users">All Users</SelectItem>
-                      {users.map((user) => (
-                        <SelectItem key={user.employee_id} value={user.employee_id.toString()}>
-                          {user.user_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Template Filter */}
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">
-                    Template
-                  </label>
-                  <Select value={templateId} onValueChange={setTemplateId}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="All Templates" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Templates</SelectItem>
-                      {TEMPLATE_DATA.map((template) => (
-                        <SelectItem key={template.id} value={template.id.toString()}>
-                          {template.template_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Clear Filters */}
-              <div className="pt-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setNameFilter("");
-                    setEventFilter("");
-                    setFilter("all");
-                    setTemplateId("all");
-                    handleResetToAllUsers();
-                  }}
-                  className="w-full sm:w-auto"
-                >
-                  Clear All Filters
-                </Button>
-              </div>
+                      }}
+                      className="w-full sm:w-auto"
+                    >
+                      Clear All Filters
+                    </Button>
+                  </div>
+                </>
+              )}
             </CardHeader>
 
             <CardContent>
@@ -458,8 +503,8 @@ export default function Reports() {
                       : "No leads available."
                     }
                   </p>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={() => {
                       setNameFilter("");
                       setEventFilter("");

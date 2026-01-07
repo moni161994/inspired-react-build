@@ -44,7 +44,11 @@ export default function LanguageManagement() {
   const [languageDialogOpen, setLanguageDialogOpen] = useState(false);
   const [editLanguageDialogOpen, setEditLanguageDialogOpen] = useState(false);
   const [editLanguageObj, setEditLanguageObj] = useState<Language | null>(null);
-
+  const [myAccess, setMyAccess] = useState<any>(null);
+  const [canCreateLanguage, setCanCreateLanguage] = useState(false);
+  const [canEditLanguage, setCanEditLanguage] = useState(false);
+  const [canEditTranslation, setCanEditTranslation] = useState(false);
+  const [canDeleteLanguage, setCanDeleteLanguage] = useState(false);
   const [formData, setFormData] = useState({
     language_name: "",
     language_code: "",
@@ -57,8 +61,53 @@ export default function LanguageManagement() {
   const { toast } = useToast();
 
   useEffect(() => {
+    loadMyAccess(); 
     fetchLanguages();
   }, []);
+
+  const getCurrentUserId = (): number => {
+    try {
+      const raw = localStorage.getItem("user_id");
+      return raw ? parseInt(raw, 10) : 0;
+    } catch {
+      return 0;
+    }
+  };
+  
+  const loadMyAccess = async () => {
+    const userId = getCurrentUserId();
+    if (!userId) return;
+  
+    try {
+      const res = await request(`/get_single_access/${userId}`, "GET");
+      if (res?.status_code === 200 && res.data) {
+        const parsed: any = {
+          page: JSON.parse(res.data.page),
+          point: JSON.parse(res.data.point),
+          user_id: Number(res.data.user_id),
+        };
+        setMyAccess(parsed);
+  
+        const hasPage = (p: string) => parsed.page.includes(p);
+        const hasAction = (page: string, action: string) => {
+          const pageName = page.replace("/", "").replace(/\/+$/, "") || "language";
+          const suffix = `${action}_${pageName}`;
+          return parsed.point.includes(suffix);
+        };
+  
+        setCanCreateLanguage(hasPage("/language") && hasAction("/language", "create_language"));
+        setCanEditLanguage(hasPage("/language") && hasAction("/language", "edit_language"));
+        setCanEditTranslation(hasPage("/language") && hasAction("/language", "edit_transation"));
+        setCanDeleteLanguage(hasPage("/language") && hasAction("/language", "delete_language"));
+      }
+    } catch (e) {
+      console.error("loadMyAccess error", e);
+      setCanCreateLanguage(false);
+      setCanEditLanguage(false);
+      setCanEditTranslation(false);
+      setCanDeleteLanguage(false);
+    }
+  };
 
   const fetchLanguages = async () => {
     try {
@@ -235,10 +284,10 @@ export default function LanguageManagement() {
         <main className="flex-1 overflow-auto p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-foreground">Languages</h2>
-            <Button onClick={() => openLanguageDialog()}>
+            {canCreateLanguage && <Button onClick={() => openLanguageDialog()}>
               <Plus className="w-4 h-4 mr-2" />
               Add Language
-            </Button>
+            </Button>}
           </div>
 
           <Card>
@@ -264,6 +313,7 @@ export default function LanguageManagement() {
                           </Badge>
                         </td>
                         <td className="py-3 px-4 space-x-2">
+                          {canEditTranslation && 
                           <Button 
                             size="sm" 
                             variant="outline"
@@ -271,21 +321,22 @@ export default function LanguageManagement() {
                           >
                             <Edit3 className="w-4 h-4 mr-1" />
                             Translations
-                          </Button>
+                          </Button>}
+                          {canEditLanguage && 
                           <Button 
                             size="sm" 
                             variant="outline" 
                             onClick={() => openLanguageDialog(language)}
                           >
                             Edit
-                          </Button>
-                          <Button 
+                          </Button>}
+                          {canDeleteLanguage && <Button 
                             size="sm" 
                             variant="destructive"
                             onClick={() => handleDeleteLanguage(language.language_code)}
                           >
                             <Trash2 className="w-4 h-4" />
-                          </Button>
+                          </Button>}
                         </td>
                       </tr>
                     ))}
