@@ -169,6 +169,7 @@ export default function Analytics() {
     setEndDateEvent("");
     setStartDateEvent("");
     setEventId("");
+    setSearchQuery("");
   };
 
   const handleClearDateTemplate = () => {
@@ -202,7 +203,7 @@ export default function Analytics() {
       setEmployeeReport(result?.data || []);
     } catch (err) {
       console.log(err);
-    }
+    } 
   };
 
   const fetchEvents = async () => {
@@ -589,7 +590,7 @@ export default function Analytics() {
                       onChange={(e) => setStartDateEvent(e.target.value)}
                     /> */}
                     <DateInput
-                      label="Start Date *"
+                      label="Start Date"
                       value={startDateEvent}
                       required
                       onChange={(val: string) => {
@@ -599,14 +600,14 @@ export default function Analytics() {
                   </div>
 
                   <div className="flex flex-col">
-                    <Label>End Date</Label>
+                    {/* <Label>End Date</Label> */}
                     {/* <Input
                       type="date"
                       value={endDateEvent}
                       onChange={(e) => setEndDateEvent(e.target.value)}
                     /> */}
                     <DateInput
-                      label="End Date *"
+                      label="End Date"
                       value={endDateEvent}
                       required
                       onChange={(val: string) => {

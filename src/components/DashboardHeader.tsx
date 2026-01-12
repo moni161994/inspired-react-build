@@ -343,7 +343,7 @@ export function DashboardHeader() {
 
         <div className="flex items-center space-x-4">
           {/* Add New Team */}
-          {canCreateTeam && (
+          {/* {canCreateTeam && (
             <Button
               className="bg-primary hover:bg-primary/90 text-primary-foreground"
               onClick={() => setTeamDialogOpen(true)}
@@ -351,7 +351,7 @@ export function DashboardHeader() {
               <Plus className="w-4 h-4 mr-2" />
               Add New Team
             </Button>
-          )}
+          )} */}
 
           {/* Create Template */}
           {canCreateTemplate && (
