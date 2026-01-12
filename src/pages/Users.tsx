@@ -549,9 +549,9 @@ const UsersPage = () => {
                           <th className="py-3 px-4 text-left">Name</th>
                           <th className="py-3 px-4 text-left">Email</th>
                           <th className="py-3 px-4 text-left">Designation</th>
-                          <th className="py-3 px-4 text-left">
+                          {/* <th className="py-3 px-4 text-left">
                             Manager User Id
-                          </th>
+                          </th> */}
                           <th className="py-3 px-4 text-left">Status</th>
                           <th className="py-3 px-4 text-center">Actions</th>
                         </tr>
@@ -574,9 +574,9 @@ const UsersPage = () => {
                             <td className="py-3 px-4 whitespace-nowrap">
                               <Badge variant="outline">{data.profile}</Badge>
                             </td>
-                            <td className="py-3 px-4 whitespace-nowrap">
+                            {/* <td className="py-3 px-4 whitespace-nowrap">
                               {data.parent_id}
-                            </td>
+                            </td> */}
                             <td className="py-3 px-4 whitespace-nowrap">
                               {data.status === 1 ? "Active" : "Inactive"}
                             </td>
