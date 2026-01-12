@@ -21,7 +21,7 @@ import {
   CommandItem
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
-import { X, Lock } from "lucide-react";
+import { X, Lock, Plus } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/hooks/use-toast";
 
@@ -292,7 +292,7 @@ export default function TeamAnalytics() {
             <h2 className="text-2xl font-semibold text-foreground">All Teams</h2>
              {canAddTeam && (
               <Button onClick={() => openTeamDialog()}>
-                Create New Team
+               <Plus className="w-4 h-4 mr-2" /> Create New Team 
               </Button>
             )}
           </div>
