@@ -17,13 +17,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label"; // <-- add this import
+import { Label } from "@/components/ui/label";
 
 const initialState = {
   user_name: "",
   email_address: "",
   profile: "",
-  teams: "0", // Always 0 by default
+  teams: "0", // Always 0 by default for user_details API
   parent_id: "",
   status: "",
 };
@@ -36,6 +36,20 @@ type UserData = {
   parent_id: number | string;
   teams: number | string;
   status?: number;
+};
+
+// Types based on your API response
+type TeamMember = {
+  employee_id: number;
+  user_name: string;
+  email_address: string;
+};
+
+type Team = {
+  team_id: number;
+  team_name: string;
+  manager_name: string;
+  members: TeamMember[];
 };
 
 type AddUserProps = {
@@ -55,26 +69,17 @@ const AddUser = ({
 }: AddUserProps) => {
   const [userInfo, setUserInfo] = useState(initialState);
   const [allUsers, setAllUsers] = useState<any[]>([]);
+  
+  // New State for Teams
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [selectedTeamId, setSelectedTeamId] = useState<string>("0");
+
   const { request, loading } = useApi();
   const { toast } = useToast();
 
   const isEditMode = !!editingUser;
 
-  useEffect(() => {
-    if (editingUser) {
-      setUserInfo({
-        user_name: editingUser.user_name || "",
-        email_address: editingUser.email_address || "",
-        profile: editingUser.profile || "",
-        teams: "0", // Always 0 in edit mode
-        parent_id: editingUser.parent_id?.toString() || "",
-        status: editingUser.status?.toString() || "",
-      });
-    } else {
-      setUserInfo(initialState);
-    }
-  }, [editingUser, open]);
-
+  // 1. Fetch Users (Managers)
   useEffect(() => {
     const fetchParentUsers = async () => {
       try {
@@ -83,11 +88,64 @@ const AddUser = ({
           setAllUsers(res.data);
         }
       } catch (err) {
-        // Handle error if needed
+        console.error("fetchParentUsers error", err);
       }
     };
     fetchParentUsers();
   }, []);
+
+  // 2. Fetch Teams
+  useEffect(() => {
+    const fetchTeams = async () => {
+      try {
+        const res = await request("/get_all_teams", "GET");
+        if (Array.isArray(res)) {
+          setTeams(res);
+        } else if (res?.success && Array.isArray(res.data)) {
+          setTeams(res.data);
+        } else {
+          setTeams([]);
+        }
+      } catch (e) {
+        console.error("fetchTeams error", e);
+        setTeams([]);
+      }
+    };
+    fetchTeams();
+  }, []);
+
+  // 3. Handle Edit Mode Population & AUTO SELECT TEAM
+  useEffect(() => {
+    if (open && editingUser) {
+      // A. Set Basic Info
+      setUserInfo({
+        user_name: editingUser.user_name || "",
+        email_address: editingUser.email_address || "",
+        profile: editingUser.profile || "",
+        teams: "0", 
+        parent_id: editingUser.parent_id?.toString() || "",
+        status: editingUser.status?.toString() || "",
+      });
+
+      // B. AUTO-SELECT TEAM Logic
+      // Scan all teams to see if this user is a member of any of them
+      if (teams.length > 0) {
+        const foundTeam = teams.find((t) => 
+          t.members.some((m) => m.employee_id === Number(editingUser.employee_id))
+        );
+
+        if (foundTeam) {
+          setSelectedTeamId(String(foundTeam.team_id));
+        } else {
+          setSelectedTeamId("0");
+        }
+      }
+    } else if (open && !editingUser) {
+      // Reset for Add Mode
+      setUserInfo(initialState);
+      setSelectedTeamId("0");
+    }
+  }, [editingUser, open, teams]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setUserInfo((prev) => ({
@@ -120,67 +178,111 @@ const AddUser = ({
       return;
     }
 
-    let res;
+    let userResponse;
+    let targetEmployeeId: number | null = null;
 
+    // --- Step 1: Create or Update User ---
     if (isEditMode && editingUser) {
-      res = await request("/update_user_details", "POST", {
+      userResponse = await request("/update_user_details", "POST", {
         employee_id: editingUser.employee_id,
         email_address: userInfo.email_address,
         user_name: userInfo.user_name,
         profile: userInfo.profile,
-        teams: "0", // Always 0 in update
+        teams: "0",
         parent_id: userInfo.parent_id,
         status: userInfo.status,
       });
-
-      if (res && res.message) {
-        toast({
-          title: "User updated successfully",
-          description: "User details have been updated successfully.",
-        });
-        clearEditingUser?.();
-        onUserAdded?.();
-        onClose();
-      } else {
-        toast({
-          title: "Failed to Update User",
-          description: res?.msg || "Something went wrong while updating user.",
-          variant: "destructive",
-        });
-      }
+      targetEmployeeId = editingUser.employee_id;
     } else {
-      res = await request("/user_details", "POST", {
+      userResponse = await request("/user_details", "POST", {
         ...userInfo,
-        teams: "0", // Always 0 in add
+        teams: "0",
       });
+      
+      // Attempt to extract the new ID from response
+      if (userResponse?.status_code === 200) {
+         if (userResponse.data && typeof userResponse.data === 'object') {
+            targetEmployeeId = userResponse.data.employee_id || userResponse.data.id;
+         } else if (typeof userResponse.data === 'number') {
+            targetEmployeeId = userResponse.data;
+         }
+      }
+    }
 
-      if (res && res.status_code === 200) {
+    const isUserSuccess = isEditMode 
+      ? (userResponse && userResponse.message) 
+      : (userResponse && userResponse.status_code === 200);
+
+    if (!isUserSuccess) {
+      toast({
+        title: isEditMode ? "Failed to Update User" : "Failed to Add User",
+        description: userResponse?.msg || "Something went wrong.",
+        variant: "destructive",
+      });
+      return; 
+    }
+
+    // --- Step 2: Add to Team (if team selected) ---
+    if (selectedTeamId && selectedTeamId !== "0" && targetEmployeeId) {
+      try {
+        const teamToUpdate = teams.find(t => t.team_id === Number(selectedTeamId));
+        
+        if (teamToUpdate) {
+          // 1. Get existing member IDs
+          const employeeIds = teamToUpdate.members.map(m => m.employee_id);
+          
+          // 2. Add new user if not already in list
+          if (!employeeIds.includes(targetEmployeeId)) {
+            employeeIds.push(targetEmployeeId);
+          }
+
+          // 3. Find Manager ID based on Manager Name
+          const managerUser = allUsers.find(u => u.user_name === teamToUpdate.manager_name);
+          const managerId = managerUser ? managerUser.employee_id : 0; 
+
+          // 4. Call API
+          await request("/update_team", "POST", {
+            team_id: teamToUpdate.team_id,
+            team_name: teamToUpdate.team_name,
+            manager_id: managerId, 
+            employee_ids: employeeIds, // Send updated array
+          });
+          
+          console.log(`User ${targetEmployeeId} added to team ${teamToUpdate.team_name}`);
+        }
+      } catch (teamErr) {
+        console.error("Failed to update team membership", teamErr);
         toast({
-          title: "User Added Successfully",
-          description: "The new user has been added to the system.",
-        });
-        setUserInfo(initialState);
-        onUserAdded?.();
-        onClose();
-      } else {
-        toast({
-          title: "Failed to Add User",
-          description: res?.msg || "Something went wrong while adding user.",
-          variant: "destructive",
+          title: "User Saved but Team Update Failed",
+          description: "Could not add user to the selected team.",
+          variant: "destructive"
         });
       }
     }
+
+    // --- Step 3: Cleanup ---
+    toast({
+      title: isEditMode ? "User Updated" : "User Added",
+      description: "Operation completed successfully.",
+    });
+    
+    if (isEditMode) clearEditingUser?.();
+    setUserInfo(initialState);
+    setSelectedTeamId("0");
+    onUserAdded?.();
+    onClose();
   };
 
   const handleCancel = () => {
     setUserInfo(initialState);
+    setSelectedTeamId("0");
     clearEditingUser?.();
     onClose();
   };
 
   const isDisabled = Object.values(userInfo)
     .filter((val, index) => {
-      // Ignore teams field in validation since always 0
+      // Ignore teams field (index 3) in validation since always 0 in userInfo
       return index !== 3;
     })
     .some((val) => val.trim() === "");
@@ -240,6 +342,25 @@ const AddUser = ({
               </SelectContent>
             </Select>
           </div>
+          
+          {/* New Team Selection Field */}
+          <div>
+            <Label htmlFor="team">Assign to Team</Label>
+            <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
+              <SelectTrigger className="border border-gray-300 rounded">
+                <SelectValue placeholder="Select Team (Optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0">No Team</SelectItem>
+                {teams.map((team) => (
+                  <SelectItem key={team.team_id} value={String(team.team_id)}>
+                    {team.team_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div>
             <Label htmlFor="status">Status</Label>
             <Select value={userInfo.status} onValueChange={handleStatusChange}>

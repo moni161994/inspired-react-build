@@ -126,11 +126,17 @@ export default function Reports() {
   useEffect(() => {
     const fetchReports = async () => {
       const endpoint = buildQuery();
-      const data: any = await request(endpoint, "GET");
-
+      let data: any = await request(endpoint, "GET");
+      let newData
+      const currentUserId = getCurrentUserId();
       if (data?.summary) setSummary(data.summary);
       if (data?.data) {
-        setAllReports(data.data); // Store raw data for client-side filtering
+        if (currentUserId !== 1015) {
+          newData = data.data.filter((lead: any) => lead.captured_by === currentUserId);
+        }else{
+          newData = data.data;
+        }        
+        setAllReports(newData); // Store raw data for client-side filtering
       } else {
         setAllReports([]);
       }

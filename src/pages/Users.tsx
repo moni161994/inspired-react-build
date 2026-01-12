@@ -473,7 +473,7 @@ const UsersPage = () => {
             <Card>
               <CardHeader className="flex justify-between flex-row space-y-0 items-center">
                 <div className="flex flex-row space-y-0 items-center gap-8">
-                  <CardTitle>App User Management</CardTitle>
+                  <CardTitle>User Management</CardTitle>
                   <div className="flex gap-4">
                     <Input
                       className="w-64"
@@ -495,7 +495,7 @@ const UsersPage = () => {
                 </div>
                 <div className="flex items-center gap-3">
                   {canCreateUser && (
-                    <Button onClick={openAddUser}>+ Add App User</Button>
+                    <Button onClick={openAddUser}>+ Add User</Button>
                   )}
                 </div>
               </CardHeader>
@@ -545,7 +545,7 @@ const UsersPage = () => {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b bg-muted/30">
-                          <th className="py-3 px-4 text-left">ID</th>
+                          {/* <th className="py-3 px-4 text-left">ID</th> */}
                           <th className="py-3 px-4 text-left">Name</th>
                           <th className="py-3 px-4 text-left">Email</th>
                           <th className="py-3 px-4 text-left">Designation</th>
@@ -562,9 +562,9 @@ const UsersPage = () => {
                             key={data.employee_id}
                             className="border-b hover:bg-muted/50 transition-colors"
                           >
-                            <td className="py-3 px-4 whitespace-nowrap">
+                            {/* <td className="py-3 px-4 whitespace-nowrap">
                               {data.employee_id}
-                            </td>
+                            </td> */}
                             <td className="py-3 px-4 whitespace-nowrap">
                               {data.user_name}
                             </td>

@@ -335,9 +335,9 @@ export default function TeamAnalytics() {
             </div>
             <div>
               <Label>Manager *</Label>
-              <Select value={formData.manager_id} onValueChange={(val) => setFormData(prev => ({ ...prev, manager_id: val }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select manager" />
+              <Select  value={formData.manager_id} onValueChange={(val) => setFormData(prev => ({ ...prev, manager_id: val }))}>
+                <SelectTrigger >
+                  <SelectValue className="border border-gray-300 rounded"  placeholder="Select manager" />
                 </SelectTrigger>
                 <SelectContent>
                   {users.map(user => (

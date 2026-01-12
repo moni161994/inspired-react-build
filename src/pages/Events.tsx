@@ -657,20 +657,20 @@ export default function Events() {
     setSelectedUserId(userId);
   };
 
-  const handleResetToAllEvents = async () => {
-    try {
-      const data: any = await request("/get_all_event_details", "GET");
-      if (data?.data) {
-        setEvents(data.data);
-      } else {
-        setEvents([]);
-      }
-    } catch (err) {
-      console.error("❌ All events error:", err);
-      setEvents([]);
-    }
-    setSelectedUserId(null);
-  };
+  // const handleResetToAllEvents = async () => {
+  //   try {
+  //     const data: any = await request("/get_all_event_details", "GET");
+  //     if (data?.data) {
+  //       setEvents(data.data);
+  //     } else {
+  //       setEvents([]);
+  //     }
+  //   } catch (err) {
+  //     console.error("❌ All events error:", err);
+  //     setEvents([]);
+  //   }
+  //   setSelectedUserId(null);
+  // };
 
   const openUpdatePopup = (event: Event) => {
     if (!canEditEvent) {
@@ -719,10 +719,49 @@ export default function Events() {
         new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
     );
 
-  const handleClearFilters = () => {
-    setStatus("All");
-    setSearchTerm("");
-  };
+    const handleResetToAllEvents = async () => {
+      const currentUserId = getCurrentUserId();
+      
+      try {
+        // 1. If Admin (1015), fetch global list
+        if (currentUserId === 1015) {
+          const data: any = await request("/get_all_event_details", "GET");
+          if (data?.data) {
+            setEvents(data.data);
+          } else {
+            setEvents([]);
+          }
+        } 
+        // 2. If Regular User/Manager, fetch their specific team/assigned events
+        else {
+          // We use fetch directly here since your request hook might be configured differently
+          // or to match your existing useEffect logic
+          const response = await fetch(`https://api.inditechit.com/get_user_team_events?id=${currentUserId}`);
+          const result = await response.json();
+          
+          if (result?.data) {
+            setEvents(result.data);
+          } else {
+            setEvents([]);
+          }
+        }
+      } catch (err) {
+        console.error("❌ Reset events error:", err);
+        setEvents([]);
+      }
+      
+      // Reset the dropdown selection
+      setSelectedUserId(null);
+    };
+  
+    const handleClearFilters = async () => {
+      setStatus("All");
+      setSearchTerm("");
+      
+      // Always call reset to ensure we go back to the correct "default" state
+      // (either Global for admin or Team View for manager)
+      await handleResetToAllEvents();
+    };
 
   const showFilters = canFilterEvents;
 
@@ -850,7 +889,7 @@ export default function Events() {
                     <SelectValue placeholder="Filter Status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="All">All</SelectItem>
+                    <SelectItem value="All">All Status</SelectItem>
                     <SelectItem value="Upcoming">Upcoming</SelectItem>
                     <SelectItem value="Active">Active</SelectItem>
                     <SelectItem value="Completed">Completed</SelectItem>

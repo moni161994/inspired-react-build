@@ -25,6 +25,7 @@ import {
 import { useEffect, useState } from "react";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/components/ui/use-toast";
+import { Badge } from "@/components/ui/badge";
 
 // 🔹 ACCESS CONTROL TYPES
 interface AccessPointData {
@@ -32,6 +33,13 @@ interface AccessPointData {
   point: string[];
   user_id: number;
 }
+
+const InfoRow = ({ label, value }: { label: string; value: string | number }) => (
+  <div className="flex flex-col sm:flex-row sm:gap-2 text-sm break-words">
+    <strong className="min-w-[100px] text-muted-foreground font-medium shrink-0">{label}:</strong>
+    <span className="text-foreground">{value}</span>
+  </div>
+);
 
 export default function Teams() {
   const { request, loading } = useApi<any>();
@@ -207,7 +215,7 @@ export default function Teams() {
     const matchesEvent = eventName.includes(filterEvent);
     const matchesName = leadName.includes(filterName);
     const matchesType = !leadTypeFilter || getLeadType(lead) === leadTypeFilter;
-    
+
     const leadCapturedId = Number(lead.captured_by);
     const matchesUser = !selectedUserId || leadCapturedId === selectedUserId;
 
@@ -216,11 +224,13 @@ export default function Teams() {
 
   const fetchLeadData = async () => {
     const currentUserId = getCurrentUserId();
+    console.log(currentUserId);
+
     const res = await request(`/get_all_leads`, "GET");
     if (res && res.success === true && res.data) {
       let data: any[] = res.data;
       if (currentUserId !== 1015) {
-        data = data.filter((lead: any) => lead.captured_by_id === currentUserId);
+        data = data.filter((lead: any) => lead.captured_by === currentUserId);
       }
       setLeadData(data);
     } else {
@@ -342,8 +352,8 @@ export default function Teams() {
                   {myAccess ? "Access Denied" : "Loading Permissions..."}
                 </h1>
                 <p>
-                  {myAccess 
-                    ? "You don't have permission to view Leads." 
+                  {myAccess
+                    ? "You don't have permission to view Leads."
                     : "Please wait while checking your permissions."
                   }
                 </p>
@@ -492,9 +502,9 @@ export default function Teams() {
                               <Button variant="link" size="sm" onClick={() => setSelectedLead(lead)}>
                                 View
                               </Button>
-                              <Button 
-                                variant="link" 
-                                size="sm" 
+                              <Button
+                                variant="link"
+                                size="sm"
                                 onClick={() => handleDelete(lead?.lead_id)}
                                 disabled={!canDeleteLead}
                                 title={!canDeleteLead ? "No delete permission" : "Delete lead"}
@@ -545,45 +555,148 @@ export default function Teams() {
           )}
 
           <Dialog open={!!selectedLead} onOpenChange={() => setSelectedLead(null)}>
-            <DialogContent className="max-w-4xl max-h-[90vh] p-0">
-              <DialogHeader className="p-6 pb-4">
-                <DialogTitle>Lead Details - {selectedLead?.name}</DialogTitle>
+            <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+              {/* Fixed Header */}
+              <DialogHeader className="p-6 pb-4 border-b bg-background z-10">
+                <DialogTitle className="text-xl">
+                  Lead Details {selectedLead?.name ? `- ${selectedLead.name}` : ""}
+                </DialogTitle>
               </DialogHeader>
-              <div className="p-6 max-h-[calc(90vh-140px)] overflow-y-auto">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="space-y-3">
-                    {selectedLead?.company && <div><strong>Company:</strong> {selectedLead.company}</div>}
-                    {selectedLead?.designation && <div><strong>Designation:</strong> {selectedLead.designation}</div>}
-                    {selectedLead?.phone_numbers?.length > 0 && (
-                      <div><strong>Phone:</strong> {selectedLead.phone_numbers.join(", ")}</div>
+
+              {/* Scrollable Content Area */}
+              <div className="flex-1 overflow-y-auto p-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+                  {/* --- LEFT COLUMN (Text Details) spans 2 columns --- */}
+                  <div className="lg:col-span-2 space-y-6">
+
+                    {/* Section 1: Contact Info */}
+                    <div className="space-y-3">
+                      <h3 className="font-semibold text-lg border-b pb-2 text-foreground/80">Contact Information</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                        {selectedLead?.lead_id && <InfoRow label="Lead ID" value={selectedLead.lead_id} />}
+                        {selectedLead?.company && <InfoRow label="Company" value={selectedLead.company} />}
+                        {selectedLead?.designation && <InfoRow label="Designation" value={selectedLead.designation} />}
+                        {selectedLead?.phone_numbers?.length > 0 && (
+                          <InfoRow label="Phone" value={selectedLead.phone_numbers.join(", ")} />
+                        )}
+                        {selectedLead?.emails?.length > 0 && (
+                          <InfoRow label="Email" value={selectedLead.emails.join(", ")} />
+                        )}
+                        {selectedLead?.websites?.length > 0 && (
+                          <InfoRow label="Website" value={selectedLead.websites.join(", ")} />
+                        )}
+                        {selectedLead?.other?.length > 0 && (
+                          <InfoRow label="Other Info" value={selectedLead.other.join(", ")} />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Section 2: Location */}
+                    {(selectedLead?.city || selectedLead?.state || selectedLead?.country || selectedLead?.zip) && (
+                      <div className="space-y-3">
+                        <h3 className="font-semibold text-lg border-b pb-2 text-foreground/80">Location</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                          {selectedLead?.city && <InfoRow label="City" value={selectedLead.city} />}
+                          {selectedLead?.state && <InfoRow label="State" value={selectedLead.state} />}
+                          {selectedLead?.zip && <InfoRow label="ZIP" value={selectedLead.zip} />}
+                          {selectedLead?.country && <InfoRow label="Country" value={selectedLead.country} />}
+                        </div>
+                      </div>
                     )}
-                    {selectedLead?.emails?.length > 0 && (
-                      <div><strong>Email:</strong> {selectedLead.emails.join(", ")}</div>
-                    )}
-                    {selectedLead?.created_at && (
-                      <div><strong>Created:</strong> {formatDate(selectedLead.created_at)}</div>
-                    )}
-                    {selectedLead?.event_name && (
-                      <div><strong>Event:</strong> {selectedLead.event_name}</div>
-                    )}
-                    {selectedLead?.captured_by_name && (
-                      <div><strong>Captured By:</strong> {selectedLead.captured_by_name}</div>
+
+                    {/* Section 3: Event & Meta Data */}
+                    <div className="space-y-3">
+                      <h3 className="font-semibold text-lg border-b pb-2 text-foreground/80">Event & Consent</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                        {selectedLead?.event_name && <InfoRow label="Event Name" value={selectedLead.event_name} />}
+                        {selectedLead?.created_at && <InfoRow label="Captured At" value={formatDate(selectedLead.created_at)} />}
+                        {selectedLead?.captured_by_name && <InfoRow label="Captured By" value={selectedLead.captured_by_name} />}
+                        {selectedLead?.area_of_interest && <InfoRow label="Interest" value={selectedLead.area_of_interest} />}
+
+                        <div className="sm:col-span-2 flex gap-6 mt-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-muted-foreground">Email Opt-in:</span>
+                            <Badge variant={selectedLead?.email_opt_in ? "default" : "secondary"}>
+                              {selectedLead?.email_opt_in ? "Yes" : "No"}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-muted-foreground">Consent:</span>
+                            <Badge variant={selectedLead?.consent ? "default" : "destructive"}>
+                              {selectedLead?.consent ? "Granted" : "Missing"}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Section 4: Long Text (Disclaimer/QR) */}
+                    {(selectedLead?.disclaimer || selectedLead?.qr_data) && (
+                      <div className="space-y-3 pt-2">
+                        {selectedLead?.disclaimer && (
+                          <div className="bg-muted/30 p-3 rounded-md border text-sm">
+                            <span className="font-semibold block mb-1 text-xs uppercase tracking-wider text-muted-foreground">Disclaimer</span>
+                            {selectedLead.disclaimer}
+                          </div>
+                        )}
+                        {selectedLead?.qr_data && (
+                          <div className="bg-slate-50 p-3 rounded-md border text-xs font-mono break-all">
+                            <span className="font-semibold block mb-1 uppercase tracking-wider text-muted-foreground">Raw QR Data</span>
+                            {selectedLead.qr_data}
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
-                  {selectedLead?.image_url && (
-                    <div>
-                      <a href={selectedLead.image_url} target="_blank" rel="noopener noreferrer">
-                        <img
-                          src={selectedLead.image_url}
-                          alt="Lead image"
-                          className="w-full max-w-md h-64 object-contain rounded border"
-                        />
-                      </a>
-                    </div>
-                  )}
+
+                  {/* --- RIGHT COLUMN (Visuals) spans 1 column --- */}
+                  <div className="space-y-6">
+                    {selectedLead?.image_url ? (
+                      <div className="border rounded-lg p-3 bg-muted/10 flex flex-col items-center">
+                        <span className="text-sm font-medium text-muted-foreground mb-2 self-start">Captured Image</span>
+                        <a href={selectedLead.image_url} target="_blank" rel="noopener noreferrer" className="block w-full">
+                          <img
+                            src={selectedLead.image_url}
+                            alt="Lead Capture"
+                            className="w-full h-64 object-contain rounded bg-white border shadow-sm hover:opacity-95 transition-opacity cursor-zoom-in"
+                          />
+                        </a>
+                        <span className="text-xs text-muted-foreground mt-2">Click to enlarge</span>
+                      </div>
+                    ) : (
+                      <div className="border rounded-lg h-64 flex items-center justify-center bg-muted/10 text-muted-foreground text-sm">
+                        No Image Captured
+                      </div>
+                    )}
+
+                    {selectedLead?.signature_binary ? (
+                      <div className="border rounded-lg p-3 bg-muted/10">
+                        <span className="text-sm font-medium text-muted-foreground mb-2 block">Signature</span>
+                        <div className="bg-white border rounded p-2 flex items-center justify-center h-24">
+                          {/* <img
+                  src={`data:image/png;base64,${selectedLead.signature_binary}`}
+                  alt="Signature"
+                  className="max-h-full max-w-full object-contain"
+                /> */}
+                          <img
+
+                            src={`data:image/png;base64,${selectedLead.signature}`}
+
+                            alt="Signature"
+
+                            className="w-full h-full object-contain p-2"
+
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               </div>
-              <DialogFooter className="p-6 pt-0 border-t">
+
+              {/* Fixed Footer */}
+              <DialogFooter className="p-4 border-t bg-muted/5 mt-auto">
                 <Button variant="outline" onClick={() => setSelectedLead(null)}>
                   Close
                 </Button>
@@ -592,6 +705,6 @@ export default function Teams() {
           </Dialog>
         </main>
       </div>
-    </div>
+    </div >
   );
 }
