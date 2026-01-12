@@ -87,7 +87,6 @@ const ACTION_OPTIONS: Record<string, ActionOption[]> = {
   ],
   "/lead": [
     { label: "Download Reports", action: "download_reports" },
-    { label: "View Leads", action: "view_leads" },
     { label: "Delete Lead", action: "delete_lead" },
     { label: "User Filter", action: "filter" },
   ],

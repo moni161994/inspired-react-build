@@ -340,7 +340,7 @@ export function DashboardHeader() {
     <>
       <header className="flex items-center justify-between h-16 px-6 bg-card border-b border-border">
         <div className="flex items-center space-x-4">
-          <h2 className="text-lg font-semibold text-foreground">Eprevent Admin </h2> <span className="ml-2 text-xs">Login As ( {getEmail} )</span>
+          <h2 className="text-lg font-semibold text-foreground">Eprevent Admin </h2> <span className="ml-2 text-base">Login As ( {getEmail} )</span>
         </div>
 
         <div className="flex items-center space-x-4">

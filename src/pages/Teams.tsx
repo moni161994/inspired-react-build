@@ -151,12 +151,12 @@ export default function Teams() {
         };
 
         // 👈 LEAD-SPECIFIC PERMISSIONS
-        setCanViewLeads(hasPage("/lead") && hasAction("/lead", "view_leads"));
+        setCanViewLeads(true);
         setCanDeleteLead(hasPage("/lead") && hasAction("/lead", "delete_lead"));
         setCanFilterLeads(hasPage("/lead") && hasAction("/lead", "filter"));
         setCanDownloadReports(hasPage("/lead") && hasAction("/lead", "download_reports"));
       } else {
-        setCanViewLeads(false);
+        setCanViewLeads(true);
         setCanDeleteLead(false);
         setCanFilterLeads(false);
         setCanDownloadReports(false);
