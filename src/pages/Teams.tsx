@@ -384,6 +384,7 @@ export default function Teams() {
                   <div>
                     <Label>Filter by Event Name</Label>
                     <Input
+                    className="border-gray focus:border-gray"
                       placeholder="Search event"
                       value={eventNameFilter}
                       onChange={(e) => {
@@ -395,6 +396,7 @@ export default function Teams() {
                   <div>
                     <Label>Filter by Lead Name</Label>
                     <Input
+                    className="border-gray focus:border-gray"
                       placeholder="Search lead"
                       value={leadNameFilter}
                       onChange={(e) => {
@@ -415,7 +417,7 @@ export default function Teams() {
                         }
                       }}
                     >
-                      <SelectTrigger className="w-full">
+                      <SelectTrigger className="w-full border-gray focus:border-gray">
                         <SelectValue placeholder="Select User" />
                       </SelectTrigger>
                       <SelectContent>
@@ -436,7 +438,7 @@ export default function Teams() {
                         setLeadTypeFilter(e.target.value);
                         setCurrentPage(1);
                       }}
-                      className="w-full border rounded px-3 py-2 mt-1"
+                      className="w-full border rounded px-3 py-2 mt-1 border-gray focus:border-gray"
                     >
                       <option value="">All Types</option>
                       <option value="badge">Badge</option>

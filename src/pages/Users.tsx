@@ -475,13 +475,13 @@ const UsersPage = () => {
                   <CardTitle>User Management</CardTitle>
                   <div className="flex gap-4">
                     <Input
-                      className="w-64"
+                      className="w-64 border-gray focus:border-gray"
                       placeholder="Search by name..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                     />
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="w-[180px]">
+                      <SelectTrigger className="w-[180px] border-gray focus:border-gray">
                         <SelectValue placeholder="All Status" />
                       </SelectTrigger>
                       <SelectContent>

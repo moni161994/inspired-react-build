@@ -393,6 +393,7 @@ export function DashboardHeader() {
             <div>
               <Label htmlFor="team_name">Team Name *</Label>
               <Input
+              className="border-gray focus:border-gray"
                 id="team_name"
                 placeholder="Enter team name"
                 value={formData.team_name}
@@ -408,7 +409,7 @@ export function DashboardHeader() {
                   setFormData((prev) => ({ ...prev, manager_id: val }))
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger className="border-gray focus:border-gray">
                   <SelectValue placeholder="Select Manager" />
                 </SelectTrigger>
                 <SelectContent>
@@ -499,6 +500,7 @@ export function DashboardHeader() {
             <div>
               <Label>Template Name *</Label>
               <Input
+              className="border-gray focus:border-gray"
                 placeholder="Enter template name"
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}
@@ -508,6 +510,7 @@ export function DashboardHeader() {
             <div>
               <Label>Description</Label>
               <Input
+              className="border-gray focus:border-gray"
                 placeholder="Enter description"
                 value={templateDescription}
                 onChange={(e) => setTemplateDescription(e.target.value)}
@@ -543,7 +546,7 @@ export function DashboardHeader() {
                 type="file"
                 accept="image/*"
                 onChange={handleLogoUpload}
-                className="mt-1 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                className="border-gray focus:border-gray mt-1 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
               />
             </div>
           </div>

@@ -441,7 +441,7 @@ function Templates() {
                     <Input
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
-                      className="w-full"
+                      className="w-full border-gray focus:border-gray"
                     />
                   </div>
 
@@ -450,7 +450,7 @@ function Templates() {
                     <Input
                       value={editDescription}
                       onChange={(e) => setEditDescription(e.target.value)}
-                      className="w-full"
+                      className="w-full border-gray focus:border-gray"
                     />
                   </div>
 
@@ -484,7 +484,7 @@ function Templates() {
                       type="file"
                       accept="image/*"
                       onChange={handleImageChange}
-                      className="w-full"
+                      className="w-full border-gray focus:border-gray"
                     />
                     <div className="mt-2">
                       {templateImageBase64 ? (
@@ -493,7 +493,7 @@ function Templates() {
                           src={`data:image/png;base64,${templateImageBase64}`}
                           alt="preview"
                           style={{ height: "80px", width: "100px", objectFit: "cover" }}
-                          className="rounded border"
+                          className="rounded border border-gray focus:border-gray"
                         />
                       ) : originalTemplateImage ? (
                         // Show original image if no new one selected
@@ -501,7 +501,7 @@ function Templates() {
                           src={originalTemplateImage}
                           alt="current template"
                           style={{ height: "80px", width: "100px", objectFit: "cover" }}
-                          className="rounded border"
+                          className="rounded border border-gray focus:border-gray"
                         />
                       ) : (
                         // Show placeholder if no image

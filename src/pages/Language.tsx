@@ -556,6 +556,7 @@ export default function LanguageManagement() {
                 <div>
                   <Label htmlFor="language_name">Language Name *</Label>
                   <Input
+                  className="border-gray focus:border-gray"
                     id="language_name"
                     placeholder="e.g. French"
                     value={formData.language_name}
@@ -565,6 +566,7 @@ export default function LanguageManagement() {
                 <div>
                   <Label htmlFor="language_code">Language Code *</Label>
                   <Input
+                  className="border-gray focus:border-gray"
                     id="language_code"
                     placeholder="e.g. fr"
                     value={formData.language_code}
