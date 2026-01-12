@@ -355,7 +355,6 @@ export function DashboardHeader() {
             </Button>
           )} */}
 
-          {/* Create Template */}
           {canCreateTemplate && (
             <Button
               className="bg-primary hover:bg-primary/90 text-primary-foreground"
