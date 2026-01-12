@@ -327,7 +327,7 @@ export default function Reports() {
                         placeholder="Enter name..."
                         value={nameFilter}
                         onChange={(e) => setNameFilter(e.target.value)}
-                        className="h-9 text-sm"
+                        className="h-9 text-sm border-gray focus:border-gray" 
                       />
                     </div>
 
@@ -340,7 +340,7 @@ export default function Reports() {
                         placeholder="Enter event name..."
                         value={eventFilter}
                         onChange={(e) => setEventFilter(e.target.value)}
-                        className="h-9 text-sm"
+                        className="h-9 text-sm border-gray focus:border-gray"
                       />
                     </div>
 
@@ -350,7 +350,7 @@ export default function Reports() {
                         Consent Status
                       </label>
                       <Select value={filter} onValueChange={setFilter}>
-                        <SelectTrigger className="h-9">
+                        <SelectTrigger className="h-9 border-gray focus:border-gray">
                           <SelectValue placeholder="All Status" />
                         </SelectTrigger>
                         <SelectContent>
@@ -377,7 +377,7 @@ export default function Reports() {
                           }
                         }}
                       >
-                        <SelectTrigger className="h-9">
+                        <SelectTrigger className="h-9 border-gray focus:border-gray" >
                           <SelectValue placeholder="All Users" />
                         </SelectTrigger>
                         <SelectContent>
@@ -397,7 +397,7 @@ export default function Reports() {
                         Template
                       </label>
                       <Select value={templateId} onValueChange={setTemplateId}>
-                        <SelectTrigger className="h-9">
+                        <SelectTrigger className="h-9 border-gray focus:border-gray">
                           <SelectValue placeholder="All Templates" />
                         </SelectTrigger>
                         <SelectContent>
