@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,7 +21,7 @@ import {
   CommandItem
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
-import { X } from "lucide-react";
+import { X, Lock } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/hooks/use-toast";
 
@@ -33,7 +33,7 @@ type Member = {
 
 type Team = {
   team_id: string;
-  manager_id: string;
+  manager_id: string | number; // API might return number
   manager_name: string;
   team_name: string;
   members: Member[];
@@ -66,6 +66,25 @@ export default function TeamAnalytics() {
     manager_id: "",
     employees_id: [] as string[],
   });
+
+  // 🔹 CALCULATE UNAVAILABLE USERS (Already in other teams)
+  // Returns a Map: { employee_id -> team_name }
+  const unavailableUsersMap = useMemo(() => {
+    const map = new Map<string, string>();
+    
+    teams.forEach(team => {
+      // If we are editing a team, skip its own members (they are available to this team)
+      if (editTeamObj && String(team.team_id) === String(editTeamObj.team_id)) {
+        return;
+      }
+
+      team.members.forEach(member => {
+        map.set(String(member.employee_id), team.team_name);
+      });
+    });
+
+    return map;
+  }, [teams, editTeamObj]);
 
   const getCurrentUserId = (): number => {
     try {
@@ -110,26 +129,6 @@ export default function TeamAnalytics() {
   useEffect(() => {
     loadMyAccess();
   }, []);
-
-  // 🔹 FIXED ACCESS DENIED SCREEN - Only show when permissions LOADED + DENIED
-  if (!canViewTeam && myAccess !== null) {
-    return (
-      <div className="flex h-screen bg-background">
-        <DashboardSidebar />
-        <div className="flex flex-col flex-1">
-          <DashboardHeader />
-          <main className="flex-1 overflow-auto p-6 space-y-6">
-            <Card>
-              <CardContent className="p-6 text-center">
-                <h1 className="text-2xl font-semibold mb-4">Access Denied</h1>
-                <p>You don't have permission to view Teams.</p>
-              </CardContent>
-            </Card>
-          </main>
-        </div>
-      </div>
-    );
-  }
 
   // Data loading functions
   const fetchUsers = async () => {
@@ -176,10 +175,12 @@ export default function TeamAnalytics() {
     }
     setTeamDialogOpen(true);
     setEditTeamObj(team || null);
+
     if (team) {
       setFormData({
         team_name: team.team_name,
-        manager_id: String(team.manager_id),
+        // Convert to string explicitly to match SelectItem value
+        manager_id: team.manager_id ? String(team.manager_id) : "", 
         employees_id: team.members.map((m) => String(m.employee_id)),
       });
     } else {
@@ -188,6 +189,16 @@ export default function TeamAnalytics() {
   };
 
   const toggleEmployee = (id: string) => {
+    // Prevent toggling if user is unavailable
+    if (unavailableUsersMap.has(id)) {
+        toast({
+            title: "User Unavailable",
+            description: `This user is already in '${unavailableUsersMap.get(id)}'`,
+            variant: "destructive"
+        })
+        return;
+    }
+
     setFormData((prev) => ({
       ...prev,
       employees_id: prev.employees_id.includes(id)
@@ -251,6 +262,26 @@ export default function TeamAnalytics() {
     }
   };
 
+  // 🔹 ACCESS DENIED VIEW
+  if (!canViewTeam && myAccess !== null) {
+    return (
+      <div className="flex h-screen bg-background">
+        <DashboardSidebar />
+        <div className="flex flex-col flex-1">
+          <DashboardHeader />
+          <main className="flex-1 overflow-auto p-6 space-y-6">
+            <Card>
+              <CardContent className="p-6 text-center">
+                <h1 className="text-2xl font-semibold mb-4">Access Denied</h1>
+                <p>You don't have permission to view Teams.</p>
+              </CardContent>
+            </Card>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-background">
       <DashboardSidebar />
@@ -259,11 +290,11 @@ export default function TeamAnalytics() {
         <main className="flex-1 overflow-auto p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-semibold text-foreground">All Teams</h2>
-            {/* {canAddTeam && (
+             {canAddTeam && (
               <Button onClick={() => openTeamDialog()}>
                 Create New Team
               </Button>
-            )} */}
+            )}
           </div>
 
           <Card>
@@ -331,13 +362,17 @@ export default function TeamAnalytics() {
                 value={formData.team_name}
                 onChange={handleChange}
                 placeholder="Enter team name"
+                className="border-gray-400"
               />
             </div>
             <div>
               <Label>Manager *</Label>
-              <Select  value={formData.manager_id} onValueChange={(val) => setFormData(prev => ({ ...prev, manager_id: val }))}>
-                <SelectTrigger >
-                  <SelectValue className="border border-gray-300 rounded"  placeholder="Select manager" />
+              <Select 
+                value={formData.manager_id} 
+                onValueChange={(val) => setFormData(prev => ({ ...prev, manager_id: val }))}
+              >
+                <SelectTrigger className="border-gray-400">
+                  <SelectValue placeholder="Select manager" />
                 </SelectTrigger>
                 <SelectContent>
                   {users.map(user => (
@@ -350,25 +385,47 @@ export default function TeamAnalytics() {
             </div>
             <div>
               <Label>Employees *</Label>
-              <Command className="border rounded-md">
+              <Command className="border border-gray-400 rounded-md">
                 <CommandInput placeholder="Search employees..." />
                 <CommandEmpty>No employees found.</CommandEmpty>
                 <CommandGroup className="max-h-48 overflow-auto">
-                  {users.map(user => (
-                    <CommandItem key={user.employee_id} onSelect={() => toggleEmployee(String(user.employee_id))}>
-                      <div className={`flex items-center justify-between w-full ${formData.employees_id.includes(String(user.employee_id)) ? "font-semibold text-primary" : ""}`}>
-                        <span>{user.user_name}</span>
-                        {formData.employees_id.includes(String(user.employee_id)) && <X className="w-4 h-4" />}
-                      </div>
-                    </CommandItem>
-                  ))}
+                  {users.map(user => {
+                    const userId = String(user.employee_id);
+                    const isSelected = formData.employees_id.includes(userId);
+                    const assignedTeamName = unavailableUsersMap.get(userId);
+                    const isUnavailable = !!assignedTeamName;
+
+                    return (
+                        <CommandItem 
+                            key={user.employee_id} 
+                            onSelect={() => !isUnavailable && toggleEmployee(userId)}
+                            disabled={isUnavailable}
+                            className={isUnavailable ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
+                        >
+                        <div className="flex items-center justify-between w-full">
+                            <div className="flex items-center">
+                                {isUnavailable && <Lock className="w-3 h-3 mr-2" />}
+                                <span className={isSelected ? "font-semibold text-primary" : ""}>
+                                    {user.user_name}
+                                </span>
+                                {isUnavailable && (
+                                    <span className="ml-2 text-xs text-red-500">
+                                        (In: {assignedTeamName})
+                                    </span>
+                                )}
+                            </div>
+                            {isSelected && <X className="w-4 h-4" />}
+                        </div>
+                        </CommandItem>
+                    );
+                  })}
                 </CommandGroup>
               </Command>
               <div className="flex flex-wrap gap-2 mt-2">
                 {formData.employees_id.map(id => {
                   const emp = users.find(u => String(u.employee_id) === id);
                   return (
-                    <Badge key={id} variant="secondary" className="flex items-center space-x-1">
+                    <Badge key={id} variant="secondary" className="flex items-center space-x-1 border-gray-400 border">
                       <span>{emp?.user_name || id}</span>
                       <X className="w-3 h-3 cursor-pointer hover:text-red-600" onClick={() => toggleEmployee(id)} />
                     </Badge>
