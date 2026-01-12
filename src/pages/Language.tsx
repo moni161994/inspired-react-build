@@ -487,8 +487,8 @@ export default function LanguageManagement() {
                     <tr>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Code</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Language Name</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
+                      {/* <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th> */}
+                      {(canDeleteLanguage || canEditLanguage) &&<th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -496,11 +496,11 @@ export default function LanguageManagement() {
                       <tr key={language.language_code} className="border-b hover:bg-muted/20">
                         <td className="py-3 px-4 font-mono">{language.language_code}</td>
                         <td className="py-3 px-4">{language.language_name}</td>
-                        <td className="py-3 px-4">
+                        {/* <td className="py-3 px-4">
                           <Badge variant={language.is_active ? "default" : "secondary"}>
                             {language.is_active ? "Active" : "Inactive"}
                           </Badge>
-                        </td>
+                        </td> */}
                         <td className="py-3 px-4 space-x-2">
                           {canEditLanguage && (
                             <Button 

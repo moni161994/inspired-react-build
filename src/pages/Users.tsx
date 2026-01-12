@@ -113,8 +113,7 @@ const ACTION_OPTIONS: Record<string, ActionOption[]> = {
   ],
   "/language": [
     { label: "Create Language", action: "create_language" },
-    { label: "Edit Language", action: "edit_language" },
-    { label: "Edit Transation", action: "edit_transation" },
+    { label: "Edit Language & Transation", action: "edit_language" },
     { label: "Delete Language", action: "delete_language" },
   ]
 };
@@ -553,7 +552,7 @@ const UsersPage = () => {
                             Manager User Id
                           </th> */}
                           <th className="py-3 px-4 text-left">Status</th>
-                          <th className="py-3 px-4 text-center">Actions</th>
+                          {(canEditUser || canChangeAccess || canGenerateCode)&&<th className="py-3 px-4 text-center">Actions</th>}
                         </tr>
                       </thead>
                       <tbody>
