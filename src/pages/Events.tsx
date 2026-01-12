@@ -20,6 +20,7 @@ import { LayoutGrid, Calendar, Clock, UsersIcon, User, Folder, LayoutList } from
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { useToast } from "@/components/ui/use-toast";
 
 export interface Event {
   event_id: number;
@@ -143,6 +144,7 @@ function UpdateEventPopup({
   const [error, setError] = useState<string | null>(null);
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
   const [captureTypes, setCaptureTypes] = useState<string[]>([]);
+  const { toast } = useToast();
 
   const { request, loading } = useApi<any>();
 
@@ -244,7 +246,20 @@ function UpdateEventPopup({
         payload
       );
 
-      if (!res) throw new Error("Failed to update event");
+      if (!res){
+        toast({
+          title: "Failed to update event",
+          description: "An error occurred while updating event.",
+          variant: "destructive",
+        });
+        throw new Error("Failed to update event");
+      }
+
+      toast({
+        title: "Event Updated Successfully",
+        description: "Event data is updated and Save Successfully.",
+      });
+        //  throw new Error("Failed to update event");
 
       onSave(payload);
     } catch (err: any) {

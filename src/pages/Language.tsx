@@ -598,7 +598,7 @@ export default function LanguageManagement() {
                         value={formData.translations[key] || ""}
                         onChange={(e) => updateTranslationKey(key, e.target.value)}
                         placeholder={`Translate "${key}"...`}
-                        className="min-h-[2.5rem] py-2 resize-y text-sm"
+                        className="min-h-[2.5rem] py-2 resize-y text-sm border-gray focus:border-gray"
                         rows={1}
                       />
                     </div>

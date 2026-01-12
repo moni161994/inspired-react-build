@@ -28,6 +28,7 @@ import { Trash2 } from "lucide-react";
 
 // UI field names (labels)
 const AVAILABLE_FIELDS = [
+  "Name",
   "Designation",
   "Company",
   "Phone Numbers",

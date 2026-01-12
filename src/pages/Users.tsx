@@ -263,6 +263,7 @@ const UsersPage = () => {
       toast({
         title: "Success",
         description: "OTP has been sent to the user's email!",
+        variant: "default",
       });
     } else {
       toast({
@@ -631,7 +632,7 @@ const UsersPage = () => {
                   </DialogTitle>
                   <p className="text-sm text-muted-foreground">
                     Select pages and specific actions for{" "}
-                    {selectedUserForAccess?.user_name}
+                    <span className="font-semibold">{selectedUserForAccess?.user_name}</span>
                   </p>
                 </DialogHeader>
 
@@ -674,7 +675,8 @@ const UsersPage = () => {
                       <h3 className="font-semibold mb-4 text-lg">
                         Select Actions for Pages
                       </h3>
-                      <div className="space-y-4 max-h-96 overflow-y-auto">
+                      <div  className="overflow-y-auto" style={{height:"220px"}}>
+                      <div className="space-y-4 max-h-96 ">
                         {selectedPages.map((page) => (
                           <div
                             key={page.path}
@@ -718,6 +720,7 @@ const UsersPage = () => {
                             </div>
                           </div>
                         ))}
+                      </div>
                       </div>
                     </div>
                   )}

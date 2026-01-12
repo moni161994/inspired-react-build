@@ -43,6 +43,7 @@ type AccessPointData = {
 };
 
 const AVAILABLE_FIELDS = [
+  "Name",
   "Designation",
   "Company",
   "Phone Numbers",
@@ -61,8 +62,21 @@ const AVAILABLE_FIELDS = [
   "Email Opt In",
 ];
 
+// Helper function
 const convertToApiKey = (label: string) =>
   label.toLowerCase().replace(/ /g, "_");
+
+// 1. Define the list of fields you want checked by default
+const DEFAULT_CHECKED_LABELS = [
+  "Name",
+  "Designation",
+  "Company",
+  "Phone Numbers",
+  "Emails",
+];
+
+// 2. Convert them to keys once (e.g., ["name", "designation", ...])
+const DEFAULT_CHECKED_KEYS = DEFAULT_CHECKED_LABELS.map(convertToApiKey);
 
 export function DashboardHeader() {
   const navigate = useNavigate();
@@ -85,7 +99,10 @@ export function DashboardHeader() {
   // CREATE TEMPLATE STATES
   const [templateName, setTemplateName] = useState("");
   const [templateDescription, setTemplateDescription] = useState("");
-  const [selectedFields, setSelectedFields] = useState<string[]>([]);
+  
+  // 3. Initialize state with the default keys
+  const [selectedFields, setSelectedFields] = useState<string[]>(DEFAULT_CHECKED_KEYS);
+  
   const [templateLogoBase64, setTemplateLogoBase64] = useState<string>("");
 
   // ACCESS STATES
@@ -124,13 +141,10 @@ export function DashboardHeader() {
           return parsed.point.includes(suffix);
         };
 
-        // /team + add_team
         setCanCreateTeam(hasPage("/team") && hasAction("/team", "add_team"));
-        // /template + create_template
         setCanCreateTemplate(
           hasPage("/template") && hasAction("/template", "create_template")
         );
-        // /events + create_event
         setCanCreateEvent(
           hasPage("/events") && hasAction("/events", "create_event")
         );
@@ -226,7 +240,9 @@ export function DashboardHeader() {
         setTemplateDialogOpen(false);
         setTemplateName("");
         setTemplateDescription("");
-        setSelectedFields([]);
+        // 4. Reset to default selections instead of empty array
+        setSelectedFields(DEFAULT_CHECKED_KEYS); 
+        
         window.location.href = "/template";
       } else {
         toast({
@@ -344,17 +360,6 @@ export function DashboardHeader() {
         </div>
 
         <div className="flex items-center space-x-4">
-          {/* Add New Team */}
-          {/* {canCreateTeam && (
-            <Button
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
-              onClick={() => setTeamDialogOpen(true)}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add New Team
-            </Button>
-          )} */}
-
           {canCreateTemplate && (
             <Button
               className="bg-primary hover:bg-primary/90 text-primary-foreground"
@@ -365,7 +370,6 @@ export function DashboardHeader() {
             </Button>
           )}
 
-          {/* Add Event */}
           {canCreateEvent && (
             <Button
               className="bg-primary hover:bg-primary/90 text-primary-foreground"
@@ -376,7 +380,6 @@ export function DashboardHeader() {
             </Button>
           )}
 
-          {/* Logout */}
           <Button variant="outline" onClick={handleLogout}>
             LogOut
           </Button>
