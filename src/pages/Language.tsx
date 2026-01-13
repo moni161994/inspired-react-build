@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Edit3, Plus, Upload, FileDown, Loader2 } from "lucide-react";
+import { Trash2, Edit3, Plus, Upload, FileDown, Loader2, AlertTriangle } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/hooks/use-toast";
 
@@ -99,9 +99,11 @@ export default function LanguageManagement() {
     translations: {} as Record<string, string>
   });
 
-  // --- State: Bulk Upload ---
+  // --- State: Bulk Upload & Export ---
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0); // 0 to 100
+  const [isExporting, setIsExporting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0); 
+  const [statusMessage, setStatusMessage] = useState(""); // To show "Deleting..." vs "Importing..."
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { request, loading } = useApi();
@@ -165,12 +167,15 @@ export default function LanguageManagement() {
           is_active: Boolean(lang.is_active)
         }));
         setLanguages(formattedLanguages);
+        return formattedLanguages; // Return for usage in delete function
       } else {
         setLanguages([]);
+        return [];
       }
     } catch (error) {
       console.error('fetchLanguages error:', error);
       setLanguages([]);
+      return [];
     }
   };
 
@@ -275,7 +280,6 @@ export default function LanguageManagement() {
 
   // --- Logic: Bulk Import (Frontend Loop) ---
   
-  // Helper to parse CSV line respecting quotes "Value, with comma"
   const parseCSVLine = (text: string) => {
     const result = [];
     let start = 0;
@@ -304,6 +308,12 @@ export default function LanguageManagement() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Safety Confirmation
+    if (!window.confirm("⚠️ WARNING: This will DELETE ALL existing languages and replace them with the CSV data. Continue?")) {
+        event.target.value = ""; // Reset input
+        return;
+    }
+
     const reader = new FileReader();
     reader.onload = async (e) => {
       const text = e.target?.result as string;
@@ -311,6 +321,21 @@ export default function LanguageManagement() {
     };
     reader.readAsText(file);
     event.target.value = ""; // Reset input
+  };
+
+  // Helper to delete all languages before import
+  const deleteAllExistingLanguages = async () => {
+    setStatusMessage("Deleting old data...");
+    const currentLangs = await fetchLanguages(); // Get fresh list
+    
+    // Process deletions sequentially to avoid backend overload or race conditions
+    for (const lang of currentLangs) {
+        try {
+            await request("/delete_language", "POST", { language_code: lang.language_code });
+        } catch (e) {
+            console.error(`Failed to delete ${lang.language_code}`, e);
+        }
+    }
   };
 
   const processCSV = async (csvText: string) => {
@@ -324,8 +349,8 @@ export default function LanguageManagement() {
       return;
     }
 
+    // 1. Validation Phase
     const headers = parseCSVLine(lines[0]);
-    // Validate Headers
     const codeIndex = headers.findIndex(h => h.toLowerCase() === "language_code");
     const nameIndex = headers.findIndex(h => h.toLowerCase() === "language_name");
 
@@ -335,13 +360,17 @@ export default function LanguageManagement() {
       return;
     }
 
+    // 2. Wipe Phase (Delete all existing languages)
+    await deleteAllExistingLanguages();
+
+    // 3. Import Phase
+    setStatusMessage("Importing new data...");
     let successCount = 0;
     const totalRows = lines.length - 1;
 
-    // Loop through rows (skip header)
     for (let i = 1; i < lines.length; i++) {
       const rowValues = parseCSVLine(lines[i]);
-      if (rowValues.length < 2) continue; // Skip empty/malformed
+      if (rowValues.length < 2) continue;
 
       const langCode = rowValues[codeIndex];
       const langName = rowValues[nameIndex];
@@ -349,13 +378,13 @@ export default function LanguageManagement() {
       if (!langCode || !langName) continue;
 
       try {
-        // 1. Create/Update Language
+        // Create Language
         await request("/create_language", "POST", {
           language_name: langName,
           language_code: langCode,
         });
 
-        // 2. Prepare Translations
+        // Prepare Translations
         const transPayload: Record<string, string> = {};
         let hasTrans = false;
 
@@ -367,7 +396,7 @@ export default function LanguageManagement() {
           }
         });
 
-        // 3. Save Translations (if any exist in row)
+        // Save Translations
         if (hasTrans) {
           await request("/save_language_translations", "POST", {
             language_code: langCode,
@@ -380,39 +409,68 @@ export default function LanguageManagement() {
         console.error(`Error importing ${langCode}`, err);
       }
 
-      // Update Progress
       setUploadProgress(Math.round((i / totalRows) * 100));
     }
 
     setIsUploading(false);
-    toast({ title: "Import Complete", description: `Successfully processed ${successCount} languages.` });
+    setStatusMessage("");
+    toast({ title: "Full Sync Complete", description: `Database replaced. Imported ${successCount} languages.` });
     fetchLanguages();
   };
 
-  const downloadSampleCSV = () => {
-    // Construct CSV content
-    const headerRow = ["language_code", "language_name", ...PREDEFINED_KEYS];
-    // Helper to escape CSV values
-    const escapeCsv = (val: string) => `"${val.replace(/"/g, '""')}"`;
-    
-    const sampleRow = [
-      "es", "Spanish", 
-      ...PREDEFINED_KEYS.map(k => `${k}`) // Dummy translation values
-    ];
+  // --- Logic: Export Database to CSV ---
+  const handleExportData = async () => {
+    setIsExporting(true);
+    try {
+        const resLang = await request("/get_languages", "GET");
+        let allLanguages = [];
+        
+        if (resLang?.status_code === 200 && Array.isArray(resLang.data)) {
+            allLanguages = resLang.data;
+        } else {
+            toast({ title: "No languages found to export", variant: "destructive" });
+            setIsExporting(false);
+            return;
+        }
 
-    const csvContent = [
-      headerRow.map(escapeCsv).join(","),
-      sampleRow.map(escapeCsv).join(",")
-    ].join("\n");
+        const headerRow = ["language_code", "language_name", ...PREDEFINED_KEYS];
+        const escapeCsv = (val: string) => `"${(val || "").replace(/"/g, '""')}"`;
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", "languages_sample.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+        let csvContent = headerRow.map(escapeCsv).join(",") + "\n";
+
+        for (const lang of allLanguages) {
+            const resTrans = await request("/get_language_translations", "POST", {
+                language_code: lang.language_code
+            });
+
+            const translations = resTrans?.data || {};
+
+            const rowData = [
+                lang.language_code,
+                lang.language_name,
+                ...PREDEFINED_KEYS.map(key => translations[key] || "")
+            ];
+
+            csvContent += rowData.map(escapeCsv).join(",") + "\n";
+        }
+
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", "languages_export.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        toast({ title: "Export Successful", description: "All database languages have been exported." });
+
+    } catch (e) {
+        console.error("Export failed", e);
+        toast({ title: "Export Failed", description: "Could not fetch data.", variant: "destructive" });
+    } finally {
+        setIsExporting(false);
+    }
   };
 
   return (
@@ -438,15 +496,23 @@ export default function LanguageManagement() {
 
               {canCreateLanguage && (
                 <>
-                  <Button variant="outline" size="sm" onClick={downloadSampleCSV}>
-                    <FileDown className="w-4 h-4 mr-2" /> Sample CSV
+                  {/* EXPORT BUTTON */}
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleExportData} 
+                    disabled={isExporting || isUploading}
+                  >
+                    {isExporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileDown className="w-4 h-4 mr-2" />}
+                    {isExporting ? "Exporting..." : "Export CSV"}
                   </Button>
                   
+                  {/* IMPORT BUTTON */}
                   <Button 
                     variant="outline" 
                     size="sm" 
                     onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploading}
+                    disabled={isUploading || isExporting}
                   >
                     {isUploading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
                     {isUploading ? "Importing..." : "Bulk Import"}
@@ -460,12 +526,15 @@ export default function LanguageManagement() {
             </div>
           </div>
 
-          {/* Progress Bar (Visible only during upload) */}
+          {/* Progress Bar & Status */}
           {isUploading && (
-            <Card className="mb-6">
+            <Card className="mb-6 bg-muted/20 border-primary/20">
               <CardContent className="py-4">
-                <div className="flex justify-between text-sm mb-2">
-                  <span>Importing languages... Do not close this page.</span>
+                <div className="flex justify-between text-sm mb-2 font-medium">
+                  <span className="flex items-center">
+                    {statusMessage === "Deleting old data..." && <AlertTriangle className="w-4 h-4 mr-2 text-amber-500"/>}
+                    {statusMessage}
+                  </span>
                   <span>{uploadProgress}%</span>
                 </div>
                 <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
@@ -474,6 +543,7 @@ export default function LanguageManagement() {
                     style={{ width: `${uploadProgress}%` }}
                   />
                 </div>
+                <p className="text-xs text-muted-foreground mt-2">Please do not close this window.</p>
               </CardContent>
             </Card>
           )}
@@ -487,7 +557,6 @@ export default function LanguageManagement() {
                     <tr>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Code</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Language Name</th>
-                      {/* <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th> */}
                       {(canDeleteLanguage || canEditLanguage) &&<th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>}
                     </tr>
                   </thead>
@@ -496,11 +565,6 @@ export default function LanguageManagement() {
                       <tr key={language.language_code} className="border-b hover:bg-muted/20">
                         <td className="py-3 px-4 font-mono">{language.language_code}</td>
                         <td className="py-3 px-4">{language.language_name}</td>
-                        {/* <td className="py-3 px-4">
-                          <Badge variant={language.is_active ? "default" : "secondary"}>
-                            {language.is_active ? "Active" : "Inactive"}
-                          </Badge>
-                        </td> */}
                         <td className="py-3 px-4 space-x-2">
                           {canEditLanguage && (
                             <Button 
