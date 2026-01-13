@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,7 +21,7 @@ import {
   CommandItem
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
-import { X, Lock, Plus } from "lucide-react";
+import { X, Plus, Check } from "lucide-react"; // Added Check, removed Lock
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/hooks/use-toast";
 
@@ -33,7 +33,7 @@ type Member = {
 
 type Team = {
   team_id: string;
-  manager_id: string | number; // API might return number
+  manager_id: string | number;
   manager_name: string;
   team_name: string;
   members: Member[];
@@ -67,24 +67,7 @@ export default function TeamAnalytics() {
     employees_id: [] as string[],
   });
 
-  // 🔹 CALCULATE UNAVAILABLE USERS (Already in other teams)
-  // Returns a Map: { employee_id -> team_name }
-  const unavailableUsersMap = useMemo(() => {
-    const map = new Map<string, string>();
-    
-    teams.forEach(team => {
-      // If we are editing a team, skip its own members (they are available to this team)
-      if (editTeamObj && String(team.team_id) === String(editTeamObj.team_id)) {
-        return;
-      }
-
-      team.members.forEach(member => {
-        map.set(String(member.employee_id), team.team_name);
-      });
-    });
-
-    return map;
-  }, [teams, editTeamObj]);
+  // REMOVED: unavailableUsersMap (Logic to lock users is gone)
 
   const getCurrentUserId = (): number => {
     try {
@@ -179,7 +162,6 @@ export default function TeamAnalytics() {
     if (team) {
       setFormData({
         team_name: team.team_name,
-        // Convert to string explicitly to match SelectItem value
         manager_id: team.manager_id ? String(team.manager_id) : "", 
         employees_id: team.members.map((m) => String(m.employee_id)),
       });
@@ -189,16 +171,7 @@ export default function TeamAnalytics() {
   };
 
   const toggleEmployee = (id: string) => {
-    // Prevent toggling if user is unavailable
-    if (unavailableUsersMap.has(id)) {
-        toast({
-            title: "User Unavailable",
-            description: `This user is already in '${unavailableUsersMap.get(id)}'`,
-            variant: "destructive"
-        })
-        return;
-    }
-
+    // REMOVED: Check for unavailableUsersMap
     setFormData((prev) => ({
       ...prev,
       employees_id: prev.employees_id.includes(id)
@@ -392,29 +365,21 @@ export default function TeamAnalytics() {
                   {users.map(user => {
                     const userId = String(user.employee_id);
                     const isSelected = formData.employees_id.includes(userId);
-                    const assignedTeamName = unavailableUsersMap.get(userId);
-                    const isUnavailable = !!assignedTeamName;
-
+                    
+                    // Logic to allow multiple teams:
+                    // We simply remove the check that disabled the item.
+                    
                     return (
                         <CommandItem 
                             key={user.employee_id} 
-                            onSelect={() => !isUnavailable && toggleEmployee(userId)}
-                            disabled={isUnavailable}
-                            className={isUnavailable ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
+                            onSelect={() => toggleEmployee(userId)}
+                            className="cursor-pointer"
                         >
                         <div className="flex items-center justify-between w-full">
-                            <div className="flex items-center">
-                                {isUnavailable && <Lock className="w-3 h-3 mr-2" />}
-                                <span className={isSelected ? "font-semibold text-primary" : ""}>
-                                    {user.user_name}
-                                </span>
-                                {isUnavailable && (
-                                    <span className="ml-2 text-xs text-red-500">
-                                        (In: {assignedTeamName})
-                                    </span>
-                                )}
-                            </div>
-                            {isSelected && <X className="w-4 h-4" />}
+                            <span className={isSelected ? "font-semibold text-primary" : ""}>
+                                {user.user_name}
+                            </span>
+                            {isSelected && <Check className="w-4 h-4 text-primary" />}
                         </div>
                         </CommandItem>
                     );

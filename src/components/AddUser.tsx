@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { Button } from "./ui/button";
-import { CardContent } from "./ui/card";
-import { Input } from "./ui/input";
+import { Button } from "@/components/ui/button";
+import { CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -17,22 +17,38 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from "@/components/ui/command";
+import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { X, Check } from "lucide-react";
 
 const initialState = {
   user_name: "",
   email_address: "",
   profile: "",
-  teams: "0",
   parent_id: "",
   status: "",
 };
 
-// ... (Keep your Types here: TeamMember, UserData, Team, AddUserProps) ...
+// --- Types ---
 type TeamMember = {
   employee_id: number;
   user_name: string;
   email_address: string;
+};
+
+type Team = {
+  team_id: number;
+  team_name: string;
+  manager_id: number; 
+  manager_name: string;
+  members: TeamMember[];
 };
 
 type UserData = {
@@ -43,13 +59,6 @@ type UserData = {
   parent_id: number | string;
   teams: number | string;
   status?: number;
-};
-
-type Team = {
-  team_id: number;
-  team_name: string;
-  manager_name: string;
-  members: TeamMember[];
 };
 
 type AddUserProps = {
@@ -69,16 +78,17 @@ const AddUser = ({
 }: AddUserProps) => {
   const [userInfo, setUserInfo] = useState(initialState);
   const [allUsers, setAllUsers] = useState<any[]>([]);
+  
+  // Teams State
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([]); // Array for Multi-Select
+
   const { request, loading } = useApi();
   const { toast } = useToast();
-  const [selectedTeamId, setSelectedTeamId] = useState<string>("0");
-  const [teams, setTeams] = useState<Team[]>([]);
 
   const isEditMode = !!editingUser;
 
-  // ------------------------------------------
   // 1. Fetch Reference Data (Teams & Managers)
-  // ------------------------------------------
   useEffect(() => {
     if (open) {
       // Fetch Managers
@@ -93,12 +103,10 @@ const AddUser = ({
         }
       };
 
-      // Fetch Teams (MOVED OUTSIDE the edit logic so it runs for Add Mode too)
+      // Fetch Teams
       const fetchTeams = async () => {
         try {
           const res = await request("/get_all_teams", "GET");
-          
-          // Handle both { data: [...] } and raw [...] responses
           if (Array.isArray(res)) {
             setTeams(res);
           } else if (res?.status_code === 200 && Array.isArray(res.data)) {
@@ -114,53 +122,37 @@ const AddUser = ({
       fetchParentUsers();
       fetchTeams();
     }
-  }, [open]); // Run whenever dialog opens
+  }, [open]);
 
-  // ------------------------------------------
-  // 2. Handle Form Population & Auto-Select
-  // ------------------------------------------
-  // 3. Handle Form Population & Auto-Select
+  // 2. Handle Form Population & Auto-Select Teams
   useEffect(() => {
     if (open && editingUser) {
-      // A. Populate Text Fields
+      // A. Populate Basic Fields
       setUserInfo({
         user_name: editingUser.user_name || "",
         email_address: editingUser.email_address || "",
         profile: editingUser.profile || "",
-        teams: "0",
         parent_id: editingUser.parent_id?.toString() || "",
         status: editingUser.status?.toString() || "",
       });
 
-      // B. Auto-Select Team
-      // Check if teams data is actually loaded
-      if (teams && teams.length > 0) {
+      // B. Auto-Select Teams (Check ALL teams to see if user is a member)
+      if (teams.length > 0) {
+        const targetId = Number(editingUser.employee_id);
         
-        const targetId = String(editingUser.employee_id); // Convert to String for safety
+        const userTeams = teams
+          .filter(t => t.members?.some(m => m.employee_id === targetId))
+          .map(t => String(t.team_id));
 
-        const foundTeam = teams.find((t) => 
-          t.members?.some((m) => String(m.employee_id) === targetId)
-        );
-
-        console.log("Searching for User ID:", targetId); 
-        console.log("Found Team:", foundTeam); 
-
-        if (foundTeam) {
-          setSelectedTeamId(String(foundTeam.team_id));
-        } else {
-          setSelectedTeamId("0");
-        }
+        setSelectedTeamIds(userTeams);
       }
     } else if (open && !editingUser) {
       // Reset for Add Mode
       setUserInfo(initialState);
-      setSelectedTeamId("0");
+      setSelectedTeamIds([]);
     }
-    // IMPORTANT: 'teams' must be in the dependency array so this re-runs 
-    // when the API response finally arrives.
   }, [open, editingUser, teams]);
 
-  
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setUserInfo((prev) => ({
       ...prev,
@@ -169,176 +161,180 @@ const AddUser = ({
   };
 
   const handleParentSelect = (value: string) => {
-    setUserInfo((prev) => ({
-      ...prev,
-      parent_id: value,
-    }));
+    setUserInfo((prev) => ({ ...prev, parent_id: value }));
   };
 
   const handleStatusChange = (value: string) => {
-    setUserInfo((prev) => ({
-      ...prev,
-      status: value,
-    }));
+    setUserInfo((prev) => ({ ...prev, status: value }));
+  };
+
+  // Toggle Team Selection
+  const toggleTeam = (teamId: string) => {
+    setSelectedTeamIds(prev => 
+      prev.includes(teamId) 
+        ? prev.filter(id => id !== teamId) 
+        : [...prev, teamId]
+    );
   };
 
   const handleSubmit = async () => {
-     // ... (Paste your updated handleSubmit logic from the previous answer here) ...
-      if (Object.values(userInfo).some((val) => val.trim() === "")) {
-        toast({
-          title: "Missing Fields",
-          description: "Please fill in all the required fields.",
-          variant: "destructive",
-        });
-        return;
-      }
-  
-      let userResponse;
-      let targetEmployeeId: number | null = null;
-  
-      // --- Step 1: Create or Update User ---
-      if (isEditMode && editingUser) {
-        userResponse = await request("/update_user_details", "POST", {
-          employee_id: editingUser.employee_id,
-          email_address: userInfo.email_address,
-          user_name: userInfo.user_name,
-          profile: userInfo.profile,
-          teams: "0",
-          parent_id: userInfo.parent_id,
-          status: userInfo.status,
-        });
-        targetEmployeeId = editingUser.employee_id;
-      } else {
-        userResponse = await request("/user_details", "POST", {
-          ...userInfo,
-          teams: "0",
-        });
-        
-        // Attempt to extract the new ID from response
-        if (userResponse?.status_code === 200) {
-           if (userResponse.data && typeof userResponse.data === 'object') {
-              targetEmployeeId = userResponse.data.employee_id || userResponse.data.id;
-           } else if (typeof userResponse.data === 'number') {
-              targetEmployeeId = userResponse.data;
-           }
-        }
-      }
-  
-      const isUserSuccess = isEditMode 
-        ? (userResponse && userResponse.message) 
-        : (userResponse && userResponse.status_code === 200);
-  
-      if (!isUserSuccess) {
-        toast({
-          title: isEditMode ? "Failed to Update User" : "Failed to Add User",
-          description: userResponse?.msg || "Something went wrong.",
-          variant: "destructive",
-        });
-        return; 
-      }
-  
-      // --- Step 2: Add to Team (if team selected) ---
-      if (selectedTeamId && selectedTeamId !== "0" && targetEmployeeId) {
-        try {
-          const teamToUpdate = teams.find(t => t.team_id === Number(selectedTeamId));
-          
-          if (teamToUpdate) {
-            // 1. Get existing member IDs
-            const employeeIds = teamToUpdate.members.map(m => m.employee_id);
-            
-            // 2. Add new user if not already in list
-            if (!employeeIds.includes(targetEmployeeId)) {
-              employeeIds.push(targetEmployeeId);
-            }
-  
-            // 3. Find Manager ID based on Manager Name
-            const managerUser = allUsers.find(u => u.user_name === teamToUpdate.manager_name);
-            const managerId = managerUser ? managerUser.employee_id : 0; 
-  
-            // 4. Call API
-            await request("/update_team", "POST", {
-              team_id: teamToUpdate.team_id,
-              team_name: teamToUpdate.team_name,
-              manager_id: managerId, 
-              employee_ids: employeeIds, // Send updated array
-            });
-          }
-        } catch (teamErr) {
-          console.error("Failed to update team membership", teamErr);
-        }
-      }
-  
+    // Basic Validation
+    if (Object.values(userInfo).some((val) => val.trim() === "")) {
       toast({
-        title: isEditMode ? "User Updated" : "User Added",
-        description: "Operation completed successfully.",
+        title: "Missing Fields",
+        description: "Please fill in all the required fields.",
+        variant: "destructive",
       });
+      return;
+    }
+
+    let userResponse;
+    let targetEmployeeId: number | null = null;
+
+    // --- Step 1: Create or Update User ---
+    const payload = {
+      ...userInfo,
+      teams: "0", // Legacy field, safe to send 0 as we handle teams separately
+    };
+
+    if (isEditMode && editingUser) {
+      userResponse = await request("/update_user_details", "POST", {
+        employee_id: editingUser.employee_id,
+        ...payload
+      });
+      targetEmployeeId = editingUser.employee_id;
+    } else {
+      userResponse = await request("/user_details", "POST", payload);
       
-      if (isEditMode) clearEditingUser?.();
-      setUserInfo(initialState);
-      setSelectedTeamId("0");
-      onUserAdded?.();
-      onClose();
+      // Extract ID from create response
+      if (userResponse?.status_code === 200) {
+         if (userResponse.data && typeof userResponse.data === 'object') {
+            targetEmployeeId = userResponse.data.employee_id || userResponse.data.id;
+         } else if (typeof userResponse.data === 'number') {
+            targetEmployeeId = userResponse.data;
+         }
+      }
+    }
+
+    const isUserSuccess = isEditMode 
+      ? (userResponse && userResponse.message) 
+      : (userResponse && userResponse.status_code === 200);
+
+    if (!isUserSuccess) {
+      toast({
+        title: "Error",
+        description: userResponse?.msg || "Failed to save user details.",
+        variant: "destructive",
+      });
+      return; 
+    }
+
+    // --- Step 2: Sync Teams (Add/Remove User from Multiple Teams) ---
+    // We must loop through ALL teams to check if we need to ADD or REMOVE the user
+    if (targetEmployeeId && teams.length > 0) {
+      const updatePromises = teams.map(async (team) => {
+        const teamIdStr = String(team.team_id);
+        const isSelected = selectedTeamIds.includes(teamIdStr);
+        const isCurrentlyMember = team.members.some(m => m.employee_id === targetEmployeeId);
+
+        let shouldUpdate = false;
+        let newMemberIds = team.members.map(m => m.employee_id);
+
+        // Case A: User selected in UI but NOT in DB -> ADD to team
+        if (isSelected && !isCurrentlyMember) {
+          newMemberIds.push(targetEmployeeId!);
+          shouldUpdate = true;
+        }
+        // Case B: User NOT selected in UI but IS in DB -> REMOVE from team
+        else if (!isSelected && isCurrentlyMember) {
+          newMemberIds = newMemberIds.filter(id => id !== targetEmployeeId);
+          shouldUpdate = true;
+        }
+
+        if (shouldUpdate) {
+          try {
+            await request("/update_team", "POST", {
+              team_id: team.team_id,
+              team_name: team.team_name,
+              manager_id: team.manager_id || 0, // Keep existing manager
+              employee_ids: newMemberIds,
+            });
+            console.log(`Synced team ${team.team_name}: ${isSelected ? 'Added' : 'Removed'} user.`);
+          } catch (e) {
+            console.error(`Failed to sync team ${team.team_name}`, e);
+          }
+        }
+      });
+
+      await Promise.all(updatePromises);
+    }
+
+    // --- Step 3: Cleanup ---
+    toast({
+      title: "Success",
+      description: isEditMode ? "User updated successfully." : "User added successfully.",
+    });
+    
+    if (isEditMode) clearEditingUser?.();
+    setUserInfo(initialState);
+    setSelectedTeamIds([]);
+    onUserAdded?.();
+    onClose();
   };
 
   const handleCancel = () => {
     setUserInfo(initialState);
+    setSelectedTeamIds([]);
     clearEditingUser?.();
     onClose();
   };
-  
-  const isDisabled = Object.values(userInfo)
-    .filter((val, index) => index !== 3)
-    .some((val) => val.trim() === "");
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditMode ? "Edit User" : "Add New User"}</DialogTitle>
         </DialogHeader>
-        <CardContent className="space-y-4 pt-4">
-          {/* User Name */}
+        <CardContent className="space-y-4 pt-4 px-1">
+          {/* Standard Fields */}
           <div>
             <Label htmlFor="user_name">Username</Label>
             <Input
               id="user_name"
-              placeholder="Enter username..."
+              placeholder="Enter username"
               onChange={handleChange}
               value={userInfo.user_name}
               name="user_name"
-              className="border border-gray-300 rounded"
+              className="border-gray-400"
             />
           </div>
-          {/* Email */}
           <div>
             <Label htmlFor="email_address">Email</Label>
             <Input
               id="email_address"
-              placeholder="Enter email..."
+              placeholder="Enter email"
               onChange={handleChange}
               value={userInfo.email_address}
               name="email_address"
-              className="border border-gray-300 rounded"
+              className="border-gray-400"
             />
           </div>
-          {/* Designation */}
           <div>
             <Label htmlFor="profile">Designation</Label>
             <Input
               id="profile"
-              placeholder="Enter Designation..."
+              placeholder="Enter Designation"
               onChange={handleChange}
               value={userInfo.profile}
               name="profile"
-              className="border border-gray-300 rounded"
+              className="border-gray-400"
             />
           </div>
-          {/* Manager Select */}
           <div>
             <Label htmlFor="parent_id">Manager</Label>
             <Select value={userInfo.parent_id} onValueChange={handleParentSelect}>
-              <SelectTrigger className="border border-gray-300 rounded">
-                <SelectValue placeholder="Select Manager User" />
+              <SelectTrigger className="border-gray-400">
+                <SelectValue placeholder="Select Manager" />
               </SelectTrigger>
               <SelectContent>
                 {allUsers.map((user) => (
@@ -350,29 +346,48 @@ const AddUser = ({
             </Select>
           </div>
 
-          {/* Team Select (Now works for both Add & Edit) */}
+          {/* MULTI-SELECT TEAMS */}
           <div>
-            <Label htmlFor="team">Assign to Team</Label>
-            <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
-              <SelectTrigger className="border border-gray-300 rounded">
-                <SelectValue placeholder="Select Team (Optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="0">No Team</SelectItem>
-                {teams.map((team) => (
-                  <SelectItem key={team.team_id} value={String(team.team_id)}>
-                    {team.team_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label className="mb-2 block">Assign to Teams</Label>
+            <Command className="border border-gray-400 rounded-md">
+              <CommandInput placeholder="Search teams..." />
+              <CommandEmpty>No teams found.</CommandEmpty>
+              <CommandGroup className="max-h-32 overflow-auto">
+                {teams.map((team) => {
+                  const isSelected = selectedTeamIds.includes(String(team.team_id));
+                  return (
+                    <CommandItem
+                      key={team.team_id}
+                      onSelect={() => toggleTeam(String(team.team_id))}
+                    >
+                      <div className="flex items-center w-full justify-between cursor-pointer">
+                         <span>{team.team_name}</span>
+                         {isSelected && <Check className="w-4 h-4 text-primary"/>}
+                      </div>
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            </Command>
+            
+            {/* Selected Badges */}
+            <div className="flex flex-wrap gap-2 mt-2">
+              {selectedTeamIds.map(id => {
+                const team = teams.find(t => String(t.team_id) === id);
+                return (
+                  <Badge key={id} variant="secondary" className="border-gray-400 border pl-2 pr-1 py-0.5 flex items-center gap-1">
+                    {team?.team_name || id}
+                    <X className="w-3 h-3 cursor-pointer hover:text-destructive" onClick={() => toggleTeam(id)} />
+                  </Badge>
+                )
+              })}
+            </div>
           </div>
 
-          {/* Status Select */}
           <div>
             <Label htmlFor="status">Status</Label>
             <Select value={userInfo.status} onValueChange={handleStatusChange}>
-              <SelectTrigger className="border border-gray-300 rounded">
+              <SelectTrigger className="border-gray-400">
                 <SelectValue placeholder="Select Status" />
               </SelectTrigger>
               <SelectContent>
@@ -382,13 +397,13 @@ const AddUser = ({
             </Select>
           </div>
 
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-2 pt-4">
             <Button
               className="bg-primary hover:bg-primary/90 w-full"
               onClick={handleSubmit}
-              disabled={isDisabled || loading}
+              disabled={loading}
             >
-              {loading ? "Submitting..." : isEditMode ? "Update User" : "Add User"}
+              {loading ? "Saving..." : isEditMode ? "Update User" : "Add User"}
             </Button>
             <Button
               variant="outline"
