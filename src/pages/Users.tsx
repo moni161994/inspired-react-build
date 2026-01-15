@@ -34,7 +34,7 @@ type UserData = {
   user_name: string;
   profile: string;
   parent_id: number;
-  teams: number;
+  teams: any; // We don't rely on this anymore for filtering
   status: number;
 };
 
@@ -125,7 +125,9 @@ const UsersPage = () => {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [canEditUser, setCanEditUser] = useState(false);  // ← NEW
+  const [teamFilter, setTeamFilter] = useState<string>("all"); 
+  const [teams, setTeams] = useState<any[]>([]); 
+  const [canEditUser, setCanEditUser] = useState(false);
 
   // Access Point Modal States (for selected row)
   const [accessPointOpen, setAccessPointOpen] = useState(false);
@@ -170,6 +172,20 @@ const UsersPage = () => {
         description: "An error occurred while fetching user data.",
         variant: "destructive",
       });
+    }
+  };
+
+  const fetchTeams = async () => {
+    try {
+      const res = await request("/get_all_teams", "GET");
+      // Handle the API response format (array directly or nested in data)
+      if (Array.isArray(res)) {
+        setTeams(res);
+      } else if (res && res.data && Array.isArray(res.data)) {
+        setTeams(res.data);
+      }
+    } catch (err) {
+      console.error("Error fetching teams:", err);
     }
   };
 
@@ -439,15 +455,33 @@ const UsersPage = () => {
 
   useEffect(() => {
     fetchUser();
+    fetchTeams();
     loadMyAccess();
   }, []);
 
-  // Updated filteredUsers with status filter
+  // 🔹 REVISED FILTER LOGIC (Now looks up members in 'teams' data)
   const filteredUsers = user
     ? user.filter((u) => {
       const nameMatch = u.user_name.toLowerCase().includes(searchQuery.toLowerCase());
       const statusMatch = statusFilter === "all" || u.status.toString() === statusFilter;
-      return nameMatch && statusMatch;
+      
+      let teamMatch = false;
+
+      if (teamFilter === "all") {
+        teamMatch = true;
+      } else {
+        // Find the selected team in the loaded 'teams' array
+        const selectedTeam = teams.find((t: any) => String(t.team_id) === teamFilter);
+
+        // Check if the current user (u) is in that team's member list
+        if (selectedTeam && Array.isArray(selectedTeam.members)) {
+          teamMatch = selectedTeam.members.some(
+            (member: any) => Number(member.employee_id) === Number(u.employee_id)
+          );
+        }
+      }
+
+      return nameMatch && statusMatch && teamMatch;
     })
     : [];
 
@@ -480,6 +514,23 @@ const UsersPage = () => {
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                     />
+                    
+                    {/* Team Filter */}
+                    <Select value={teamFilter} onValueChange={setTeamFilter}>
+                      <SelectTrigger className="w-[180px] border-gray focus:border-gray">
+                        <SelectValue placeholder="All Teams" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Teams</SelectItem>
+                        {teams.map((team) => (
+                          <SelectItem key={team.team_id} value={String(team.team_id)}>
+                            {team.team_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    {/* Status Filter */}
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
                       <SelectTrigger className="w-[180px] border-gray focus:border-gray">
                         <SelectValue placeholder="All Status" />
@@ -517,7 +568,7 @@ const UsersPage = () => {
                       No users found
                     </h3>
                     <p className="text-sm text-muted-foreground mb-6">
-                      {searchQuery || statusFilter !== "all"
+                      {searchQuery || statusFilter !== "all" || teamFilter !== "all"
                         ? "Try adjusting your search or filter criteria."
                         : "No users available for this account."
                       }
@@ -528,6 +579,7 @@ const UsersPage = () => {
                         onClick={() => {
                           setSearchQuery("");
                           setStatusFilter("all");
+                          setTeamFilter("all");
                         }}
                       >
                         Clear Filters

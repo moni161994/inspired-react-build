@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,7 +21,7 @@ import {
   CommandItem
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
-import { X, Plus, Check } from "lucide-react"; // Added Check, removed Lock
+import { X, Plus, Check, Filter } from "lucide-react"; 
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/hooks/use-toast";
 
@@ -59,6 +59,10 @@ export default function TeamAnalytics() {
   // 🔹 EXISTING STATES
   const [teams, setTeams] = useState<Team[]>([]);
   const [users, setUsers] = useState<Member[]>([]);
+  
+  // 🔹 FILTER STATE
+  const [filterUserId, setFilterUserId] = useState<string>("all");
+
   const [teamDialogOpen, setTeamDialogOpen] = useState(false);
   const [editTeamObj, setEditTeamObj] = useState<Team | null>(null);
   const [formData, setFormData] = useState({
@@ -66,8 +70,6 @@ export default function TeamAnalytics() {
     manager_id: "",
     employees_id: [] as string[],
   });
-
-  // REMOVED: unavailableUsersMap (Logic to lock users is gone)
 
   const getCurrentUserId = (): number => {
     try {
@@ -78,13 +80,43 @@ export default function TeamAnalytics() {
     }
   };
 
+  const currentUserId = getCurrentUserId();
+
+  // 🔹 CALCULATE DROPDOWN USERS BASED ON PERMISSIONS
+  const dropdownUsers = useMemo(() => {
+    // 1. If user is 1015, show everyone
+    if (currentUserId === 1015) {
+      return users;
+    }
+
+    // 2. Otherwise, find users "under" this person
+    // "Under" = Members of teams where current user is the Manager
+    const allowedIds = new Set<string>();
+
+    // Always include self
+    allowedIds.add(String(currentUserId));
+
+    teams.forEach((team) => {
+      // If current user manages this team
+      if (String(team.manager_id) === String(currentUserId)) {
+        // Add all members of this team to allowed list
+        team.members.forEach((member) => {
+          allowedIds.add(String(member.employee_id));
+        });
+      }
+    });
+
+    // Filter the main users list
+    return users.filter((u) => allowedIds.has(String(u.employee_id)));
+  }, [users, teams, currentUserId]);
+
+
   // 🔹 LOAD USER ACCESS FOR TEAM PAGE
   const loadMyAccess = async () => {
-    const userId = getCurrentUserId();
-    if (!userId) return;
+    if (!currentUserId) return;
 
     try {
-      const res: any = await request(`/get_single_access/${userId}`, "GET");
+      const res: any = await request(`/get_single_access/${currentUserId}`, "GET");
       if (res?.status_code === 200 && res.data) {
         const parsed: AccessPointData = {
           page: JSON.parse(res.data.page),
@@ -147,6 +179,19 @@ export default function TeamAnalytics() {
     }
   }, [canViewTeam]);
 
+  // 🔹 FILTER LOGIC FOR TABLE
+  const filteredTeams = teams.filter((team) => {
+    if (filterUserId === "all") return true;
+    
+    // Check if user is Manager
+    if (String(team.manager_id) === filterUserId) return true;
+
+    // Check if user is a Member
+    if (team.members.some((m) => String(m.employee_id) === filterUserId)) return true;
+
+    return false;
+  });
+
   const openTeamDialog = (team?: Team) => {
     if (!canAddTeam && !canEditTeam) {
       toast({
@@ -171,7 +216,6 @@ export default function TeamAnalytics() {
   };
 
   const toggleEmployee = (id: string) => {
-    // REMOVED: Check for unavailableUsersMap
     setFormData((prev) => ({
       ...prev,
       employees_id: prev.employees_id.includes(id)
@@ -261,20 +305,44 @@ export default function TeamAnalytics() {
       <div className="flex flex-col flex-1">
         <DashboardHeader />
         <main className="flex-1 overflow-auto p-6">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
             <h2 className="text-2xl font-semibold text-foreground">All Teams</h2>
-             {canAddTeam && (
-              <Button onClick={() => openTeamDialog()}>
-               <Plus className="w-4 h-4 mr-2" /> Create New Team 
-              </Button>
-            )}
+            
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+                {/* 🔹 USER FILTER DROPDOWN */}
+                <div className="w-[250px]">
+                    <Select value={filterUserId} onValueChange={setFilterUserId}>
+                        <SelectTrigger className="bg-background border-input">
+                            <div className="flex items-center gap-2">
+                                <Filter className="w-4 h-4 text-muted-foreground" />
+                                <SelectValue placeholder="Filter by User" />
+                            </div>
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Users</SelectItem>
+                            {/* Map over the filtered dropdownUsers instead of all users */}
+                            {dropdownUsers.map((user) => (
+                                <SelectItem key={user.employee_id} value={String(user.employee_id)}>
+                                    {user.user_name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                {canAddTeam && (
+                <Button onClick={() => openTeamDialog()}>
+                    <Plus className="w-4 h-4 mr-2" /> Create New Team 
+                </Button>
+                )}
+            </div>
           </div>
 
           <Card>
             <CardContent className="p-6">
-              {teams.length === 0 ? (
+              {filteredTeams.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
-                  {canViewTeam ? "No teams found." : "Loading teams..."}
+                  {canViewTeam ? "No teams found matching criteria." : "Loading teams..."}
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -289,7 +357,7 @@ export default function TeamAnalytics() {
                       </tr>
                     </thead>
                     <tbody>
-                      {teams.map((team) => (
+                      {filteredTeams.map((team) => (
                         <tr key={team.team_id} className="border-b hover:bg-muted/20">
                           <td className="py-3 px-4 font-mono text-sm">{team.team_id}</td>
                           <td className="py-3 px-4">{team.manager_name}</td>
@@ -365,9 +433,6 @@ export default function TeamAnalytics() {
                   {users.map(user => {
                     const userId = String(user.employee_id);
                     const isSelected = formData.employees_id.includes(userId);
-                    
-                    // Logic to allow multiple teams:
-                    // We simply remove the check that disabled the item.
                     
                     return (
                         <CommandItem 
