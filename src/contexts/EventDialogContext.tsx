@@ -10,6 +10,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +25,7 @@ import {
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/components/ui/use-toast";
 import { DateInput } from "@/components/ui/DateInput";
-// ⭐ Multi-select components
+// Multi-select components
 import {
   Command,
   CommandEmpty,
@@ -37,8 +38,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, ArrowRight, ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 
 type EventDialogContextType = {
   openEventDialog: () => void;
@@ -54,75 +56,51 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
   const { request } = useApi<any>();
 
   const [isOpen, setIsOpen] = useState(false);
+  const [step, setStep] = useState(1);
   const [teams, setTeams] = useState<string[]>([]);
-  const [templates, setTemplates] = useState<any[]>([]);
-
-  // ⭐ Form state with capture_type array
+  
+  // Form State
   const [formData, setFormData] = useState({
-    status: "Upcoming",
-    team: "",
+    // Step 1 Fields
+    owner: "",
     eventName: "",
+    eventType: "",
+    status: "Upcoming",
+    region: "",
+    location: "",
     startDate: "",
     endDate: "",
-    location: "",
-    totalLeads: 0,
-    priorityLeads: 0,
+
+    // Step 2 Fields
+    team: "",
     budget: 0,
+    currency: "USD",
     eventSize: "",
-    template_id: "",
-    capture_type: [],  // 👈 Array: ["Visiting Card", "Badge", "Manual"]
+    priorityLeads: 0,
+    lead_type: [] as string[],
+    capture_type: [] as string[],
   });
+  const getEmail = localStorage.getItem("email") || "";
 
-  // ⭐ UI states for multi-selects
+  // UI Helper States
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
-  const [captureTypes, setCaptureTypes] = useState<string[]>([]);
-
+  
   // ================= FETCH TEAMS =================
   useEffect(() => {
     const fetchTeams = async () => {
       try {
         const res = await request("/get_all_teams", "GET");
         if (res?.length > 0) {
-          const teamNames:any = Array.from(
+          const teamNames: any = Array.from(
             new Set(res.map((team: any) => team.team_name).filter(Boolean))
           );
           setTeams(teamNames);
-        } else {
-          toast({
-            variant: "destructive",
-            title: "❌ Failed to Fetch Teams",
-            description: res?.msg || "Unable to load team list.",
-          });
         }
-      } catch {
-        toast({
-          variant: "destructive",
-          title: "⚠️ Network Error",
-          description: "Could not fetch team list. Please try again later.",
-        });
+      } catch (err) {
+        console.error("Failed to fetch teams", err);
       }
     };
-
     fetchTeams();
-  }, []);
-
-  // ================= FETCH TEMPLATES =================
-  useEffect(() => {
-    const fetchTemplates = async () => {
-      const res = await request("/form_template_list", "GET");
-
-      if (res?.success && res.data) {
-        setTemplates(res.data);
-      } else {
-        toast({
-          variant: "destructive",
-          title: "❌ Failed to Load Templates",
-          description: res?.message || "Unable to fetch template list.",
-        });
-      }
-    };
-
-    fetchTemplates();
   }, []);
 
   const handleChange = (e: any) => {
@@ -134,7 +112,6 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  // ⭐ Team multi-select handler
   const handleTeamSelection = (team: string) => {
     const newSelectedTeams = selectedTeams.includes(team)
       ? selectedTeams.filter((t) => t !== team)
@@ -147,389 +124,428 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     }));
   };
 
-  // ⭐ Capture type checkbox handler
-  const toggleCaptureType = (type: string) => {
-    const newCaptureTypes = captureTypes.includes(type)
-      ? captureTypes.filter((t) => t !== type)
-      : [...captureTypes, type];
-    
-    setCaptureTypes(newCaptureTypes);
-    setFormData((prev) => ({
-      ...prev,
-      capture_type: newCaptureTypes,  // 👈 Direct array to API
-    }));
+  const toggleArrayItem = (field: "lead_type" | "capture_type", value: string) => {
+    setFormData((prev) => {
+      const currentList = prev[field];
+      const newList = currentList.includes(value)
+        ? currentList.filter((item) => item !== value)
+        : [...currentList, value];
+      return { ...prev, [field]: newList };
+    });
   };
 
-  // ================= VALIDATION & SUBMIT =================
-  const handleSubmit = async () => {
-    const requiredFields = [
-      { field: "status", label: "Event Status" },
-      { field: "team", label: "Team(s)" },
+  // ================= VALIDATION =================
+  const validateStep1 = () => {
+    const required = [
+      { field: "owner", label: "Event Owner" },
       { field: "eventName", label: "Event Name" },
+      { field: "eventType", label: "Type of Event" },
+      { field: "region", label: "Region" },
+      { field: "location", label: "Location" },
       { field: "startDate", label: "Start Date" },
       { field: "endDate", label: "End Date" },
-      { field: "location", label: "Event Location" },
-      { field: "capture_type", label: "Capture Type(s)" },  // 👈 NEW
-      { field: "template_id", label: "Template" },
     ];
 
-    // Check required fields
-    for (const { field, label } of requiredFields) {
-      const value = formData[field as keyof typeof formData];
-      if (!value || (Array.isArray(value) && value.length === 0)) {
-        toast({
-          variant: "destructive",
-          title: "⚠️ Missing Required Field",
-          description: `${label} is required.`,
-        });
-        return;
+    for (const { field, label } of required) {
+      if (!formData[field as keyof typeof formData]) {
+        toast({ variant: "destructive", title: "Missing Field", description: `${label} is required.` });
+        return false;
       }
     }
 
-    // Date validation
     if (formData.endDate < formData.startDate) {
-      toast({
-        variant: "destructive",
-        title: "⚠️ Invalid Range",
-        description: "End date cannot be before the start date.",
-      });
-      return;
+      toast({ variant: "destructive", title: "Invalid Dates", description: "End date cannot be before start date." });
+      return false;
     }
+    return true;
+  };
 
-    // 👈 API payload with capture_type array
+  const validateStep2 = () => {
+    if (formData.lead_type.length === 0) {
+      toast({ variant: "destructive", title: "Missing Field", description: "Select at least one Lead Type." });
+      return false;
+    }
+    if (formData.capture_type.length === 0) {
+      toast({ variant: "destructive", title: "Missing Field", description: "Select at least one Capture Type." });
+      return false;
+    }
+    if (!formData.team) {
+      toast({ variant: "destructive", title: "Missing Field", description: "Select at least one Team." });
+      return false;
+    }
+    return true;
+  };
+
+  const handleNext = () => {
+    if (step === 1 && validateStep1()) setStep(2);
+  };
+
+  const handleBack = () => {
+    if (step === 2) setStep(1);
+  };
+
+  const handleSubmit = async () => {
+    if (!validateStep2()) return;
+
     const payload = {
-      event_status: formData.status,
+      event_owner: getEmail,
       event_name: formData.eventName,
+      event_type: formData.eventType,
+      event_status: formData.status,
+      region: formData.region,
+      location: formData.location,
       start_date: formData.startDate,
       end_date: formData.endDate,
-      location: formData.location,
       team: formData.team,
-      total_leads: 0,
-      priority_leads: formData.priorityLeads,
-      budget: formData.budget,
+      budget: `${formData.currency} ${formData.budget}`,
       event_size: formData.eventSize,
-      template_id: formData.template_id,
-      capture_type: formData.capture_type,  // 👈 ["Visiting Card", "Badge", "Manual"]
+      priority_leads: formData.priorityLeads,
+      lead_type: formData.lead_type,
+      capture_type: formData.capture_type,
+      total_leads: 0,
     };
 
     console.log("📤 Creating event:", payload);
-
     const res = await request("/create_events", "POST", payload);
 
     if (res?.message === "Event created successfully" || res?.success) {
-      toast({
-        title: "✅ Event Created",
-        description: "Event has been created successfully.",
-      });
+      toast({ title: "✅ Event Created", description: "Event has been created successfully." });
       closeEventDialog();
-      window.location.href="/events"; // Refresh to events list
+      window.location.href="/events";
     } else {
-      toast({
-        variant: "destructive",
-        title: "❌ Failed",
-        description: res?.msg || res?.message || "Failed to save event details.",
-      });
+      toast({ variant: "destructive", title: "❌ Failed", description: res?.msg || "Failed to save event." });
     }
   };
 
   const openEventDialog = () => {
     setIsOpen(true);
+    setStep(1);
     setFormData({
-      status: "Upcoming",
-      team: "",
+      owner: getEmail,
       eventName: "",
+      eventType: "",
+      status: "Upcoming",
+      region: "",
+      location: "",
       startDate: "",
       endDate: "",
-      location: "",
-      totalLeads: 0,
-      priorityLeads: 0,
+      team: "",
       budget: 0,
+      currency: "USD",
       eventSize: "",
-      template_id: "",
-      capture_type: [],  // 👈 Reset
+      priorityLeads: 0,
+      lead_type: [],
+      capture_type: [],
     });
     setSelectedTeams([]);
-    setCaptureTypes([]);  // 👈 Reset
   };
 
-  const closeEventDialog = () => {
-    setIsOpen(false);
-  };
+  const closeEventDialog = () => setIsOpen(false);
 
   return (
     <EventDialogContext.Provider value={{ openEventDialog, closeEventDialog }}>
       {children}
 
-      {/* 👇 MAIN CREATE EVENT DIALOG */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto flex flex-col">
           <DialogHeader>
-            <DialogTitle>Create a New Event</DialogTitle>
+            <DialogTitle>Create New Event</DialogTitle>
+            <div className="flex items-center gap-2 mt-2">
+              <Progress value={step === 1 ? 50 : 100} className="h-2" />
+              <span className="text-xs text-muted-foreground whitespace-nowrap">Step {step} of 2</span>
+            </div>
           </DialogHeader>
 
-          <div className="grid grid-cols-2 gap-6 mt-4">
-            {/* STATUS */}
-            <div>
-              <Label>Event Status *</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(val) => handleSelectChange("status", val)}
-              >
-                <SelectTrigger className="border-gray focus:border-gray">
-                  <SelectValue placeholder="Select Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Upcoming">Upcoming</SelectItem>
-                  <SelectItem value="In progress">Active</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* 👇 MULTI-SELECT TEAMS */}
-            <div>
-              <Label>Select Team(s) *</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    className="w-full justify-between border-gray focus:border-gray h-10"
-                  >
-                    {selectedTeams.length > 0
-                      ? `${selectedTeams.length} team(s) selected`
-                      : "Select teams..."}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-full p-0 max-h-64">
-                  <Command>
-                    <CommandInput placeholder="Search teams..." className="h-9" />
-                    <CommandEmpty>No teams found.</CommandEmpty>
-                    <CommandGroup className="max-h-48 overflow-auto">
-                      {teams.map((team) => (
-                        <CommandItem
-                          key={team}
-                          value={team}
-                          onSelect={() => handleTeamSelection(team)}
-                        >
-                          <Check
-                            className={`mr-2 h-4 w-4 ${
-                              selectedTeams.includes(team)
-                                ? "opacity-100"
-                                : "opacity-0"
-                            }`}
-                          />
-                          {team}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-              {selectedTeams.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {selectedTeams.map((team) => (
-                    <Badge
-                      key={team}
-                      variant="secondary"
-                      className="text-xs"
-                      onClick={() => handleTeamSelection(team)}
-                    >
-                      {team} ×
-                    </Badge>
-                  ))}
+          <div className="flex-1 py-4">
+            {/* ================= STEP 1 ================= */}
+            {step === 1 && (
+              <div className="grid grid-cols-2 gap-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                {/* Event Owner */}
+                <div className="col-span-2">
+                  <Label htmlFor="owner">Event Owner *</Label>
+                  <Input
+                    id="owner"
+                    placeholder="Enter owner name"
+                    value={getEmail}
+                    onChange={handleChange}
+                    className="border-gray focus:border-gray" // ⭐ Added
+                    disabled
+                  />
                 </div>
-              )}
-            </div>
 
-            {/* EVENT NAME */}
-            <div>
-              <Label htmlFor="eventName">Event Name *</Label>
-              <Input
-                id="eventName"
-                placeholder="e.g., Tech Summit 2026"
-                value={formData.eventName}
-                onChange={handleChange}
-                className="border-gray focus:border-gray"
-              />
-            </div>
+                {/* Event Name */}
+                <div>
+                  <Label htmlFor="eventName">Event Name *</Label>
+                  <Input
+                    id="eventName"
+                    placeholder="e.g., Tech Summit 2026"
+                    value={formData.eventName}
+                    onChange={handleChange}
+                    className="border-gray focus:border-gray" // ⭐ Added
+                  />
+                </div>
 
-            {/* EVENT SIZE */}
-            <div>
-              <Label htmlFor="eventSize">Event Size</Label>
-              <Select
-                value={formData.eventSize}
-                onValueChange={(val) => handleSelectChange("eventSize", val)}
-              >
-                <SelectTrigger className="border-gray focus:border-gray">
-                  <SelectValue placeholder="Select Event Size" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="small">Small (&lt; 100)</SelectItem>
-                  <SelectItem value="medium">Medium (100-500)</SelectItem>
-                  <SelectItem value="large">Large (&gt; 500)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* START DATE */}
-            <DateInput
-              label="Start Date "
-              value={formData.startDate}
-              required
-              onChange={(val) =>
-                setFormData((prev) => ({ ...prev, startDate: val }))
-              }
-            />
-
-            {/* END DATE */}
-            <DateInput
-              label="End Date "
-              value={formData.endDate}
-              required
-              minDate={formData.startDate ? new Date(formData.startDate) : new Date()}
-              onChange={(val) =>
-                setFormData((prev) => ({ ...prev, endDate: val }))
-              }
-            />
-
-            {/* LOCATION */}
-            <div>
-              <Label htmlFor="location">Event Location *</Label>
-              <Input
-                id="location"
-                placeholder="e.g., Mumbai Exhibition Centre"
-                value={formData.location}
-                onChange={handleChange}
-                className="border-gray focus:border-gray"
-              />
-            </div>
-
-            {/* BUDGET */}
-            <div>
-              <Label htmlFor="budget">Budget (USD)</Label>
-              <Input
-                id="budget"
-                type="number"
-                placeholder="5000"
-                value={formData.budget}
-                onChange={handleChange}
-                className="border-gray focus:border-gray"
-              />
-            </div>
-
-            {/* 👇 NEW: CAPTURE TYPE CHECKBOXES */}
-            <div className="col-span-2">
-              <Label>Capture Type(s) *</Label>
-              <div className="grid grid-cols-3 gap-3 mt-2 p-4 border border-gray rounded-lg bg-gradient-to-r from-muted to-gray">
-                {[
-                  { id: "visiting-card", label: "Visiting Card", value: "Visiting Card" },
-                  { id: "badge", label: "Badge", value: "Badge" },
-                  { id: "manual", label: "Manual", value: "Manual" },
-                ].map(({ id, label, value }) => (
-                  <label
-                    key={id}
-                    className="flex items-center space-x-3 p-3 hover:bg-accent rounded-lg cursor-pointer transition-all group"
+                {/* Event Type */}
+                <div>
+                  <Label>Type of Event *</Label>
+                  <Select
+                    value={formData.eventType}
+                    onValueChange={(val) => handleSelectChange("eventType", val)}
                   >
-                    <input
-                      type="checkbox"
-                      id={id}
-                      checked={captureTypes.includes(value)}
-                      onChange={() => toggleCaptureType(value)}
-                      className="w-5 h-5 text-primary focus:ring-primary border-gray rounded group-hover:border-primary transition-all"
-                    />
-                    <div>
-                      <span className="font-medium text-sm">{label}</span>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {value === "Visiting Card" && "Business card scanning"}
-                        {value === "Badge" && "ID badge OCR"}
-                        {value === "Manual" && "Form entry"}
-                      </p>
-                    </div>
-                  </label>
-                ))}
+                    <SelectTrigger className="border-gray focus:border-gray"> {/* ⭐ Added */}
+                      <SelectValue placeholder="Select Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Tradeshow">Tradeshow</SelectItem>
+                      <SelectItem value="Webinar">Webinar</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Status */}
+                <div>
+                  <Label>Status *</Label>
+                  <Select
+                    value={formData.status}
+                    onValueChange={(val) => handleSelectChange("status", val)}
+                  >
+                    <SelectTrigger className="border-gray focus:border-gray"> {/* ⭐ Added */}
+                      <SelectValue placeholder="Select Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Upcoming">Upcoming</SelectItem>
+                      <SelectItem value="In progress">Active</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Region */}
+                <div>
+                  <Label>Region *</Label>
+                  <Select
+                    value={formData.region}
+                    onValueChange={(val) => handleSelectChange("region", val)}
+                  >
+                    <SelectTrigger className="border-gray focus:border-gray"> {/* ⭐ Added */}
+                      <SelectValue placeholder="Select Region" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="NA">North America (NA)</SelectItem>
+                      <SelectItem value="EMEA">EMEA</SelectItem>
+                      <SelectItem value="APAC">APAC</SelectItem>
+                      <SelectItem value="LATAM">LATAM</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Location */}
+                <div className="col-span-2">
+                  <Label>Event Location *</Label>
+                  <Select
+                    value={formData.location}
+                    onValueChange={(val) => handleSelectChange("location", val)}
+                  >
+                    <SelectTrigger className="border-gray focus:border-gray"> {/* ⭐ Added */}
+                      <SelectValue placeholder="Select Location" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="New York">New York</SelectItem>
+                      <SelectItem value="London">London</SelectItem>
+                      <SelectItem value="Dubai">Dubai</SelectItem>
+                      <SelectItem value="Singapore">Singapore</SelectItem>
+                      <SelectItem value="Remote">Remote</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Dates (Assuming DateInput accepts className or applies styles internally, passing for wrapper if needed) */}
+                <DateInput
+                  label="Start Date "
+                  value={formData.startDate}
+                  required
+                  onChange={(val) => setFormData((prev) => ({ ...prev, startDate: val }))}
+                  // Ensure your DateInput component uses this prop if available, otherwise check its internal implementation
+                />
+                <DateInput
+                  label="End Date "
+                  value={formData.endDate}
+                  required
+                  minDate={formData.startDate ? new Date(formData.startDate) : new Date()}
+                  onChange={(val) => setFormData((prev) => ({ ...prev, endDate: val }))}
+                />
               </div>
-              
-              {/* Selected badges */}
-              {captureTypes.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-3 p-2 bg-accent rounded">
-                  {captureTypes.map((type) => (
-                    <Badge
-                      key={type}
-                      variant="default"
-                      className="text-xs cursor-pointer hover:bg-primary"
-                      onClick={() => toggleCaptureType(type)}
-                    >
-                      {type} ×
-                    </Badge>
-                  ))}
+            )}
+
+            {/* ================= STEP 2 ================= */}
+            {step === 2 && (
+              <div className="grid grid-cols-2 gap-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                
+                {/* Team Multi-select */}
+                <div className="col-span-2">
+                  <Label>Select Team(s) *</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        role="combobox" 
+                        className="w-full justify-between border-gray focus:border-gray" // ⭐ Added
+                      >
+                        {selectedTeams.length > 0
+                          ? `${selectedTeams.length} team(s) selected`
+                          : "Select teams..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0">
+                      <Command>
+                        <CommandInput placeholder="Search teams..." />
+                        <CommandEmpty>No teams found.</CommandEmpty>
+                        <CommandGroup className="max-h-48 overflow-auto">
+                          {teams.map((team) => (
+                            <CommandItem key={team} value={team} onSelect={() => handleTeamSelection(team)}>
+                              <Check className={`mr-2 h-4 w-4 ${selectedTeams.includes(team) ? "opacity-100" : "opacity-0"}`} />
+                              {team}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {selectedTeams.map((team) => (
+                      <Badge key={team} variant="secondary" className="text-xs" onClick={() => handleTeamSelection(team)}>
+                        {team} ×
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
-              )}
-              
-              {captureTypes.length === 0 && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  Select at least one capture method
-                </p>
-              )}
-            </div>
 
-            {/* PRIORITY LEADS */}
-            <div>
-              <Label htmlFor="priorityLeads">Priority Leads Target</Label>
-              <Input
-                id="priorityLeads"
-                type="number"
-                placeholder="50"
-                value={formData.priorityLeads}
-                onChange={handleChange}
-                className="border-gray focus:border-gray"
-              />
-            </div>
+                {/* Budget */}
+                <div className="col-span-1">
+                  <Label>Budget</Label>
+                  <div className="flex gap-2 mt-1">
+                    <Select
+                      value={formData.currency}
+                      onValueChange={(val) => handleSelectChange("currency", val)}
+                    >
+                      <SelectTrigger className="w-[80px] border-gray focus:border-gray"> {/* ⭐ Added */}
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="USD">USD</SelectItem>
+                        <SelectItem value="EUR">EUR</SelectItem>
+                        <SelectItem value="INR">INR</SelectItem>
+                        <SelectItem value="GBP">GBP</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      id="budget"
+                      type="number"
+                      placeholder="Amount"
+                      value={formData.budget}
+                      onChange={handleChange}
+                      className="border-gray focus:border-gray" // ⭐ Added
+                    />
+                  </div>
+                </div>
 
-            {/* TEMPLATE - Full width */}
-            <div className="col-span-2">
-              <Label>Lead Capture Template *</Label>
-              <Select
-                value={formData.template_id}
-                onValueChange={(val) => handleSelectChange("template_id", val)}
-              >
-                <SelectTrigger className="border-gray focus:border-gray">
-                  <SelectValue placeholder="Select Template" />
-                </SelectTrigger>
-                <SelectContent>
-                  {templates.length > 0 ? (
-                    templates.map((tpl) => (
-                      <SelectItem key={tpl.id} value={String(tpl.id)}>
-                        {tpl.template_name} 
-                        <span className="text-xs text-muted-foreground ml-2">
-                          ID: {tpl.id}
-                        </span>
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem value="none" disabled>
-                      🔄 Loading templates...
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
+                {/* Size */}
+                <div>
+                  <Label>Event Size</Label>
+                  <Select
+                    value={formData.eventSize}
+                    onValueChange={(val) => handleSelectChange("eventSize", val)}
+                  >
+                    <SelectTrigger className="mt-1 border-gray focus:border-gray"> {/* ⭐ Added */}
+                      <SelectValue placeholder="Size" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="small">Small (&lt; 100)</SelectItem>
+                      <SelectItem value="medium">Medium (100-500)</SelectItem>
+                      <SelectItem value="large">Large (&gt; 500)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Priority */}
+                <div>
+                  <Label htmlFor="priorityLeads">Priority Leads</Label>
+                  <Input
+                    id="priorityLeads"
+                    type="number"
+                    value={formData.priorityLeads}
+                    onChange={handleChange}
+                    className="mt-1 border-gray focus:border-gray" // ⭐ Added
+                  />
+                </div>
+
+                {/* Lead Type */}
+                <div className="col-span-2 border-t pt-4">
+                  <Label className="text-base font-semibold">Lead Type *</Label>
+                  <p className="text-xs text-muted-foreground mb-3">How are leads collected physically?</p>
+                  <div className="flex gap-3">
+                    {["Visiting Card", "Badge", "Manual"].map((type) => (
+                      <Badge
+                        key={type}
+                        variant={formData.lead_type.includes(type) ? "default" : "outline"}
+                        className={`cursor-pointer px-4 py-2 ${!formData.lead_type.includes(type) ? "border-gray" : ""}`} // ⭐ Added conditional border
+                        onClick={() => toggleArrayItem("lead_type", type)}
+                      >
+                        {type}
+                        {formData.lead_type.includes(type) && <Check className="ml-2 h-3 w-3" />}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Capture Type */}
+                <div className="col-span-2 border-t pt-4">
+                  <Label className="text-base font-semibold">Capture Type *</Label>
+                  <p className="text-xs text-muted-foreground mb-3">Select the form strategy</p>
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { id: "checkbox", label: "Checkbox", desc: "Simple tick selection" },
+                      { id: "booth", label: "Booth Give Away", desc: "Gamified entry" },
+                      { id: "full", label: "Full Lead Form", desc: "Detailed data entry" },
+                    ].map(({ id, label, desc }) => (
+                      <div
+                        key={id}
+                        onClick={() => toggleArrayItem("capture_type", label)}
+                        className={`
+                          cursor-pointer border rounded-lg p-3 transition-all
+                          ${formData.capture_type.includes(label) 
+                            ? "border-primary bg-primary/10 ring-1 ring-primary" 
+                            : "hover:bg-accent border-gray"} // ⭐ Added border-gray
+                        `}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-medium text-sm">{label}</span>
+                          {formData.capture_type.includes(label) && <Check className="h-4 w-4 text-primary" />}
+                        </div>
+                        <p className="text-xs text-muted-foreground">{desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+            )}
           </div>
 
-          {/* 👇 ACTION BUTTONS */}
-          <div className="flex justify-end space-x-3 pt-8 border-t mt-8">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={closeEventDialog}
-              className="px-8"
-            >
-              Cancel
-            </Button>
-            <Button type="button" onClick={handleSubmit} className="px-8">
-              Create Event
-            </Button>
-          </div>
+          <DialogFooter className="flex justify-between sm:justify-between w-full border-t pt-4">
+            {step === 1 ? (
+              <Button variant="ghost" onClick={closeEventDialog}>Cancel</Button>
+            ) : (
+              <Button variant="outline" onClick={handleBack} className="border-gray"><ArrowLeft className="mr-2 h-4 w-4"/> Back</Button>
+            )}
+
+            {step === 1 ? (
+              <Button onClick={handleNext}>Next Step <ArrowRight className="ml-2 h-4 w-4"/></Button>
+            ) : (
+              <Button onClick={handleSubmit}>Create Event</Button>
+            )}
+          </DialogFooter>
+
         </DialogContent>
       </Dialog>
     </EventDialogContext.Provider>
