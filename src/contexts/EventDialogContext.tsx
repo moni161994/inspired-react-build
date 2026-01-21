@@ -59,6 +59,11 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
   const [step, setStep] = useState(1);
   const [teams, setTeams] = useState<string[]>([]);
   
+  const getEmail = localStorage.getItem("email") || "";
+
+  // UI Helper States
+  const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
+
   // Form State
   const [formData, setFormData] = useState({
     // Step 1 Fields
@@ -72,7 +77,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     endDate: "",
 
     // Step 2 Fields
-    team: "",
+    team: "", // Will hold comma separated string
     budget: 0,
     currency: "USD",
     eventSize: "",
@@ -80,11 +85,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     lead_type: [] as string[],
     capture_type: [] as string[],
   });
-  const getEmail = localStorage.getItem("email") || "";
 
-  // UI Helper States
-  const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
-  
   // ================= FETCH TEAMS =================
   useEffect(() => {
     const fetchTeams = async () => {
@@ -118,6 +119,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
       : [...selectedTeams, team];
     
     setSelectedTeams(newSelectedTeams);
+    // Sync to formData immediately for validation purposes
     setFormData((prev) => ({
       ...prev,
       team: newSelectedTeams.join(", "),
@@ -137,7 +139,6 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
   // ================= VALIDATION =================
   const validateStep1 = () => {
     const required = [
-      { field: "owner", label: "Event Owner" },
       { field: "eventName", label: "Event Name" },
       { field: "eventType", label: "Type of Event" },
       { field: "region", label: "Region" },
@@ -161,16 +162,16 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
   };
 
   const validateStep2 = () => {
+    if (selectedTeams.length === 0) {
+      toast({ variant: "destructive", title: "Missing Field", description: "Select at least one Team." });
+      return false;
+    }
     if (formData.lead_type.length === 0) {
       toast({ variant: "destructive", title: "Missing Field", description: "Select at least one Lead Type." });
       return false;
     }
     if (formData.capture_type.length === 0) {
       toast({ variant: "destructive", title: "Missing Field", description: "Select at least one Capture Type." });
-      return false;
-    }
-    if (!formData.team) {
-      toast({ variant: "destructive", title: "Missing Field", description: "Select at least one Team." });
       return false;
     }
     return true;
@@ -184,6 +185,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     if (step === 2) setStep(1);
   };
 
+  // ================= SUBMIT =================
   const handleSubmit = async () => {
     if (!validateStep2()) return;
 
@@ -196,24 +198,32 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
       location: formData.location,
       start_date: formData.startDate,
       end_date: formData.endDate,
-      team: formData.team,
-      budget: `${formData.currency} ${formData.budget}`,
-      event_size: formData.eventSize,
-      priority_leads: formData.priorityLeads,
+      // Use selectedTeams state directly to ensure accuracy
+      team: selectedTeams.join(", "), 
+      // Combine currency and budget value
+      budget: `${formData.currency} ${formData.budget || 0}`,
+      event_size: formData.eventSize || "small",
+      // Ensure priority leads is a number
+      priority_leads: Number(formData.priorityLeads) || 0,
       lead_type: formData.lead_type,
       capture_type: formData.capture_type,
-      total_leads: 0,
+      total_leads: 0, // Default for new event
     };
 
     console.log("📤 Creating event:", payload);
-    const res = await request("/create_events", "POST", payload);
+    
+    try {
+      const res = await request("/create_events", "POST", payload);
 
-    if (res?.message === "Event created successfully" || res?.success) {
-      toast({ title: "✅ Event Created", description: "Event has been created successfully." });
-      closeEventDialog();
-      window.location.href="/events";
-    } else {
-      toast({ variant: "destructive", title: "❌ Failed", description: res?.msg || "Failed to save event." });
+      if (res?.message === "Event created successfully" || res?.success) {
+        toast({ title: "✅ Event Created", description: "Event has been created successfully." });
+        closeEventDialog();
+        window.location.href="/events";
+      } else {
+        toast({ variant: "destructive", title: "❌ Failed", description: res?.msg || "Failed to save event." });
+      }
+    } catch (error) {
+      toast({ variant: "destructive", title: "❌ Error", description: "Something went wrong." });
     }
   };
 
@@ -267,8 +277,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                     id="owner"
                     placeholder="Enter owner name"
                     value={getEmail}
-                    onChange={handleChange}
-                    className="border-gray focus:border-gray" // ⭐ Added
+                    className="border-gray focus:border-gray"
                     disabled
                   />
                 </div>
@@ -281,7 +290,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                     placeholder="e.g., Tech Summit 2026"
                     value={formData.eventName}
                     onChange={handleChange}
-                    className="border-gray focus:border-gray" // ⭐ Added
+                    className="border-gray focus:border-gray"
                   />
                 </div>
 
@@ -292,7 +301,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                     value={formData.eventType}
                     onValueChange={(val) => handleSelectChange("eventType", val)}
                   >
-                    <SelectTrigger className="border-gray focus:border-gray"> {/* ⭐ Added */}
+                    <SelectTrigger className="border-gray focus:border-gray">
                       <SelectValue placeholder="Select Type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -309,7 +318,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                     value={formData.status}
                     onValueChange={(val) => handleSelectChange("status", val)}
                   >
-                    <SelectTrigger className="border-gray focus:border-gray"> {/* ⭐ Added */}
+                    <SelectTrigger className="border-gray focus:border-gray">
                       <SelectValue placeholder="Select Status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -326,7 +335,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                     value={formData.region}
                     onValueChange={(val) => handleSelectChange("region", val)}
                   >
-                    <SelectTrigger className="border-gray focus:border-gray"> {/* ⭐ Added */}
+                    <SelectTrigger className="border-gray focus:border-gray">
                       <SelectValue placeholder="Select Region" />
                     </SelectTrigger>
                     <SelectContent>
@@ -345,7 +354,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                     value={formData.location}
                     onValueChange={(val) => handleSelectChange("location", val)}
                   >
-                    <SelectTrigger className="border-gray focus:border-gray"> {/* ⭐ Added */}
+                    <SelectTrigger className="border-gray focus:border-gray">
                       <SelectValue placeholder="Select Location" />
                     </SelectTrigger>
                     <SelectContent>
@@ -358,16 +367,15 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                   </Select>
                 </div>
 
-                {/* Dates (Assuming DateInput accepts className or applies styles internally, passing for wrapper if needed) */}
+                {/* Dates */}
                 <DateInput
-                  label="Start Date "
+                  label="Start Date"
                   value={formData.startDate}
                   required
                   onChange={(val) => setFormData((prev) => ({ ...prev, startDate: val }))}
-                  // Ensure your DateInput component uses this prop if available, otherwise check its internal implementation
                 />
                 <DateInput
-                  label="End Date "
+                  label="End Date"
                   value={formData.endDate}
                   required
                   minDate={formData.startDate ? new Date(formData.startDate) : new Date()}
@@ -388,7 +396,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                       <Button 
                         variant="outline" 
                         role="combobox" 
-                        className="w-full justify-between border-gray focus:border-gray" // ⭐ Added
+                        className="w-full justify-between border-gray focus:border-gray"
                       >
                         {selectedTeams.length > 0
                           ? `${selectedTeams.length} team(s) selected`
@@ -413,7 +421,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                   </Popover>
                   <div className="flex flex-wrap gap-1 mt-2">
                     {selectedTeams.map((team) => (
-                      <Badge key={team} variant="secondary" className="text-xs" onClick={() => handleTeamSelection(team)}>
+                      <Badge key={team} variant="secondary" className="text-xs cursor-pointer" onClick={() => handleTeamSelection(team)}>
                         {team} ×
                       </Badge>
                     ))}
@@ -428,7 +436,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                       value={formData.currency}
                       onValueChange={(val) => handleSelectChange("currency", val)}
                     >
-                      <SelectTrigger className="w-[80px] border-gray focus:border-gray"> {/* ⭐ Added */}
+                      <SelectTrigger className="w-[80px] border-gray focus:border-gray">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -444,7 +452,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                       placeholder="Amount"
                       value={formData.budget}
                       onChange={handleChange}
-                      className="border-gray focus:border-gray" // ⭐ Added
+                      className="border-gray focus:border-gray"
                     />
                   </div>
                 </div>
@@ -456,7 +464,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                     value={formData.eventSize}
                     onValueChange={(val) => handleSelectChange("eventSize", val)}
                   >
-                    <SelectTrigger className="mt-1 border-gray focus:border-gray"> {/* ⭐ Added */}
+                    <SelectTrigger className="mt-1 border-gray focus:border-gray">
                       <SelectValue placeholder="Size" />
                     </SelectTrigger>
                     <SelectContent>
@@ -475,7 +483,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                     type="number"
                     value={formData.priorityLeads}
                     onChange={handleChange}
-                    className="mt-1 border-gray focus:border-gray" // ⭐ Added
+                    className="mt-1 border-gray focus:border-gray"
                   />
                 </div>
 
@@ -488,7 +496,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                       <Badge
                         key={type}
                         variant={formData.lead_type.includes(type) ? "default" : "outline"}
-                        className={`cursor-pointer px-4 py-2 ${!formData.lead_type.includes(type) ? "border-gray" : ""}`} // ⭐ Added conditional border
+                        className={`cursor-pointer px-4 py-2 ${!formData.lead_type.includes(type) ? "border-gray" : ""}`}
                         onClick={() => toggleArrayItem("lead_type", type)}
                       >
                         {type}
@@ -515,7 +523,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                           cursor-pointer border rounded-lg p-3 transition-all
                           ${formData.capture_type.includes(label) 
                             ? "border-primary bg-primary/10 ring-1 ring-primary" 
-                            : "hover:bg-accent border-gray"} // ⭐ Added border-gray
+                            : "hover:bg-accent border-gray"}
                         `}
                       >
                         <div className="flex items-center justify-between mb-1">
