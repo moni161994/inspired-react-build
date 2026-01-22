@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Edit3, Plus, Upload, FileDown, Loader2, AlertTriangle, ChevronDown } from "lucide-react";
+import { Trash2, Edit3, Plus, Upload, FileDown, Loader2, AlertTriangle } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -25,7 +25,9 @@ type Language = {
   is_active: boolean;
 };
 
-// --- KEY CATEGORIZATION MAP ---
+// --- CONSTANTS ---
+const LANGUAGE_NAME_KEY = "_Language Name"; // Reserved key for Row 2 in CSV
+
 const KEY_CATEGORIES: Record<string, string> = {
   "Dashboard": "App Headings",
   "Profile": "App Headings",
@@ -119,8 +121,8 @@ const KEY_CATEGORIES: Record<string, string> = {
   "All captured leads uploaded successfully!": "Alert & Other Messages",
   "Something went wrong while syncing captured leads.": "Alert & Other Messages",
   "New lead Capture": "App Headings",
-  "New Leads in oﬄine mode": "App Headings", // Note: "oﬄine" contains special ligature char in your list
-  "New Leads in offline mode": "App Headings", // Added standard spelling just in case
+  "New Leads in oﬄine mode": "App Headings",
+  "New Leads in offline mode": "App Headings",
   "Need Sync": "App Headings",
   "New lead capture with Consent": "App Headings",
   "New event activated": "Alert & Other Messages",
@@ -140,7 +142,7 @@ const KEY_CATEGORIES: Record<string, string> = {
   "Priority": "App Headings",
   "Budget": "App Headings",
   "Size": "App Headings",
-  "No records found": "App Other Text", // Lowercase variant
+  "No records found": "App Other Text",
   "Notifications": "App Other Text",
   "Camera loading...": "App Other Text",
   "Offline Mode": "App Other Text",
@@ -265,8 +267,6 @@ const KEY_CATEGORIES: Record<string, string> = {
   "Microscope Slides": "Area of Interest"
 };
 
-// --- PREDEFINED KEYS LIST ---
-// (Re-using your existing list)
 const PREDEFINED_KEYS = Object.keys(KEY_CATEGORIES);
 
 export default function LanguageManagement() {
@@ -298,7 +298,6 @@ export default function LanguageManagement() {
   const { toast } = useToast();
 
   // --- Grouped Keys for Accordion ---
-  // We compute this once to render the accordion sections dynamically.
   const groupedKeys = PREDEFINED_KEYS.reduce((acc, key) => {
     const category = KEY_CATEGORIES[key] || "Uncategorized";
     if (!acc[category]) acc[category] = [];
@@ -306,7 +305,6 @@ export default function LanguageManagement() {
     return acc;
   }, {} as Record<string, string[]>);
 
-  // Order of sections based on your request, plus any others at the end
   const SECTION_ORDER = [
     "App Headings",
     "App Other Text",
@@ -446,7 +444,7 @@ export default function LanguageManagement() {
     try {
       const languageApiCall = editingLanguage
         ? request("/update_language", "POST", {
-            language_id: editingLanguage.language_code, // Note: Assuming ID matches Code logic based on your code
+            language_id: editingLanguage.language_code,
             language_name: formData.language_name,
             language_code: formData.language_code,
           })
@@ -485,7 +483,7 @@ export default function LanguageManagement() {
     }
   };
 
-  // --- Logic: Bulk Import ---
+  // --- Logic: Bulk Import (COLUMN-BASED) ---
   const parseCSVLine = (text: string) => {
     const result = [];
     let start = 0;
@@ -545,124 +543,149 @@ export default function LanguageManagement() {
     setUploadProgress(0);
 
     const lines = csvText.split(/\r?\n/).filter(line => line.trim() !== "");
-    if (lines.length < 2) {
-      toast({ title: "Empty or invalid CSV", variant: "destructive" });
+    
+    if (lines.length < 3) {
+      toast({ title: "Invalid Format", description: "CSV must have Header(Codes), Row 1(Names), and Data.", variant: "destructive" });
       setIsUploading(false);
       return;
     }
 
-    const headers = parseCSVLine(lines[0]);
-    const codeIndex = headers.findIndex(h => h.toLowerCase() === "language_code");
-    const nameIndex = headers.findIndex(h => h.toLowerCase() === "language_name");
+    // 1. Parse Grid
+    const grid = lines.map(line => parseCSVLine(line));
 
-    if (codeIndex === -1 || nameIndex === -1) {
-      toast({ title: "Invalid Columns", description: "CSV must have 'language_code' and 'language_name'.", variant: "destructive" });
-      setIsUploading(false);
-      return;
+    // 2. Validate Structure
+    // Row 0: "Translation Key", "en", "fr", ...
+    // Row 1: "_Language Name", "English", "French", ...
+    const headerCodes = grid[0]; 
+    const headerNames = grid[1];
+
+    if (headerNames[0] !== LANGUAGE_NAME_KEY) {
+       toast({ title: "Invalid Format", description: `Row 2 cell 1 must be '${LANGUAGE_NAME_KEY}'`, variant: "destructive" });
+       setIsUploading(false);
+       return;
     }
 
+    // Extract Languages (Skipping column 0 which is 'Key')
+    const languagesToImport = [];
+    for(let c = 1; c < headerCodes.length; c++) {
+        const code = headerCodes[c];
+        const name = headerNames[c];
+        if(code && name) {
+            languagesToImport.push({ code, name, translations: {} as Record<string,string> });
+        }
+    }
+
+    if (languagesToImport.length === 0) {
+        toast({ title: "No languages found", variant: "destructive" });
+        setIsUploading(false);
+        return;
+    }
+
+    // 3. Wipe Data
     await deleteAllExistingLanguages();
 
-    setStatusMessage("Importing new data...");
-    let successCount = 0;
-    const totalRows = lines.length - 1;
+    // 4. Parse Translations (Row 2 to End)
+    setStatusMessage("Processing matrix...");
+    for(let r = 2; r < grid.length; r++) {
+        const row = grid[r];
+        const key = row[0];
 
-    for (let i = 1; i < lines.length; i++) {
-      const rowValues = parseCSVLine(lines[i]);
-      if (rowValues.length < 2) continue;
-
-      const langCode = rowValues[codeIndex];
-      const langName = rowValues[nameIndex];
-
-      if (!langCode || !langName) continue;
-
-      try {
-        await request("/create_language", "POST", {
-          language_name: langName,
-          language_code: langCode,
-        });
-
-        const transPayload: Record<string, string> = {};
-        let hasTrans = false;
-
-        PREDEFINED_KEYS.forEach(key => {
-          const keyIndex = headers.indexOf(key);
-          if (keyIndex !== -1 && rowValues[keyIndex]) {
-            transPayload[key] = rowValues[keyIndex];
-            hasTrans = true;
-          }
-        });
-
-        if (hasTrans) {
-          await request("/save_language_translations", "POST", {
-            language_code: langCode,
-            translations: transPayload,
-          });
+        if(key && PREDEFINED_KEYS.includes(key)) {
+            for(let c = 1; c < row.length; c++) {
+                if(languagesToImport[c-1]) {
+                    languagesToImport[c-1].translations[key] = row[c] || "";
+                }
+            }
         }
-        
-        successCount++;
-      } catch (err) {
-        console.error(`Error importing ${langCode}`, err);
-      }
+    }
 
-      setUploadProgress(Math.round((i / totalRows) * 100));
+    // 5. Upload to API
+    setStatusMessage("Uploading languages...");
+    let successCount = 0;
+    
+    for (let i = 0; i < languagesToImport.length; i++) {
+        const lang = languagesToImport[i];
+        try {
+            await request("/create_language", "POST", {
+                language_name: lang.name,
+                language_code: lang.code,
+            });
+
+            await request("/save_language_translations", "POST", {
+                language_code: lang.code,
+                translations: lang.translations,
+            });
+
+            successCount++;
+        } catch (err) {
+            console.error(`Error importing ${lang.code}`, err);
+        }
+        setUploadProgress(Math.round(((i + 1) / languagesToImport.length) * 100));
     }
 
     setIsUploading(false);
     setStatusMessage("");
-    toast({ title: "Full Sync Complete", description: `Database replaced. Imported ${successCount} languages.` });
+    toast({ title: "Import Complete", description: `Imported ${successCount} languages.` });
     fetchLanguages();
   };
 
+  // --- Logic: Export Data (COLUMN-BASED) ---
   const handleExportData = async () => {
     setIsExporting(true);
     try {
         const resLang = await request("/get_languages", "GET");
-        let allLanguages = [];
+        let allLanguages: any[] = [];
         
         if (resLang?.status_code === 200 && Array.isArray(resLang.data)) {
             allLanguages = resLang.data;
         } else {
-            toast({ title: "No languages found to export", variant: "destructive" });
+            toast({ title: "No languages found", variant: "destructive" });
             setIsExporting(false);
             return;
         }
 
-        const headerRow = ["language_code", "language_name", ...PREDEFINED_KEYS];
+        const allTranslations: Record<string, any> = {};
+        
+        await Promise.all(allLanguages.map(async (lang) => {
+            try {
+                const tRes = await request("/get_language_translations", "POST", { language_code: lang.language_code });
+                allTranslations[lang.language_code] = tRes?.data || {};
+            } catch (e) {
+                allTranslations[lang.language_code] = {};
+            }
+        }));
+
         const escapeCsv = (val: string) => `"${(val || "").replace(/"/g, '""')}"`;
 
-        let csvContent = headerRow.map(escapeCsv).join(",") + "\n";
+        // Row 1: Header (Codes) -> "Translation Key", "en", "fr"
+        let csvContent = `Translation Key,${allLanguages.map(l => escapeCsv(l.language_code)).join(",")}\n`;
 
-        for (const lang of allLanguages) {
-            const resTrans = await request("/get_language_translations", "POST", {
-                language_code: lang.language_code
+        // Row 2: Metadata (Names) -> "_Language Name", "English", "French"
+        csvContent += `${LANGUAGE_NAME_KEY},${allLanguages.map(l => escapeCsv(l.language_name)).join(",")}\n`;
+
+        // Subsequent Rows: Keys and Values
+        PREDEFINED_KEYS.forEach(key => {
+            const rowValues = allLanguages.map(lang => {
+                const val = allTranslations[lang.language_code]?.[key] || "";
+                return escapeCsv(val);
             });
-
-            const translations = resTrans?.data || {};
-
-            const rowData = [
-                lang.language_code,
-                lang.language_name,
-                ...PREDEFINED_KEYS.map(key => translations[key] || "")
-            ];
-
-            csvContent += rowData.map(escapeCsv).join(",") + "\n";
-        }
+            csvContent += `${escapeCsv(key)},${rowValues.join(",")}\n`;
+        });
 
         const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.setAttribute("download", "languages_export.csv");
+        link.setAttribute("download", "languages_matrix_export.csv");
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
 
-        toast({ title: "Export Successful", description: "All database languages have been exported." });
+        toast({ title: "Export Successful" });
 
     } catch (e) {
         console.error("Export failed", e);
-        toast({ title: "Export Failed", description: "Could not fetch data.", variant: "destructive" });
+        toast({ title: "Export Failed", variant: "destructive" });
     } finally {
         setIsExporting(false);
     }
@@ -697,7 +720,7 @@ export default function LanguageManagement() {
                     disabled={isExporting || isUploading}
                   >
                     {isExporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileDown className="w-4 h-4 mr-2" />}
-                    {isExporting ? "Exporting..." : "Export CSV"}
+                    {isExporting ? "Exporting..." : "Export Matrix CSV"}
                   </Button>
                   
                   <Button 
