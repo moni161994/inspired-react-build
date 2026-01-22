@@ -8,9 +8,15 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Edit3, Plus, Upload, FileDown, Loader2, AlertTriangle } from "lucide-react";
+import { Trash2, Edit3, Plus, Upload, FileDown, Loader2, AlertTriangle, ChevronDown } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 // --- Types ---
 type Language = {
@@ -19,254 +25,249 @@ type Language = {
   is_active: boolean;
 };
 
-// --- Predefined Translation Keys ---
-const PREDEFINED_KEYS = [
-  "Dashboard",
-  "Profile", 
-  "Leads",
-  "Support",
-  "Total Lead",
-  "Logout",
-  "New Lead Captured",
-  "CRM Sync Completed",
-  "CRM Sync",
-  "Hot Lead Identified",
-  "Hide Details",
-  "Designation",
-  "Company",
-  "Phone Numbers",
-  "Emails",
-  "Websites",
-  "Other",
-  "City",
-  "State",
-  "ZIP",
-  "Country",
-  "Area Of Interest",
-  "Disclaimer",
-  "Consent Form",
-  "Term And Condition",
-  "Signature",
-  "Email Opt In",
-  "Captured by",
-  "Support?",
-  "How we can help you",
-  "For any queries or support",
-  "please email us at",
-  "FAQs",
-  "How can I contact support?",
-  "What should I include in my email?",
-  "What are your support hours?",
-  "My Profile",
-  "Employee ID",
-  "Teams",
-  "Parent ID",
-  "Status",
-  "Active",
-  "Total Leads",
-  "Total Events",
-  "Active Events",
-  "Offline Leads",
-  "Recent Activity",
-  "All",
-  "View All",
-  "Add Lead Capture",
-  "Select Event",
-  "Photo",
-  "Manual",
-  "Click below to capture lead via camera",
-  "Take a Photo",
-  "Lead Capture", 
-  "Badge Capture",
-  "No Records Found",
-  "To get Started",
-  "Enter Your Install Code",
-  "Enter Install Code",
-  "Choose your Language",
-  "Continue",
-  "Welcome Back",
-  "Email or Phone",
-  "Code",
-  "Submit",
-  "Error",
-  "Login Failed",
-  "Invalid credentials",
-  "Please enter email and 5 digit code",
-  "Something went wrong",
-  "Please enter your email",
-  "Failed to send OTP",
-  "Something went wrong while sending OTP",
-  "Selection Required",
-  "Please select a language to continue",
-  "Failed to load languages",
-  "Something went wrong fetching languages",
-  "Failed to download language pack. Please try again.",
-  "Check your internet connection and try again.",
-  "Hello,",
-  "User",
-  "Nothing to sync",
-  "Manual Lead",
-  "Captured Lead",
-  "Some Leads Not Synced",
-  "leads could not be synced.",
-  "Go to Pending",
-  "All captured leads uploaded successfully!",
-  "Something went wrong while syncing captured leads.",
-  "New lead Capture",
-  "New Leads in oﬄine mode",
-  "Need Sync",
-  "New lead capture with Consent",
-  "New event activated",
-  "Performance Overview",
-  "Conversion Rate",
-  "Sync Success",
-  "Activity History",
-  "clicked",
-  "Confirm Delete",
-  "Are you sure you want to delete this event?",
-  "Delete",
-  "Cancel",
-  "Delete failed",
-  "Event updated successfully",
-  "Update failed",
-  "Event ID",
-  "Priority",
-  "Budget",
-  "Size",
-  "No records found",
-  "Notifications",
-  "Camera loading...",
-  "Offline Mode",
-  "Image saved locally. Fill details & submit to save complete lead offline.",
-  "Continue Offline",
-  "Pending Uploads",
-  "Upload failed",
-  "No QR code detected from Vision",
-  "Failed to capture photo",
-  "Failed to pick image",
-  "Gallery",
-  "Show Contact Details",
-  "Hide Contact Details",
-  "Contact Details",
-  "Other Details",
-  "QR Code",
-  "Role",
-  "Successful Upload",
-  "Captured on",
-  "Yes",
-  "No",
-  "Leads",
-  "Lead Capture",
-  "Badge Capture",
-  "Sync Offline",
-  "Syncing...",
-  "Unknown Name",
-  "No email",
-  "No phone",
-  "Confirm Delete",
-  "Are you sure you want to delete this lead?",
-  "Delete",
-  "Cancel",
-  "No Records Found",
-  "No active event found to sync this lead.",
-  "Lead synced & text extracted!",
-  "Could not sync lead, saved offline.",
-  "Check your internet connection. Lead saved offline.",
-  "No offline leads saved",
-  "Sync",     
-  "Phone",    
-  "Email",
-  "Delete Lead",
-  "All captured leads synced successfully!",
-  "Failed to sync captured leads.",
-  "Internet not available for sync.",
-  "OCR Failed",
-  "Please update your plan",
-  "Validation Error",
-  "Name is required for upload.",
-  "Lead synced successfully!",
-  "Sync Failed",
-  "Lead saved for retry.",
-  "Sync All",
-  "No offline leads",
-  "Lead Image",
-  "Pending",
-  "Add Lead Capture",
-  "Select Event",
-  "No existing field in this event template",
-  "Captured Photo",
-  "Lead Details",
-  "Enter Name",
-  "Enter Designation",
-  "Enter Company",
-  "Enter Phone",
-  "Enter Email",
-  "Enter Website",
-  "Enter Role (comma separated)",
-  "Enter / Edit QR Data",
-  "Enter Disclaimer",
-  "Enter City",
-  "Enter State",
-  "Enter Zip",
-  "Enter Country",
-  "Area of Interest - Category",
-  "Make a selection >",
-  "Add Signature",
-  "View >",
-  "Opted In",
-  "Opted Out",
-  "Data Consent",
-  "Consented",
-  "Declined",
-  "Terms & Conditions",
-  "Accepted",
-  "Submit Lead Capture",
-  "Submit Manual Form",
-  "Take a Photo",
-  "Oops!",
-  "is mandatory. Please fill them.",
-  "are mandatory. Please fill them.",
-  "Invalid Email",
-  "Please enter a valid email (e.g., user@gmail.com)",
-  "Invalid Website",
-  "Please enter a valid website (e.g., www.example.com)",
-  "Invalid Phone",
-  "Phone number must be 10 digits",
-  "Saved Offline",
-  "Lead saved! Total pending:",
-  "Complete lead saved offline with all manual fields.",
-  "No speech detected, stopping mic safely",
-  "By entering your email address, you are Opting In to receive Marketing emails from Epredia.",
-  "This will allow us to digitally communicate with you via emails regarding products and services that we feel may be of interest to you or that are similar to those that you have already purchased or enquired about.",
-  "You may be contacted by us, or by one of our selected partners, in each case where you have consented to receive these communications.",
-  "You may opt out of receiving our marketing communications at any time by contacting us at privacy@epredia.com or by using the Unsubscribe link in any of our communications.",
-  "We will continue to contact you for non-marketing related purposes where we need to issue a field corrective or safety notice, or where we need to send certain information to you under a legal, regulatory, or ethical requirement.",
-  "Thank you.",
-  "Opt-In",
-  "Opt-Out",
-  "Done",
-  "Clear",
-  "Decline",
-  "Consent",
-  "Accept",
-  "I consent to the collection and processing of my personal data for this event.",
-  "This includes name, contact details, and professional information provided.",
-  "Data will be used for event follow-up and marketing communications (if opted in).",
-  "You may withdraw consent at privacy@epredia.com at any time.",
-  "By accepting these terms, you agree to our Terms & Conditions and Privacy Policy.",
-  "This will allow us to process your lead information securely and in compliance with data protection regulations.",
-  "You may review the full terms at any time by contacting privacy@epredia.com.",
-  "Anatomy Software",
-  "Archiving & Storage",
-  "Blades",
-  "Cryotomy",
-  "Cytology",
-  "Digital Pathology",
-  "Immunohistochemistry",
-  "Instrument Service",
-  "Labeling & Tracking",
-  "Microscope Slides"
-] as const;
+// --- KEY CATEGORIZATION MAP ---
+const KEY_CATEGORIES: Record<string, string> = {
+  "Dashboard": "App Headings",
+  "Profile": "App Headings",
+  "Leads": "App Headings",
+  "Support": "App Headings",
+  "Total Lead": "App Headings",
+  "Logout": "App Headings",
+  "New Lead Captured": "Alert & Other Messages",
+  "CRM Sync Completed": "Alert & Other Messages",
+  "CRM Sync": "Alert & Other Messages",
+  "Hot Lead Identified": "Alert & Other Messages",
+  "Hide Details": "App Headings",
+  "Designation": "Lead Contact fields",
+  "Company": "Lead Contact fields",
+  "Phone Numbers": "Lead Contact fields",
+  "Emails": "Lead Contact fields",
+  "Websites": "Lead Contact fields",
+  "Other": "Lead Contact fields",
+  "City": "Lead Contact fields",
+  "State": "Lead Contact fields",
+  "ZIP": "Lead Contact fields",
+  "Country": "Lead Contact fields",
+  "Area Of Interest": "Lead Labels",
+  "Disclaimer": "Lead Labels",
+  "Consent Form": "Lead Labels",
+  "Term And Condition": "Lead Labels",
+  "Signature": "Lead Labels",
+  "Email Opt In": "Lead Labels",
+  "Captured by": "Lead Labels",
+  "Support?": "App Headings",
+  "How we can help you": "App Other Text",
+  "For any queries or support": "App Other Text",
+  "please email us at": "App Other Text",
+  "FAQs": "App Other Text",
+  "How can I contact support?": "App Other Text",
+  "What should I include in my email?": "App Other Text",
+  "What are your support hours?": "App Other Text",
+  "My Profile": "App Headings",
+  "Employee ID": "App Headings",
+  "Teams": "App Headings",
+  "Parent ID": "App Headings",
+  "Status": "App Headings",
+  "Active": "App Headings",
+  "Total Leads": "App Headings",
+  "Total Events": "App Headings",
+  "Active Events": "App Headings",
+  "Offline Leads": "App Headings",
+  "Recent Activity": "App Headings",
+  "All": "App Headings",
+  "View All": "App Headings",
+  "Add Lead Capture": "App Headings",
+  "Select Event": "App Headings",
+  "Photo": "App Headings",
+  "Manual": "App Headings",
+  "Click below to capture lead via camera": "App Other Text",
+  "Take a Photo": "App Headings",
+  "Lead Capture": "App Headings",
+  "Badge Capture": "App Headings",
+  "No Records Found": "App Other Text",
+  "To get Started": "App Other Text",
+  "Enter Your Install Code": "App Other Text",
+  "Enter Install Code": "App Other Text",
+  "Choose your Language": "App Headings",
+  "Continue": "App Other Text",
+  "Welcome Back": "App Other Text",
+  "Email or Phone": "App Other Text",
+  "Code": "App Other Text",
+  "Submit": "App Other Text",
+  "Error": "App Other Text",
+  "Login Failed": "Alert & Other Messages",
+  "Invalid credentials": "Alert & Other Messages",
+  "Please enter email and 5 digit code": "Alert & Other Messages",
+  "Something went wrong": "Alert & Other Messages",
+  "Please enter your email": "App Other Text",
+  "Failed to send OTP": "Alert & Other Messages",
+  "Something went wrong while sending OTP": "Alert & Other Messages",
+  "Selection Required": "Alert & Other Messages",
+  "Please select a language to continue": "App Other Text",
+  "Failed to load languages": "Alert & Other Messages",
+  "Something went wrong fetching languages": "Alert & Other Messages",
+  "Failed to download language pack. Please try again.": "Alert & Other Messages",
+  "Check your internet connection and try again.": "Alert & Other Messages",
+  "Hello,": "App Other Text",
+  "User": "App Other Text",
+  "Nothing to sync": "Alert & Other Messages",
+  "Manual Lead": "App Headings",
+  "Captured Lead": "App Headings",
+  "Some Leads Not Synced": "Alert & Other Messages",
+  "leads could not be synced.": "Alert & Other Messages",
+  "Go to Pending": "App Headings",
+  "All captured leads uploaded successfully!": "Alert & Other Messages",
+  "Something went wrong while syncing captured leads.": "Alert & Other Messages",
+  "New lead Capture": "App Headings",
+  "New Leads in oﬄine mode": "App Headings", // Note: "oﬄine" contains special ligature char in your list
+  "New Leads in offline mode": "App Headings", // Added standard spelling just in case
+  "Need Sync": "App Headings",
+  "New lead capture with Consent": "App Headings",
+  "New event activated": "Alert & Other Messages",
+  "Performance Overview": "App Headings",
+  "Conversion Rate": "App Headings",
+  "Sync Success": "Alert & Other Messages",
+  "Activity History": "App Headings",
+  "clicked": "App Other Text",
+  "Confirm Delete": "App Other Text",
+  "Are you sure you want to delete this event?": "Alert & Other Messages",
+  "Delete": "App Other Text",
+  "Cancel": "App Other Text",
+  "Delete failed": "Alert & Other Messages",
+  "Event updated successfully": "Alert & Other Messages",
+  "Update failed": "Alert & Other Messages",
+  "Event ID": "App Headings",
+  "Priority": "App Headings",
+  "Budget": "App Headings",
+  "Size": "App Headings",
+  "No records found": "App Other Text", // Lowercase variant
+  "Notifications": "App Other Text",
+  "Camera loading...": "App Other Text",
+  "Offline Mode": "App Other Text",
+  "Image saved locally. Fill details & submit to save complete lead offline.": "Alert & Other Messages",
+  "Continue Offline": "App Other Text",
+  "Pending Uploads": "App Other Text",
+  "Upload failed": "Alert & Other Messages",
+  "No QR code detected from Vision": "Alert & Other Messages",
+  "Failed to capture photo": "Alert & Other Messages",
+  "Failed to pick image": "Alert & Other Messages",
+  "Gallery": "App Other Text",
+  "Show Contact Details": "App Other Text",
+  "Hide Contact Details": "App Other Text",
+  "Contact Details": "App Other Text",
+  "Other Details": "App Other Text",
+  "QR Code": "App Headings",
+  "Role": "App Headings",
+  "Successful Upload": "Alert & Other Messages",
+  "Captured on": "App Other Text",
+  "Yes": "App Other Text",
+  "No": "App Other Text",
+  "Sync Offline": "App Headings",
+  "Syncing...": "Alert & Other Messages",
+  "Unknown Name": "Alert & Other Messages",
+  "No email": "App Other Text",
+  "No phone": "App Other Text",
+  "Are you sure you want to delete this lead?": "App Other Text",
+  "No active event found to sync this lead.": "Alert & Other Messages",
+  "Lead synced & text extracted!": "Alert & Other Messages",
+  "Could not sync lead, saved offline.": "Alert & Other Messages",
+  "Check your internet connection. Lead saved offline.": "App Other Text",
+  "No offline leads saved": "Alert & Other Messages",
+  "Sync": "App Other Text",
+  "Phone": "App Other Text",
+  "Email": "App Other Text",
+  "Delete Lead": "App Other Text",
+  "All captured leads synced successfully!": "Alert & Other Messages",
+  "Failed to sync captured leads.": "Alert & Other Messages",
+  "Internet not available for sync.": "Alert & Other Messages",
+  "OCR Failed": "Alert & Other Messages",
+  "Please update your plan": "App Other Text",
+  "Validation Error": "Alert & Other Messages",
+  "Name is required for upload.": "Alert & Other Messages",
+  "Lead synced successfully!": "Alert & Other Messages",
+  "Sync Failed": "Alert & Other Messages",
+  "Lead saved for retry.": "Alert & Other Messages",
+  "Sync All": "App Other Text",
+  "No offline leads": "App Other Text",
+  "Lead Image": "App Other Text",
+  "Pending": "App Other Text",
+  "No existing field in this event template": "Alert & Other Messages",
+  "Captured Photo": "App Other Text",
+  "Lead Details": "App Other Text",
+  "Enter Name": "Manual Lead form",
+  "Enter Designation": "Manual Lead form",
+  "Enter Company": "Manual Lead form",
+  "Enter Phone": "Manual Lead form",
+  "Enter Email": "Manual Lead form",
+  "Enter Website": "Manual Lead form",
+  "Enter Role (comma separated)": "Manual Lead form",
+  "Enter / Edit QR Data": "Manual Lead form",
+  "Enter Disclaimer": "Manual Lead form",
+  "Enter City": "Manual Lead form",
+  "Enter State": "Manual Lead form",
+  "Enter Zip": "Manual Lead form",
+  "Enter Country": "Manual Lead form",
+  "Area of Interest - Category": "App Other Text",
+  "Make a selection >": "App Other Text",
+  "Add Signature": "App Other Text",
+  "View >": "App Other Text",
+  "Opted In": "App Other Text",
+  "Opted Out": "App Other Text",
+  "Data Consent": "App Other Text",
+  "Consented": "App Other Text",
+  "Declined": "App Other Text",
+  "Terms & Conditions": "App Other Text",
+  "Accepted": "Alert & Other Messages",
+  "Submit Lead Capture": "App Other Text",
+  "Submit Manual Form": "App Other Text",
+  "Oops!": "App Other Text",
+  "is mandatory. Please fill them.": "Alert & Other Messages",
+  "are mandatory. Please fill them.": "Alert & Other Messages",
+  "Invalid Email": "Alert & Other Messages",
+  "Please enter a valid email (e.g., user@gmail.com)": "Alert & Other Messages",
+  "Invalid Website": "Alert & Other Messages",
+  "Please enter a valid website (e.g., www.example.com)": "Alert & Other Messages",
+  "Invalid Phone": "Alert & Other Messages",
+  "Phone number must be 10 digits": "Alert & Other Messages",
+  "Saved Offline": "Alert & Other Messages",
+  "Lead saved! Total pending:": "Alert & Other Messages",
+  "Complete lead saved offline with all manual fields.": "Alert & Other Messages",
+  "No speech detected, stopping mic safely": "Alert & Other Messages",
+  "By entering your email address, you are Opting In to receive Marketing emails from Epredia.": "Email Opt-in",
+  "This will allow us to digitally communicate with you via emails regarding products and services that we feel may be of interest to you or that are similar to those that you have already purchased or enquired about.": "Email Opt-in",
+  "You may be contacted by us, or by one of our selected partners, in each case where you have consented to receive these communications.": "Email Opt-in",
+  "You may opt out of receiving our marketing communications at any time by contacting us at privacy@epredia.com or by using the Unsubscribe link in any of our communications.": "Email Opt-in",
+  "We will continue to contact you for non-marketing related purposes where we need to issue a field corrective or safety notice, or where we need to send certain information to you under a legal, regulatory, or ethical requirement.": "Email Opt-in",
+  "Thank you.": "App Other Text",
+  "Opt-In": "App Other Text",
+  "Opt-Out": "App Other Text",
+  "Done": "App Other Text",
+  "Clear": "App Other Text",
+  "Decline": "App Other Text",
+  "Consent": "App Other Text",
+  "Accept": "App Other Text",
+  "I consent to the collection and processing of my personal data for this event.": "App Other Text",
+  "This includes name, contact details, and professional information provided.": "App Other Text",
+  "Data will be used for event follow-up and marketing communications (if opted in).": "App Other Text",
+  "You may withdraw consent at privacy@epredia.com at any time.": "App Other Text",
+  "By accepting these terms, you agree to our Terms & Conditions and Privacy Policy.": "App Other Text",
+  "This will allow us to process your lead information securely and in compliance with data protection regulations.": "App Other Text",
+  "You may review the full terms at any time by contacting privacy@epredia.com.": "App Other Text",
+  "Anatomy Software": "Area of Interest",
+  "Archiving & Storage": "Area of Interest",
+  "Blades": "Area of Interest",
+  "Cryotomy": "Area of Interest",
+  "Cytology": "Area of Interest",
+  "Digital Pathology": "Area of Interest",
+  "Immunohistochemistry": "Area of Interest",
+  "Instrument Service": "Area of Interest",
+  "Labeling & Tracking": "Area of Interest",
+  "Microscope Slides": "Area of Interest"
+};
+
+// --- PREDEFINED KEYS LIST ---
+// (Re-using your existing list)
+const PREDEFINED_KEYS = Object.keys(KEY_CATEGORIES);
 
 export default function LanguageManagement() {
   // --- State: General & Permissions ---
@@ -290,11 +291,33 @@ export default function LanguageManagement() {
   const [isUploading, setIsUploading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0); 
-  const [statusMessage, setStatusMessage] = useState(""); // To show "Deleting..." vs "Importing..."
+  const [statusMessage, setStatusMessage] = useState(""); 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { request, loading } = useApi();
   const { toast } = useToast();
+
+  // --- Grouped Keys for Accordion ---
+  // We compute this once to render the accordion sections dynamically.
+  const groupedKeys = PREDEFINED_KEYS.reduce((acc, key) => {
+    const category = KEY_CATEGORIES[key] || "Uncategorized";
+    if (!acc[category]) acc[category] = [];
+    acc[category].push(key);
+    return acc;
+  }, {} as Record<string, string[]>);
+
+  // Order of sections based on your request, plus any others at the end
+  const SECTION_ORDER = [
+    "App Headings",
+    "App Other Text",
+    "Alert & Other Messages",
+    "Lead Contact fields",
+    "Lead Labels",
+    "Manual Lead form",
+    "Email Opt-in",
+    "Area of Interest",
+    "Uncategorized"
+  ];
 
   // --- Initial Load ---
   useEffect(() => {
@@ -339,9 +362,6 @@ export default function LanguageManagement() {
       }
     } catch (e) {
       console.error("loadMyAccess error", e);
-      setCanCreateLanguage(false);
-      setCanEditLanguage(false);
-      setCanDeleteLanguage(false);
     }
   };
 
@@ -354,7 +374,7 @@ export default function LanguageManagement() {
           is_active: Boolean(lang.is_active)
         }));
         setLanguages(formattedLanguages);
-        return formattedLanguages; // Return for usage in delete function
+        return formattedLanguages;
       } else {
         setLanguages([]);
         return [];
@@ -426,7 +446,7 @@ export default function LanguageManagement() {
     try {
       const languageApiCall = editingLanguage
         ? request("/update_language", "POST", {
-            language_id: editingLanguage.language_code,
+            language_id: editingLanguage.language_code, // Note: Assuming ID matches Code logic based on your code
             language_name: formData.language_name,
             language_code: formData.language_code,
           })
@@ -465,8 +485,7 @@ export default function LanguageManagement() {
     }
   };
 
-  // --- Logic: Bulk Import (Frontend Loop) ---
-  
+  // --- Logic: Bulk Import ---
   const parseCSVLine = (text: string) => {
     const result = [];
     let start = 0;
@@ -495,9 +514,8 @@ export default function LanguageManagement() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Safety Confirmation
     if (!window.confirm("⚠️ WARNING: This will DELETE ALL existing languages and replace them with the CSV data. Continue?")) {
-        event.target.value = ""; // Reset input
+        event.target.value = ""; 
         return;
     }
 
@@ -507,15 +525,12 @@ export default function LanguageManagement() {
       if (text) await processCSV(text);
     };
     reader.readAsText(file);
-    event.target.value = ""; // Reset input
+    event.target.value = "";
   };
 
-  // Helper to delete all languages before import
   const deleteAllExistingLanguages = async () => {
     setStatusMessage("Deleting old data...");
-    const currentLangs = await fetchLanguages(); // Get fresh list
-    
-    // Process deletions sequentially to avoid backend overload or race conditions
+    const currentLangs = await fetchLanguages();
     for (const lang of currentLangs) {
         try {
             await request("/delete_language", "POST", { language_code: lang.language_code });
@@ -536,7 +551,6 @@ export default function LanguageManagement() {
       return;
     }
 
-    // 1. Validation Phase
     const headers = parseCSVLine(lines[0]);
     const codeIndex = headers.findIndex(h => h.toLowerCase() === "language_code");
     const nameIndex = headers.findIndex(h => h.toLowerCase() === "language_name");
@@ -547,10 +561,8 @@ export default function LanguageManagement() {
       return;
     }
 
-    // 2. Wipe Phase (Delete all existing languages)
     await deleteAllExistingLanguages();
 
-    // 3. Import Phase
     setStatusMessage("Importing new data...");
     let successCount = 0;
     const totalRows = lines.length - 1;
@@ -565,13 +577,11 @@ export default function LanguageManagement() {
       if (!langCode || !langName) continue;
 
       try {
-        // Create Language
         await request("/create_language", "POST", {
           language_name: langName,
           language_code: langCode,
         });
 
-        // Prepare Translations
         const transPayload: Record<string, string> = {};
         let hasTrans = false;
 
@@ -583,7 +593,6 @@ export default function LanguageManagement() {
           }
         });
 
-        // Save Translations
         if (hasTrans) {
           await request("/save_language_translations", "POST", {
             language_code: langCode,
@@ -605,7 +614,6 @@ export default function LanguageManagement() {
     fetchLanguages();
   };
 
-  // --- Logic: Export Database to CSV ---
   const handleExportData = async () => {
     setIsExporting(true);
     try {
@@ -667,12 +675,11 @@ export default function LanguageManagement() {
         <DashboardHeader />
         <main className="flex-1 overflow-auto p-6">
           
-          {/* Header Area */}
+          {/* Header */}
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
             <h2 className="text-lg font-semibold text-foreground">Languages</h2>
             
             <div className="flex flex-wrap gap-2">
-              {/* Hidden File Input */}
               <input 
                 type="file" 
                 accept=".csv" 
@@ -683,7 +690,6 @@ export default function LanguageManagement() {
 
               {canCreateLanguage && (
                 <>
-                  {/* EXPORT BUTTON */}
                   <Button 
                     variant="outline" 
                     size="sm" 
@@ -694,7 +700,6 @@ export default function LanguageManagement() {
                     {isExporting ? "Exporting..." : "Export CSV"}
                   </Button>
                   
-                  {/* IMPORT BUTTON */}
                   <Button 
                     variant="outline" 
                     size="sm" 
@@ -713,7 +718,7 @@ export default function LanguageManagement() {
             </div>
           </div>
 
-          {/* Progress Bar & Status */}
+          {/* Progress */}
           {isUploading && (
             <Card className="mb-6 bg-muted/20 border-primary/20">
               <CardContent className="py-4">
@@ -735,7 +740,7 @@ export default function LanguageManagement() {
             </Card>
           )}
 
-          {/* Main Table */}
+          {/* Table */}
           <Card>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
@@ -775,13 +780,6 @@ export default function LanguageManagement() {
                         </td>
                       </tr>
                     ))}
-                    {languages.length === 0 && !loading && (
-                      <tr>
-                        <td colSpan={4} className="text-center py-8 text-muted-foreground">
-                          No languages found. Add one or import via CSV.
-                        </td>
-                      </tr>
-                    )}
                   </tbody>
                 </table>
               </div>
@@ -800,14 +798,14 @@ export default function LanguageManagement() {
           </DialogHeader>
           
           <div className="flex-1 overflow-y-auto pr-2">
-            {/* Section 1: Basic Details */}
+            {/* General Settings */}
             <div className="mb-6 p-4 border rounded-lg bg-muted/10">
               <h3 className="text-sm font-semibold mb-4 text-foreground/80">General Settings</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="language_name">Language Name *</Label>
                   <Input
-                  className="border-gray focus:border-gray"
+                    className="border-gray focus:border-gray"
                     id="language_name"
                     placeholder="e.g. French"
                     value={formData.language_name}
@@ -817,46 +815,59 @@ export default function LanguageManagement() {
                 <div>
                   <Label htmlFor="language_code">Language Code *</Label>
                   <Input
-                  className="border-gray focus:border-gray"
+                    className="border-gray focus:border-gray"
                     id="language_code"
                     placeholder="e.g. fr"
                     value={formData.language_code}
                     onChange={(e) => setFormData({ ...formData, language_code: e.target.value })}
                     disabled={!!editingLanguage} 
                   />
-                  {editingLanguage && <p className="text-xs text-muted-foreground mt-1">Code cannot be changed.</p>}
                 </div>
               </div>
             </div>
 
-            {/* Section 2: Translations */}
-            <div>
-              <div className="flex items-center justify-between mb-4 sticky top-0 bg-background pt-2 pb-2 z-10 border-b">
-                <h3 className="text-sm font-semibold text-foreground/80">Translations</h3>
-                <Badge variant="outline">{PREDEFINED_KEYS.length} keys</Badge>
-              </div>
-              
-              <div className="space-y-3 pb-4">
-                {PREDEFINED_KEYS.map((key) => (
-                  <div key={key} className="grid grid-cols-1 md:grid-cols-12 gap-4 p-3 border rounded-md hover:bg-muted/5 transition-colors">
-                    <div className="md:col-span-4 flex flex-col justify-center">
-                      <Label className="text-xs font-mono text-muted-foreground break-words leading-tight">
-                        {key}
-                      </Label>
-                    </div>
-                    <div className="md:col-span-8">
-                      <Textarea
-                        value={formData.translations[key] || ""}
-                        onChange={(e) => updateTranslationKey(key, e.target.value)}
-                        placeholder={`Translate "${key}"...`}
-                        className="min-h-[2.5rem] py-2 resize-y text-sm border-gray focus:border-gray"
-                        rows={1}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            {/* Accordion Translations */}
+            <h3 className="text-sm font-semibold text-foreground/80 mb-2">Translations</h3>
+            
+            <Accordion type="multiple" defaultValue={["App Headings"]} className="w-full border rounded-lg bg-background">
+              {SECTION_ORDER.map((category) => {
+                const keys = groupedKeys[category];
+                if (!keys || keys.length === 0) return null;
+
+                return (
+                  <AccordionItem key={category} value={category} className="border-b last:border-b-0">
+                    <AccordionTrigger className="px-4 py-3 hover:bg-muted/10">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">{category}</span>
+                        <Badge variant="secondary" className="text-xs">{keys.length}</Badge>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="p-4 bg-muted/5">
+                      <div className="space-y-3">
+                        {keys.map((key) => (
+                          <div key={key} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+                            <div className="md:col-span-4 pt-2">
+                              <Label className="text-xs font-mono text-muted-foreground break-words leading-tight">
+                                {key}
+                              </Label>
+                            </div>
+                            <div className="md:col-span-8">
+                              <Textarea
+                                value={formData.translations[key] || ""}
+                                onChange={(e) => updateTranslationKey(key, e.target.value)}
+                                placeholder="Enter translation..."
+                                className="min-h-[2.5rem] py-2 resize-y text-sm border-gray focus:border-gray"
+                                rows={1}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                );
+              })}
+            </Accordion>
           </div>
 
           <div className="flex justify-end space-x-3 pt-4 border-t mt-2 bg-background">
