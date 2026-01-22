@@ -11,17 +11,34 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Check, ChevronsUpDown, Edit, Search, X } from "lucide-react";
+import { 
+  ArrowLeft, 
+  ArrowRight, 
+  Check, 
+  ChevronsUpDown, 
+  Edit, 
+  Loader2, 
+  MapPin, 
+  Search, 
+  X,
+  Calendar,
+  LayoutGrid,
+  Clock,
+  UsersIcon,
+  User,
+  Folder,
+  LayoutList
+} from "lucide-react";
 import { useApi } from "@/hooks/useApi";
 import { DateInput } from "@/components/ui/DateInput";
-
-// 🔹 IMPORT MISSING ICONS
-import { LayoutGrid, Calendar, Clock, UsersIcon, User, Folder, LayoutList } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useToast } from "@/components/ui/use-toast";
+import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
 
+// ================= INTERFACES =================
 export interface Event {
   event_id: number;
   event_name: string;
@@ -37,15 +54,9 @@ export interface Event {
   team: string;
   template_id: number | null;
   capture_type: string[];
+  lead_type?: string[];
+  event_type?: string;
 }
-
-export interface User {
-  employee_id: number;
-  user_name: string;
-  profile: string;
-}
-
-// ... [Keep PageOption, ActionOption, AccessPointData interfaces and constants as they were] ...
 
 interface AccessPointData {
   page: string[];
@@ -53,7 +64,7 @@ interface AccessPointData {
   user_id: number;
 }
 
-// ... [Keep UpdateEventPopup component exactly as it was] ...
+// ================= UPDATE POPUP COMPONENT =================
 function UpdateEventPopup({
   event,
   onClose,
@@ -63,423 +74,393 @@ function UpdateEventPopup({
   onClose: () => void;
   onSave: (updatedEvent: Event) => void;
 }) {
-    // ... [Content of UpdateEventPopup remains unchanged] ...
-    // For brevity in this answer, I am assuming the popup code remains 
-    // exactly as you provided in your prompt.
-    const [updatedEvent, setUpdatedEvent] = useState<any>({
-        event_id: 0,
-        event_status: "",
-        event_name: "",
-        start_date: "",
-        end_date: "",
-        location: "",
-        team: "",
-        total_leads: 0,
-        priority_leads: 0,
-        budget: 1,
-        event_size: "medium",
-        template_id: "",
-        capture_type: [],
-        ...event,
-      });
+  const [step, setStep] = useState(1);
+  const { request, loading } = useApi<any>();
+  const { toast } = useToast();
+
+  // 🔹 DATA STATES
+  const [teams, setTeams] = useState<string[]>([]);
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
+
+  // 🔹 LOCATION SEARCH STATES
+  const [locationSearch, setLocationSearch] = useState("");
+  const [locationSuggestions, setLocationSuggestions] = useState<any[]>([]);
+  const [isLocationLoading, setIsLocationLoading] = useState(false);
+  const [isLocationOpen, setIsLocationOpen] = useState(false);
+
+  // 🔹 FORM STATE
+  const [formData, setFormData] = useState({
+    event_id: 0,
+    event_name: "",
+    event_status: "Upcoming",
+    event_type: "Tradeshow",
+    template_id: "",
+    location: "",
+    start_date: "",
+    end_date: "",
     
-      const [teams, setTeams] = useState<string[]>([]);
-      const [templateList, setTemplateList] = useState<{ data: any[] }>({ data: [] });
-      const [error, setError] = useState<string | null>(null);
-      const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
-      const [captureTypes, setCaptureTypes] = useState<string[]>([]);
-      const { toast } = useToast();
-    
-      const { request, loading } = useApi<any>();
-    
-      useEffect(() => {
-        const fetchData = async () => {
-          try {
-            const teamsRes = await request("/get_all_teams", "GET");
-    
-            if (Array.isArray(teamsRes)) {
-              const teamNames = teamsRes
-                .map((t: any) => t.team_name)
-                .filter((name: any): name is string => typeof name === "string");
-    
-              setTeams(teamNames);
-            }
-    
-            const templateRes = await request("/form_template_list", "GET");
-    
-            if (templateRes?.data && Array.isArray(templateRes.data)) {
-              setTemplateList({ data: templateRes.data });
-            }
-          } catch (err) {
-            console.error("API error:", err);
-          }
-        };
-    
-        fetchData();
-      }, []);
-    
-      // 🔹 SYNC SELECTED TEAMS FROM EVENT PROP (after teams load)
-      useEffect(() => {
-        if (event?.team && teams.length > 0) {
-          const initialTeams = event.team
-            .split(", ")
-            .filter((t: string) => teams.includes(t));
-          setSelectedTeams(initialTeams);
-          setUpdatedEvent((prev: any) => ({ ...prev, team: initialTeams.join(", ") }));
+    // Step 2 Fields
+    budget_value: 0,
+    currency: "USD",
+    event_size: "medium",
+    priority_leads: 0,
+    lead_type: [] as string[],
+    capture_type: [] as string[],
+  });
+
+  // 🔹 INITIALIZATION LOGIC
+  useEffect(() => {
+    if (!event) return;
+
+    // 1. Parse Budget
+    let bValue = 0;
+    let bCurrency = "USD";
+    if (event.budget) {
+      const parts = event.budget.split(" ");
+      if (parts.length === 2) {
+        bCurrency = parts[0];
+        bValue = Number(parts[1]) || 0;
+      } else {
+        bValue = Number(event.budget) || 0;
+      }
+    }
+
+    // 2. Parse Arrays (Lead/Capture Type)
+    const parseArray = (val: any) => {
+      if (!val) return [];
+      if (Array.isArray(val)) return val;
+      try {
+        const parsed = JSON.parse(val);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    };
+
+    // 3. Set Teams
+    const initialTeams = event.team ? event.team.split(", ").filter(Boolean) : [];
+    setSelectedTeams(initialTeams);
+
+    // 4. Set Form Data
+    setFormData({
+      event_id: event.event_id,
+      event_name: event.event_name,
+      event_status: event.event_status,
+      event_type: event.event_type || "Tradeshow",
+      template_id: event.template_id ? String(event.template_id) : "",
+      location: event.location,
+      start_date: event.start_date,
+      end_date: event.end_date,
+      budget_value: bValue,
+      currency: bCurrency,
+      event_size: event.event_size || "medium",
+      priority_leads: event.priority_leads || 0,
+      lead_type: parseArray(event.lead_type),
+      capture_type: parseArray(event.capture_type),
+    });
+
+  }, [event]);
+
+  // 🔹 FETCH API DATA
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const teamRes = await request("/get_all_teams", "GET");
+        if (Array.isArray(teamRes)) {
+          setTeams(teamRes.map((t: any) => t.team_name).filter(Boolean));
         }
-      }, [event?.team, teams]);
-    
-      useEffect(() => {
-        let parsedCaptureTypes: string[] = [];
-    
-        if (event?.capture_type) {
-          try {
-            // 👈 Parse JSON string like "[\"Badge\",\"Manual\"]"
-            if (typeof event.capture_type === 'string') {
-              parsedCaptureTypes = JSON.parse(event.capture_type);
-            } else if (Array.isArray(event.capture_type)) {
-              parsedCaptureTypes = event.capture_type;
-            }
-          } catch (err) {
-            console.error("Capture type parse error:", err);
-            parsedCaptureTypes = [];
-          }
-        }
-    
-        setCaptureTypes(parsedCaptureTypes);
-        setUpdatedEvent((prev: any) => ({ ...prev, capture_type: parsedCaptureTypes }));
-      }, [event?.capture_type]);
-    
-    
-      useEffect(() => {
-        if (event) {
-          setUpdatedEvent({
-            ...event,
-            template_id: event.template_id ? String(event.template_id) : "",
-          });
-        }
-      }, [event]);
-    
-      const handleChange = (e: any) => {
-        const { name, value } = e.target;
-    
-        setUpdatedEvent((prev: any) => ({
-          ...prev,
-          [name]:
-            ["total_leads", "priority_leads", "budget"].includes(name)
-              ? Number(value)
-              : value,
-        }));
-      };
-    
-      const handleSave = async () => {
-        setError(null);
-    
-        const { fields, ...cleanEvent } = updatedEvent;
-    
-        const payload = {
-          ...cleanEvent,
-          template_id:
-            cleanEvent.template_id === "" ? null : Number(cleanEvent.template_id),
-        };
-    
+        const tplRes = await request("/form_template_list", "GET");
+        if (tplRes?.data) setTemplates(tplRes.data);
+      } catch (err) { console.error(err); }
+    };
+    fetchData();
+  }, []);
+
+  // 🔹 DEBOUNCED LOCATION SEARCH
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(async () => {
+      if (locationSearch.length >= 4) {
+        setIsLocationLoading(true);
         try {
-          const res = await request(
-            `/update_event?event_id=${updatedEvent.event_id}`,
-            "PUT",
-            payload
-          );
-    
-          if (!res){
-            toast({
-              title: "Failed to update event",
-              description: "An error occurred while updating event.",
-              variant: "destructive",
-            });
-            throw new Error("Failed to update event");
-          }
-    
-          toast({
-            title: "Event Updated Successfully",
-            description: "Event data is updated and Save Successfully.",
-          });
-            //  throw new Error("Failed to update event");
-    
-          onSave(payload);
-        } catch (err: any) {
-          setError(err.message || "An error occurred while saving.");
+          const res = await fetch(`https://api.inditechit.com/get_city_suggestion/${locationSearch}`);
+          const data = await res.json();
+          setLocationSuggestions(Array.isArray(data) ? data : []);
+        } catch { 
+          setLocationSuggestions([]); 
+        } finally { 
+          setIsLocationLoading(false); 
         }
-      };
-    
-      const handleTeamSelection = (team: string) => {
-        const newSelectedTeams = selectedTeams.includes(team)
-          ? selectedTeams.filter((t) => t !== team)
-          : [...selectedTeams, team];
-    
-        setSelectedTeams(newSelectedTeams);
-        setUpdatedEvent((prev: any) => ({
-          ...prev,
-          team: newSelectedTeams.join(", "),
-        }));
-      };
-    
-      const toggleCaptureType = (type: string) => {
-        const newCaptureTypes = captureTypes.includes(type)
-          ? captureTypes.filter((t) => t !== type)
-          : [...captureTypes, type];
-    
-        setCaptureTypes(newCaptureTypes);
-        setUpdatedEvent((prev) => ({
-          ...prev,
-          capture_type: newCaptureTypes,
-        }));
-      };
-    
-      return (
-        <>
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-            <div className="bg-white p-6 rounded-lg w-full max-w-3xl shadow-lg relative">
-              <h2 className="text-lg font-semibold mb-6">Update Event</h2>
-    
-              {error && <p className="text-red-500 mb-4">{error}</p>}
-    
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <label className="block">
-                  <span className="text-sm font-medium">Event Status *</span>
-                  <select
-                    name="event_status"
-                    value={updatedEvent.event_status}
-                    onChange={handleChange}
-                    className="w-full border p-2 rounded"
-                  >
-                    <option value="Upcoming">Upcoming</option>
-                    <option value="Active">Active</option>
-                  </select>
-                </label>
-                <div>
-                  <Label>Select Team(s) *</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        className="w-full justify-between border-gray focus:border-gray h-10"
-                      >
-                        {selectedTeams.length > 0
-                          ? `${selectedTeams.length} team(s) selected`
-                          : "Select teams..."}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-full p-0 max-h-64">
-                      <Command>
-                        <CommandInput placeholder="Search teams..." className="h-9" />
-                        <CommandEmpty>No teams found.</CommandEmpty>
-                        <CommandGroup className="max-h-48 overflow-auto">
-                          {teams.map((team) => (
-                            <CommandItem
-                              key={team}
-                              value={team}
-                              onSelect={() => handleTeamSelection(team)}
-                            >
-                              <Check
-                                className={`mr-2 h-4 w-4 ${selectedTeams.includes(team)
-                                  ? "opacity-100"
-                                  : "opacity-0"
-                                  }`}
-                              />
-                              {team}
+      } else {
+        setLocationSuggestions([]);
+      }
+    }, 500);
+    return () => clearTimeout(delayDebounceFn);
+  }, [locationSearch]);
+
+  // 🔹 HANDLERS
+  const handleChange = (field: string, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const toggleArrayItem = (field: "lead_type" | "capture_type", value: string) => {
+    setFormData(prev => {
+      const current = prev[field];
+      const next = current.includes(value) ? current.filter(i => i !== value) : [...current, value];
+      return { ...prev, [field]: next };
+    });
+  };
+
+  const handleSave = async () => {
+    const payload = {
+      ...formData,
+      budget: `${formData.currency} ${formData.budget_value}`,
+      team: selectedTeams.join(", "),
+      template_id: formData.template_id ? Number(formData.template_id) : null,
+      priority_leads: Number(formData.priority_leads)
+    };
+
+    try {
+      const res = await request(`/update_event?event_id=${formData.event_id}`, "PUT", payload);
+      if (res) {
+        toast({ title: "Event Updated Successfully" });
+        onSave({ ...event, ...payload } as Event);
+        onClose();
+      }
+    } catch (err) { 
+      toast({ variant: "destructive", title: "Update Failed", description: "Could not save changes." });
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 p-4 animate-in fade-in duration-200">
+      <div className="bg-white p-6 rounded-lg w-full max-w-4xl shadow-xl max-h-[90vh] overflow-y-auto flex flex-col">
+        
+        {/* HEADER */}
+        <div className="flex justify-between items-center mb-2">
+          <h2 className="text-xl font-bold">Update Event</h2>
+          <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4"/></Button>
+        </div>
+        
+        <div className="flex items-center gap-2 mb-6">
+          <Progress value={step === 1 ? 50 : 100} className="h-2 flex-1" />
+          <span className="text-xs text-muted-foreground whitespace-nowrap">Step {step} of 2</span>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-1">
+          {/* ================= STEP 1 ================= */}
+          {step === 1 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-in slide-in-from-right-4">
+              
+              <div className="col-span-2">
+                <Label>Event Name *</Label>
+                <Input value={formData.event_name} onChange={(e) => handleChange("event_name", e.target.value)} className="border-gray" />
+              </div>
+
+              <div>
+                <Label>Lead Capture Template *</Label>
+                <Select value={formData.template_id} onValueChange={(v) => handleChange("template_id", v)}>
+                  <SelectTrigger className="border-gray"><SelectValue placeholder="Select Template" /></SelectTrigger>
+                  <SelectContent>
+                    {templates.map((tpl: any) => <SelectItem key={tpl.id} value={String(tpl.id)}>{tpl.template_name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>Event Type *</Label>
+                <Select value={formData.event_type} onValueChange={(v) => handleChange("event_type", v)}>
+                  <SelectTrigger className="border-gray"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Tradeshow">Tradeshow</SelectItem>
+                    <SelectItem value="Webinar">Webinar</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>Status *</Label>
+                <Select value={formData.event_status} onValueChange={(v) => handleChange("event_status", v)}>
+                  <SelectTrigger className="border-gray"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Upcoming">Upcoming</SelectItem>
+                    <SelectItem value="Active">Active</SelectItem>
+                    <SelectItem value="Completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="col-span-2 md:col-span-1">
+                 {/* SEARCHABLE LOCATION */}
+                <Label>Location *</Label>
+                <Popover open={isLocationOpen} onOpenChange={setIsLocationOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between border-gray font-normal">
+                      {formData.location ? <span className="truncate">{formData.location}</span> : "Search city..."}
+                      <MapPin className="ml-2 h-4 w-4 opacity-50 shrink-0" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[350px] p-0" align="start">
+                    <Command shouldFilter={false}>
+                      <CommandInput placeholder="Type 4+ characters..." value={locationSearch} onValueChange={setLocationSearch} />
+                      <CommandList>
+                        <CommandEmpty>
+                           {isLocationLoading ? <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin"/> Searching...</span> : "No results found."}
+                        </CommandEmpty>
+                        <CommandGroup>
+                          {locationSuggestions.map((item) => (
+                            <CommandItem key={item.GeoNameId} onSelect={() => {
+                              handleChange("location", `${item.Location}, ${item.State}, ${item.Country}`);
+                              setIsLocationOpen(false);
+                            }}>
+                              <div className="flex flex-col">
+                                <span>{item.Location}</span>
+                                <span className="text-xs text-muted-foreground">{item.State}, {item.Country}</span>
+                              </div>
                             </CommandItem>
                           ))}
                         </CommandGroup>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                  {selectedTeams.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {selectedTeams.map((team) => (
-                        <Badge
-                          key={team}
-                          variant="secondary"
-                          className="text-xs"
-                          onClick={() => handleTeamSelection(team)}
-                        >
-                          {team} ×
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <DateInput label="Start Date" value={formData.start_date} required onChange={(v) => handleChange("start_date", v)} />
+              <DateInput label="End Date" value={formData.end_date} required onChange={(v) => handleChange("end_date", v)} />
+            </div>
+          )}
+
+          {/* ================= STEP 2 ================= */}
+          {step === 2 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-in slide-in-from-right-4">
+              
+              <div className="col-span-2">
+                <Label>Select Team(s) *</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between border-gray font-normal">
+                      {selectedTeams.length > 0 ? `${selectedTeams.length} teams selected` : "Select teams..."}
+                      <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-0">
+                    <Command>
+                      <CommandInput placeholder="Search teams..." />
+                      <CommandList>
+                        <CommandGroup className="max-h-48 overflow-auto">
+                          {teams.map((t) => (
+                            <CommandItem key={t} onSelect={() => setSelectedTeams(prev => prev.includes(t) ? prev.filter(i => i !== t) : [...prev, t])}>
+                              <Check className={`mr-2 h-4 w-4 ${selectedTeams.includes(t) ? "opacity-100" : "opacity-0"}`} /> {t}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {selectedTeams.map((t) => (
+                    <Badge key={t} variant="secondary" className="cursor-pointer hover:bg-destructive/10 hover:text-destructive" onClick={() => setSelectedTeams(prev => prev.filter(i => i !== t))}>
+                      {t} ×
+                    </Badge>
+                  ))}
                 </div>
-                <label className="block">
-                  <span className="text-sm font-medium">Event Name *</span>
-                  <input
-                    name="event_name"
-                    value={updatedEvent.event_name}
-                    onChange={handleChange}
-                    className="w-full border p-2 rounded"
-                    type="text"
-                  />
-                </label>
-                <label className="block">
-                  <span className="text-sm font-medium">Event Size</span>
-                  <select
-                    name="event_size"
-                    value={updatedEvent.event_size}
-                    onChange={handleChange}
-                    className="w-full border p-2 rounded"
-                  >
-                    <option value="small">Small</option>
-                    <option value="medium">Medium</option>
-                    <option value="large">Large</option>
-                  </select>
-                </label>
-                <DateInput
-                  label="Start Date"
-                  value={updatedEvent.start_date}
-                  required
-                  onChange={(val) =>
-                    setUpdatedEvent((p: any) => ({ ...p, start_date: val }))
-                  }
-                />
-                <DateInput
-                  label="End Date"
-                  value={updatedEvent.end_date}
-                  required
-                  onChange={(val) =>
-                    setUpdatedEvent((p: any) => ({ ...p, end_date: val }))
-                  }
-                />
-    
-                <label className="block">
-                  <span className="text-sm font-medium">Event Location *</span>
-                  <input
-                    name="location"
-                    value={updatedEvent.location}
-                    onChange={handleChange}
-                    className="w-full border p-2 rounded"
-                    type="text"
-                  />
-                </label>
-    
-    
-    
-                
-    
-                <label className="block">
-                  <span className="text-sm font-medium">Budget (USD)</span>
-                  <input
-                    name="budget"
-                    value={updatedEvent.budget}
-                    onChange={handleChange}
-                    className="w-full border p-2 rounded"
-                    type="number"
-                    min={0}
-                  />
-                </label>
-    
-                <div className="col-span-2">
-                  <Label>Capture Type(s) *</Label>
-                  <div className="grid grid-cols-3 gap-3 mt-2 p-4 border border-gray rounded-lg bg-gradient-to-r from-muted to-gray">
+              </div>
+
+              <div>
+                <Label>Budget</Label>
+                <div className="flex gap-2">
+                  <Select value={formData.currency} onValueChange={(v) => handleChange("currency", v)}>
+                    <SelectTrigger className="w-24 border-gray"><SelectValue /></SelectTrigger>
+                    <SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="EUR">EUR</SelectItem></SelectContent>
+                  </Select>
+                  <Input type="number" value={formData.budget_value} onChange={(e) => handleChange("budget_value", e.target.value)} className="border-gray" />
+                </div>
+              </div>
+
+              <div>
+                <Label>Event Size</Label>
+                <Select value={formData.event_size} onValueChange={(v) => handleChange("event_size", v)}>
+                  <SelectTrigger className="border-gray"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="small">Small</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="large">Large</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="col-span-2">
+                <Label>Priority Leads Target</Label>
+                <Input type="number" value={formData.priority_leads} onChange={(e) => handleChange("priority_leads", e.target.value)} className="border-gray" />
+              </div>
+
+              {/* LEAD TYPE */}
+              <div className="col-span-2 border-t pt-4">
+                <Label className="font-bold mb-2 block text-sm">Lead Type *</Label>
+                <div className="flex gap-2">
+                  {["Visiting Card", "Badge", "Manual"].map((type) => (
+                    <Badge key={type} variant={formData.lead_type.includes(type) ? "default" : "outline"} className="cursor-pointer px-4 py-2" onClick={() => toggleArrayItem("lead_type", type)}>
+                      {type} {formData.lead_type.includes(type) && <Check className="ml-1 h-3 w-3" />}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+
+              {/* CAPTURE TYPE */}
+              <div className="col-span-2 border-t pt-4">
+                <Label className="font-bold mb-2 block text-sm">Capture Type *</Label>
+                <div className="grid grid-cols-3 gap-3">
                     {[
-                      { id: "visiting-card", label: "Visiting Card", value: "Visiting Card" },
-                      { id: "badge", label: "Badge", value: "Badge" },
-                      { id: "manual", label: "Manual", value: "Manual" },
-                    ].map(({ id, label, value }) => (
-                      <label
-                        key={id}
-                        className="flex items-center space-x-3 p-3 hover:bg-accent rounded-lg cursor-pointer transition-all group"
+                      { id: "booth", label: "Booth Give Away", desc: "Gamified entry" },
+                      { id: "full", label: "Full Lead Form", desc: "Detailed data entry" },
+                    ].map(({ label, desc }) => (
+                      <div
+                        key={label}
+                        onClick={() => toggleArrayItem("capture_type", label)}
+                        className={`
+                          cursor-pointer border rounded-lg p-3 transition-all
+                          ${formData.capture_type.includes(label) 
+                            ? "border-primary bg-primary/10 ring-1 ring-primary" 
+                            : "hover:bg-accent border-gray"}
+                        `}
                       >
-                        <input
-                          type="checkbox"
-                          id={id}
-                          checked={captureTypes.includes(value)}
-                          onChange={() => toggleCaptureType(value)}
-                          className="w-5 h-5 text-primary focus:ring-primary border-gray rounded group-hover:border-primary transition-all"
-                        />
-                        <div>
+                        <div className="flex items-center justify-between mb-1">
                           <span className="font-medium text-sm">{label}</span>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {value === "Visiting Card" && "Business card scanning"}
-                            {value === "Badge" && "ID badge OCR"}
-                            {value === "Manual" && "Form entry"}
-                          </p>
+                          {formData.capture_type.includes(label) && <Check className="h-4 w-4 text-primary" />}
                         </div>
-                      </label>
+                        <p className="text-xs text-muted-foreground">{desc}</p>
+                      </div>
                     ))}
                   </div>
-    
-                  {/* Selected badges */}
-                  {captureTypes.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-3 p-2 bg-accent rounded">
-                      {captureTypes.map((type) => (
-                        <Badge
-                          key={type}
-                          variant="default"
-                          className="text-xs cursor-pointer hover:bg-primary"
-                          onClick={() => toggleCaptureType(type)}
-                        >
-                          {type} ×
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-    
-                  {captureTypes.length === 0 && (
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Select at least one capture method
-                    </p>
-                  )}
-                </div>
-    
-                <label className="block">
-                  <span className="text-sm font-medium">Priority Leads Target</span>
-                  <input
-                    name="priority_leads"
-                    value={updatedEvent.priority_leads}
-                    onChange={handleChange}
-                    className="w-full border p-2 rounded"
-                    type="number"
-                    min={0}
-                  />
-                </label>
-    
-                <label className="block col-span-2">
-                  <span className="text-sm font-medium">Lead Capture Template *</span>
-                  <select
-                    name="template_id"
-                    value={updatedEvent.template_id || ""}
-                    onChange={handleChange}
-                    className="w-full border p-2 rounded"
-                  >
-                    <option value="">Select Template</option>
-    
-                    {templateList.data.length === 0 && (
-                      <option disabled>No templates found</option>
-                    )}
-    
-                    {templateList.data.map((tpl: any) => (
-                      <option key={tpl.id} value={String(tpl.id)}>
-                        {tpl.template_name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
               </div>
-    
-              <div className="flex justify-end space-x-3 mt-6">
-                <Button variant="outline" onClick={onClose}>
-                  Cancel
-                </Button>
-                <Button onClick={handleSave} disabled={loading}>
-                  {loading ? "Saving..." : "Save"}
-                </Button>
-              </div>
+
             </div>
+          )}
+        </div>
+
+        {/* FOOTER */}
+        <div className="flex justify-between items-center mt-6 pt-4 border-t">
+          {step === 1 ? (
+            <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          ) : (
+            <Button variant="outline" onClick={() => setStep(1)}><ArrowLeft className="mr-2 h-4 w-4"/> Back</Button>
+          )}
+          
+          <div className="flex gap-2">
+            {step === 1 ? (
+              <Button onClick={() => setStep(2)}>Next Step <ArrowRight className="ml-2 h-4 w-4"/></Button>
+            ) : (
+              <Button onClick={handleSave} disabled={loading}>{loading ? "Saving..." : "Update Event"}</Button>
+            )}
           </div>
-        </>
-      );
+        </div>
+
+      </div>
+    </div>
+  );
 }
 
+// ================= HELPERS =================
 const getStatusBadge = (status: string) => {
   switch (status) {
     case "Upcoming":
@@ -502,6 +483,7 @@ const getCurrentUserId = (): number => {
   }
 };
 
+// ================= MAIN EVENTS PAGE =================
 export default function Events() {
   const { request, loading, error } = useApi<Event[]>();
   const [events, setEvents] = useState<Event[]>([]);
@@ -512,11 +494,11 @@ export default function Events() {
   const [status, setStatus] = useState("All");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("All"); // 👈 NEW TEMPLATE FILTER STATE
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("All");
 
   // 🔹 DATA STATES
   const [users, setUsers] = useState<any[]>([]);
-  const [templates, setTemplates] = useState<any[]>([]); // 👈 NEW TEMPLATE DATA STATE
+  const [templates, setTemplates] = useState<any[]>([]);
 
   // 🔹 ACCESS CONTROL STATES
   const [myAccess, setMyAccess] = useState<AccessPointData | null>(null);
@@ -578,8 +560,7 @@ export default function Events() {
           setUsers(list);
         }
 
-        // Fetch Templates (Using existing request hook if possible, or direct fetch)
-        // Note: Reusing the endpoint logic from UpdateEventPopup
+        // Fetch Templates
         const tplRes: any = await request("/form_template_list", "GET");
         if (tplRes?.data && Array.isArray(tplRes.data)) {
             setTemplates(tplRes.data);
@@ -592,6 +573,7 @@ export default function Events() {
     fetchData();
   }, []);
 
+  // 🔹 FETCH EVENTS
   useEffect(() => {
     const fetchEvents = async () => {
       const user_id = getCurrentUserId();
@@ -658,7 +640,6 @@ export default function Events() {
         .toLowerCase()
         .includes(searchTerm.toLowerCase());
         
-      // 🔹 TEMPLATE MATCH LOGIC
       const templateMatch = selectedTemplateId === "All" || String(event.template_id) === selectedTemplateId;
 
       return statusMatch && searchMatch && templateMatch;
@@ -673,19 +654,11 @@ export default function Events() {
       try {
         if (currentUserId === 1015) {
           const data: any = await request("/get_all_event_details", "GET");
-          if (data?.data) {
-            setEvents(data.data);
-          } else {
-            setEvents([]);
-          }
+          setEvents(data?.data || []);
         } else {
           const response = await fetch(`https://api.inditechit.com/get_user_team_events?id=${currentUserId}`);
           const result = await response.json();
-          if (result?.data) {
-            setEvents(result.data);
-          } else {
-            setEvents([]);
-          }
+          setEvents(result?.data || []);
         }
       } catch (err) {
         console.error("❌ Reset events error:", err);
@@ -697,8 +670,7 @@ export default function Events() {
     const handleClearFilters = async () => {
       setStatus("All");
       setSearchTerm("");
-      setSelectedTemplateId("All"); // 👈 Reset Template Filter
-      
+      setSelectedTemplateId("All");
       await handleResetToAllEvents();
     };
 
@@ -860,7 +832,6 @@ export default function Events() {
                       <th className="py-3 px-4 text-left">Dates</th>
                       <th className="py-3 px-4 text-left">Location</th>
                       <th className="py-3 px-4 text-left">Team</th>
-                      {/* <th className="py-3 px-4 text-left">Template</th> */}
                       <th className="py-3 px-4 text-left">Priority</th>
                       <th className="py-3 px-4 text-left">Actions</th>
                     </tr>
@@ -868,7 +839,7 @@ export default function Events() {
                   <tbody>
                     {filteredEvents.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="py-12 text-center text-muted-foreground">
+                        <td colSpan={7} className="py-12 text-center text-muted-foreground">
                           {events.length === 0 ? "No events found." : "No events match your filters."}
                         </td>
                       </tr>
@@ -889,9 +860,6 @@ export default function Events() {
                           </td>
                           <td className="py-3 px-4">{event.location}</td>
                           <td className="py-3 px-4">{event.team}</td>
-                          {/* <td className="py-3 px-4">
-                            {templates.find(t => t.id == event.template_id)?.template_name || "-"}
-                          </td> */}
                           <td className="py-3 px-4">{event.priority_leads}</td>
                           <td className="py-3 px-4">
                             <Button
