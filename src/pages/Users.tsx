@@ -116,6 +116,11 @@ const ACTION_OPTIONS: Record<string, ActionOption[]> = {
     { label: "Create Language", action: "create_language" },
     { label: "Edit Language & Transation", action: "edit_language" },
     { label: "Delete Language", action: "delete_language" },
+  ],
+  "/areaofintrest": [
+    { label: "Create AOI", action: "create_aoi" },
+    { label: "Edit AOI", action: "edit_aoi" },
+    { label: "Delete AOI", action: "delete_aoi" },
   ]
 };
 

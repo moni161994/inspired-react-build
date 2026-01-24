@@ -6,23 +6,36 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Trash2, Edit3, Plus, Loader2 } from "lucide-react";
+import { Trash2, Edit3, Plus, Loader2, Lock } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/hooks/use-toast";
 
 // --- Types ---
 type AreaOfInterest = {
-  id: number; // or string, depending on your DB
+  id: number;
   name: string;
 };
 
+interface AccessPointData {
+  page: string[];
+  point: string[];
+  user_id: number;
+}
+
 export default function AreaOfInterestManagement() {
-  // --- State ---
+  // --- State: Data ---
   const [areas, setAreas] = useState<AreaOfInterest[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
-  // --- Dialog State ---
+  // --- State: Access Control ---
+  const [myAccess, setMyAccess] = useState<AccessPointData | null>(null);
+  const [canViewPage, setCanViewPage] = useState(false);
+  const [canCreate, setCanCreate] = useState(false);
+  const [canEdit, setCanEdit] = useState(false);
+  const [canDelete, setCanDelete] = useState(false);
+
+  // --- State: Dialog ---
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingArea, setEditingArea] = useState<AreaOfInterest | null>(null);
   const [formData, setFormData] = useState({ name: "" });
@@ -32,20 +45,72 @@ export default function AreaOfInterestManagement() {
 
   // --- Initial Load ---
   useEffect(() => {
-    fetchAreas();
+    loadMyAccess();
   }, []);
+
+  // --- Helpers: Access Control ---
+  const getCurrentUserId = (): number => {
+    try {
+      const raw = localStorage.getItem("user_id");
+      return raw ? parseInt(raw, 10) : 0;
+    } catch {
+      return 0;
+    }
+  };
+
+  const loadMyAccess = async () => {
+    const userId = getCurrentUserId();
+    if (!userId) return;
+
+    try {
+      const res: any = await request(`/get_single_access/${userId}`, "GET");
+      if (res?.status_code === 200 && res.data) {
+        const parsed: AccessPointData = {
+          page: JSON.parse(res.data.page),
+          point: JSON.parse(res.data.point),
+          user_id: Number(res.data.user_id),
+        };
+        setMyAccess(parsed);
+
+        // 1. Check Page Access
+        // Note: Using exact string from your prompt "/areaofintrest"
+        const hasPageAccess = parsed.page.includes("/areaofintrest");
+        setCanViewPage(hasPageAccess);
+
+        if (hasPageAccess) {
+          fetchAreas(); // Only fetch data if user has page access
+        }
+
+        // 2. Check Action Access
+        // Logic: Checks if the specific action string exists in the user's points
+        // Based on your config: "create_aoi", "edit_aoi", "delete_aoi"
+        
+        // Helper to construct the point string. 
+        // Usually it is action_pagename, but here we check for the explicit action provided.
+        const pageName = "areaofintrest"; 
+        
+        const checkPermission = (action: string) => {
+            // We check both the raw action AND the standard action_page format to be safe
+            return parsed.point.includes(action) || parsed.point.includes(`${action}_${pageName}`);
+        };
+
+        setCanCreate(checkPermission("create_aoi"));
+        setCanEdit(checkPermission("edit_aoi"));
+        setCanDelete(checkPermission("delete_aoi"));
+      }
+    } catch (e) {
+      console.error("loadMyAccess error", e);
+    }
+  };
 
   // --- API Actions ---
   const fetchAreas = async () => {
     setIsLoading(true);
     try {
-      // TODO: Replace with your actual endpoint later
       const res = await request("/get_areas_of_interest", "GET");
-      
       if (res?.status_code === 200 && Array.isArray(res.data)) {
         setAreas(res.data);
       } else {
-        // Fallback for now if API doesn't exist yet
         setAreas([]); 
       }
     } catch (error) {
@@ -65,13 +130,11 @@ export default function AreaOfInterestManagement() {
     try {
       let res;
       if (editingArea) {
-        // Update existing
         res = await request("/update_area_of_interest", "POST", {
           id: editingArea.id,
           name: formData.name,
         });
       } else {
-        // Create new
         res = await request("/create_area_of_interest", "POST", {
           name: formData.name,
         });
@@ -119,6 +182,23 @@ export default function AreaOfInterestManagement() {
     setIsDialogOpen(true);
   };
 
+  // --- Render: Access Denied State ---
+  if (myAccess && !canViewPage) {
+    return (
+      <div className="flex h-screen bg-background">
+        <DashboardSidebar />
+        <div className="flex flex-col flex-1">
+          <DashboardHeader />
+          <main className="flex-1 flex flex-col items-center justify-center p-6 text-center text-muted-foreground">
+            <Lock className="w-12 h-12 mb-4 opacity-50" />
+            <h2 className="text-xl font-semibold text-foreground">Access Denied</h2>
+            <p>You do not have permission to view this page.</p>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-background">
       <DashboardSidebar />
@@ -128,9 +208,13 @@ export default function AreaOfInterestManagement() {
           
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold tracking-tight">Areas of Interest</h2>
-            <Button onClick={() => openDialog()}>
-              <Plus className="w-4 h-4 mr-2" /> Add New
-            </Button>
+            
+            {/* CONDITIONAL RENDER: Create Button */}
+            {canCreate && (
+              <Button onClick={() => openDialog()}>
+                <Plus className="w-4 h-4 mr-2" /> Add New
+              </Button>
+            )}
           </div>
 
           <Card>
@@ -144,7 +228,8 @@ export default function AreaOfInterestManagement() {
                 </div>
               ) : areas.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  No areas of interest found. Click "Add New" to create one.
+                  No areas of interest found. 
+                  {canCreate && " Click \"Add New\" to create one."}
                 </div>
               ) : (
                 <div className="border rounded-md">
@@ -153,7 +238,8 @@ export default function AreaOfInterestManagement() {
                       <tr>
                         <th className="p-4 w-[80px]">ID</th>
                         <th className="p-4">Name</th>
-                        <th className="p-4 text-right">Actions</th>
+                        {/* Hide Actions header if user can't edit OR delete */}
+                        {(canEdit || canDelete) && <th className="p-4 text-right">Actions</th>}
                       </tr>
                     </thead>
                     <tbody className="divide-y">
@@ -161,23 +247,33 @@ export default function AreaOfInterestManagement() {
                         <tr key={area.id} className="hover:bg-muted/10 transition-colors">
                           <td className="p-4 font-mono text-xs">{area.id}</td>
                           <td className="p-4 font-medium">{area.name}</td>
-                          <td className="p-4 text-right space-x-2">
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              onClick={() => openDialog(area)}
-                            >
-                              <Edit3 className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="text-destructive hover:text-destructive/90"
-                              onClick={() => handleDelete(area.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </td>
+                          
+                          {(canEdit || canDelete) && (
+                            <td className="p-4 text-right space-x-2">
+                              {/* CONDITIONAL RENDER: Edit Button */}
+                              {canEdit && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  onClick={() => openDialog(area)}
+                                >
+                                  <Edit3 className="h-4 w-4" />
+                                </Button>
+                              )}
+                              
+                              {/* CONDITIONAL RENDER: Delete Button */}
+                              {canDelete && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="text-destructive hover:text-destructive/90"
+                                  onClick={() => handleDelete(area.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
