@@ -61,6 +61,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
   // Data Lists
   const [teams, setTeams] = useState<string[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
+  const [aoiList, setAoiList] = useState<any[]>([]); // New State for API data
   
   // Location States
   const [locationSearch, setLocationSearch] = useState("");
@@ -85,19 +86,30 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     priorityLeads: 0,
     lead_type: [] as string[],
     capture_type: [] as string[],
+    area_of_interest: [] as string[], // New Field
   });
 
-  // ================= FETCH TEAMS & TEMPLATES =================
+  // ================= FETCH TEAMS, TEMPLATES & AOI =================
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // 1. Teams
         const teamRes = await request("/get_all_teams", "GET");
         if (teamRes?.length > 0) {
           const names = Array.from(new Set(teamRes.map((t: any) => t.team_name).filter(Boolean)));
           setTeams(names as string[]);
         }
+        
+        // 2. Templates
         const tplRes = await request("/form_template_list", "GET");
         if (tplRes?.data) setTemplates(tplRes.data);
+
+        // 3. Areas of Interest (NEW)
+        const aoiRes = await request("/get_areas_of_interest", "GET");
+        if (aoiRes?.status_code === 200 && Array.isArray(aoiRes.data)) {
+            setAoiList(aoiRes.data);
+        }
+
       } catch (err) {
         console.error("Setup fetch failed", err);
       }
@@ -153,7 +165,8 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  const toggleArrayItem = (field: "lead_type" | "capture_type", value: string) => {
+  // Generic Array Toggle for Lead Type, Capture Type, and AoI
+  const toggleArrayItem = (field: "lead_type" | "capture_type" | "area_of_interest", value: string) => {
     setFormData((prev) => {
       const current = prev[field];
       const next = current.includes(value) ? current.filter(i => i !== value) : [...current, value];
@@ -190,6 +203,8 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
       priority_leads: Number(formData.priorityLeads) || 0,
       lead_type: formData.lead_type,
       capture_type: formData.capture_type,
+      // Pass the array directly. The DB will store it as JSON [ "aoi1", "aoi2" ]
+      area_of_interest: formData.area_of_interest, 
       total_leads: 0,
     };
     
@@ -212,7 +227,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     setFormData({
       eventName: "", eventType: "Tradeshow", template_id: "", status: "Upcoming",
       location: "", startDate: "", endDate: "", budget: 0, currency: "USD",
-      eventSize: "medium", priorityLeads: 0, lead_type: [], capture_type: []
+      eventSize: "medium", priorityLeads: 0, lead_type: [], capture_type: [], area_of_interest: []
     });
   };
 
@@ -236,6 +251,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
           <div className="py-4">
             {step === 1 && (
               <div className="grid grid-cols-2 gap-5">
+                {/* ... Step 1 Inputs remain the same ... */}
                 <div className="col-span-2 space-y-2">
                   <Label className="text-sm font-semibold">Event Name *</Label>
                   <Input id="eventName" placeholder="Enter event name..." value={formData.eventName} onChange={handleChange} className="border-gray" />
@@ -274,9 +290,54 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className=" space-y-2">
+                    <Label className="text-sm font-semibold">Area of Interest</Label>
+                    <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-between border-gray font-normal">
+                        {formData.area_of_interest.length > 0 
+                            ? `${formData.area_of_interest.length} selected` 
+                            : "Select Area of Interest..."}
+                        <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[400px] p-0">
+                        <Command>
+                        <CommandInput placeholder="Search areas..." />
+                        <CommandList>
+                            <CommandEmpty>No area found.</CommandEmpty>
+                            <CommandGroup className="max-h-48 overflow-auto">
+                            {aoiList.map((area) => (
+                                <CommandItem 
+                                    key={area.id} 
+                                    value={area.name}
+                                    onSelect={() => toggleArrayItem("area_of_interest", area.name)}
+                                >
+                                <Check className={`mr-2 h-4 w-4 ${formData.area_of_interest.includes(area.name) ? "opacity-100" : "opacity-0"}`} />
+                                {area.name}
+                                </CommandItem>
+                            ))}
+                            </CommandGroup>
+                        </CommandList>
+                        </Command>
+                    </PopoverContent>
+                    </Popover>
+                    {/* Selected Badges */}
+                    <div className="flex flex-wrap gap-1 mt-2">
+                        {formData.area_of_interest.map((item) => (
+                            <Badge 
+                                key={item} 
+                                variant="outline" 
+                                className="cursor-pointer bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-800"
+                                onClick={() => toggleArrayItem("area_of_interest", item)}
+                            >
+                                {item} ×
+                            </Badge>
+                        ))}
+                    </div>
+                </div>
 
-                {/* ================= SEARCHABLE LOCATION DROPDOWN ================= */}
-                <div className="space-y-2">
+                <div className="col-span-2 space-y-2">
                   <Label className="text-sm font-semibold">Location *</Label>
                   <Popover open={isLocationOpen} onOpenChange={setIsLocationOpen}>
                     <PopoverTrigger asChild>
@@ -343,6 +404,8 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
 
             {step === 2 && (
               <div className="grid grid-cols-2 gap-5 animate-in fade-in slide-in-from-right-4">
+                
+                {/* 1. Teams Selection */}
                 <div className="col-span-2 space-y-2">
                   <Label className="text-sm font-semibold">Select Team(s) *</Label>
                   <Popover>
@@ -373,6 +436,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                   </div>
                 </div>
 
+                {/* 3. Budget & Size */}
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold">Budget</Label>
                   <div className="flex gap-2">

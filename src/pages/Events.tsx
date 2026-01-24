@@ -21,13 +21,7 @@ import {
   MapPin, 
   Search, 
   X,
-  Calendar,
-  LayoutGrid,
-  Clock,
-  UsersIcon,
-  User,
-  Folder,
-  LayoutList
+  Calendar
 } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
 import { DateInput } from "@/components/ui/DateInput";
@@ -56,6 +50,7 @@ export interface Event {
   capture_type: string[];
   lead_type?: string[];
   event_type?: string;
+  area_of_interest?: string[] | string; // ✅ Added
 }
 
 interface AccessPointData {
@@ -81,37 +76,39 @@ function UpdateEventPopup({
   // 🔹 DATA STATES
   const [teams, setTeams] = useState<string[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
-  const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
-
+  const [aoiList, setAoiList] = useState<any[]>([]);
+  
   // 🔹 LOCATION SEARCH STATES
   const [locationSearch, setLocationSearch] = useState("");
   const [locationSuggestions, setLocationSuggestions] = useState<any[]>([]);
   const [isLocationLoading, setIsLocationLoading] = useState(false);
   const [isLocationOpen, setIsLocationOpen] = useState(false);
 
-  // 🔹 FORM STATE
-  const [formData, setFormData] = useState({
-    event_id: 0,
-    event_name: "",
-    event_status: "Upcoming",
-    event_type: "Tradeshow",
-    template_id: "",
-    location: "",
-    start_date: "",
-    end_date: "",
-    
-    // Step 2 Fields
-    budget_value: 0,
-    currency: "USD",
-    event_size: "medium",
-    priority_leads: 0,
-    lead_type: [] as string[],
-    capture_type: [] as string[],
+  // 🔹 INITIALIZE STATE DIRECTLY (Fixes Date Loading Issue)
+  const [selectedTeams, setSelectedTeams] = useState<string[]>(() => {
+    return event?.team ? event.team.split(", ").filter(Boolean) : [];
   });
 
-  // 🔹 INITIALIZATION LOGIC
-  useEffect(() => {
-    if (!event) return;
+  const [formData, setFormData] = useState(() => {
+    if (!event) {
+      return {
+        event_id: 0,
+        event_name: "",
+        event_status: "Upcoming",
+        event_type: "Tradeshow",
+        template_id: "",
+        location: "",
+        start_date: "",
+        end_date: "",
+        area_of_interest: [] as string[],
+        budget_value: 0,
+        currency: "USD",
+        event_size: "medium",
+        priority_leads: 0,
+        lead_type: [] as string[],
+        capture_type: [] as string[],
+      };
+    }
 
     // 1. Parse Budget
     let bValue = 0;
@@ -126,7 +123,7 @@ function UpdateEventPopup({
       }
     }
 
-    // 2. Parse Arrays (Lead/Capture Type)
+    // 2. Parse Arrays
     const parseArray = (val: any) => {
       if (!val) return [];
       if (Array.isArray(val)) return val;
@@ -138,40 +135,43 @@ function UpdateEventPopup({
       }
     };
 
-    // 3. Set Teams
-    const initialTeams = event.team ? event.team.split(", ").filter(Boolean) : [];
-    setSelectedTeams(initialTeams);
-
-    // 4. Set Form Data
-    setFormData({
+    return {
       event_id: event.event_id,
       event_name: event.event_name,
       event_status: event.event_status,
       event_type: event.event_type || "Tradeshow",
       template_id: event.template_id ? String(event.template_id) : "",
       location: event.location,
-      start_date: event.start_date,
-      end_date: event.end_date,
+      start_date: event.start_date || "", // Ensure strictly string
+      end_date: event.end_date || "",     // Ensure strictly string
       budget_value: bValue,
       currency: bCurrency,
       event_size: event.event_size || "medium",
       priority_leads: event.priority_leads || 0,
       lead_type: parseArray(event.lead_type),
       capture_type: parseArray(event.capture_type),
-    });
+      area_of_interest: parseArray(event.area_of_interest),
+    };
+  });
 
-  }, [event]);
-
-  // 🔹 FETCH API DATA
+  // 🔹 FETCH API DATA (Teams, Templates, AOI)
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // Teams
         const teamRes = await request("/get_all_teams", "GET");
         if (Array.isArray(teamRes)) {
           setTeams(teamRes.map((t: any) => t.team_name).filter(Boolean));
         }
+        // Templates
         const tplRes = await request("/form_template_list", "GET");
         if (tplRes?.data) setTemplates(tplRes.data);
+
+        // Areas of Interest
+        const aoiRes = await request("/get_areas_of_interest", "GET");
+        if (aoiRes?.status_code === 200 && Array.isArray(aoiRes.data)) {
+            setAoiList(aoiRes.data);
+        }
       } catch (err) { console.error(err); }
     };
     fetchData();
@@ -203,7 +203,7 @@ function UpdateEventPopup({
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const toggleArrayItem = (field: "lead_type" | "capture_type", value: string) => {
+  const toggleArrayItem = (field: "lead_type" | "capture_type" | "area_of_interest", value: string) => {
     setFormData(prev => {
       const current = prev[field];
       const next = current.includes(value) ? current.filter(i => i !== value) : [...current, value];
@@ -290,7 +290,54 @@ function UpdateEventPopup({
                 </Select>
               </div>
 
+              {/* AREA OF INTEREST */}
               <div className="col-span-2 md:col-span-1">
+                <Label>Area of Interest</Label>
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-between border-gray font-normal">
+                        {formData.area_of_interest.length > 0 
+                            ? `${formData.area_of_interest.length} selected` 
+                            : "Select Area of Interest..."}
+                        <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[300px] p-0">
+                        <Command>
+                        <CommandInput placeholder="Search areas..." />
+                        <CommandList>
+                            <CommandEmpty>No area found.</CommandEmpty>
+                            <CommandGroup className="max-h-48 overflow-auto">
+                            {aoiList.map((area) => (
+                                <CommandItem 
+                                    key={area.id} 
+                                    value={area.name}
+                                    onSelect={() => toggleArrayItem("area_of_interest", area.name)}
+                                >
+                                <Check className={`mr-2 h-4 w-4 ${formData.area_of_interest.includes(area.name) ? "opacity-100" : "opacity-0"}`} />
+                                {area.name}
+                                </CommandItem>
+                            ))}
+                            </CommandGroup>
+                        </CommandList>
+                        </Command>
+                    </PopoverContent>
+                </Popover>
+                <div className="flex flex-wrap gap-1 mt-2">
+                    {formData.area_of_interest.map((item) => (
+                        <Badge 
+                            key={item} 
+                            variant="outline" 
+                            className="cursor-pointer bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-800"
+                            onClick={() => toggleArrayItem("area_of_interest", item)}
+                        >
+                            {item} ×
+                        </Badge>
+                    ))}
+                </div>
+              </div>
+
+              <div className="col-span-2 md:col-span-2">
                  {/* SEARCHABLE LOCATION */}
                 <Label>Location *</Label>
                 <Popover open={isLocationOpen} onOpenChange={setIsLocationOpen}>
@@ -326,6 +373,7 @@ function UpdateEventPopup({
                 </Popover>
               </div>
 
+              {/* ✅ DATES (Now initialized directly in state) */}
               <DateInput label="Start Date" value={formData.start_date} required onChange={(v) => handleChange("start_date", v)} />
               <DateInput label="End Date" value={formData.end_date} required onChange={(v) => handleChange("end_date", v)} />
             </div>

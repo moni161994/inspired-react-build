@@ -18,67 +18,10 @@ import Analytics from "./pages/Analytics";
 import Reports from "./pages/Reports";
 import Templates from "./pages/Templates";
 import LanguageManagement from "./pages/Language";
+import AreaOfInterestManagement from "./pages/AreaOfIntrest";
 
 const queryClient = new QueryClient();
 
-// const App = () => (
-//   <QueryClientProvider client={queryClient}>
-//     <TooltipProvider>
-//       <EventDialogProvider>
-//         <Toaster />
-//         <Sonner />
-//         <BrowserRouter>
-//           <Routes>
-//           <Route path="/login" element={<Login />} />
-
-//           <Route
-//             path="/"
-//             element={
-//               <ProtectedRoute>
-//                  <Analytics />
-//               </ProtectedRoute>
-//             }
-//           />
-//           <Route
-//             path="/users"
-//             element={
-//               <ProtectedRoute>
-//                 <Users />
-//               </ProtectedRoute>
-//             }
-//           />
-//           <Route
-//             path="/events"
-//             element={
-//               <ProtectedRoute>
-//                 <Events />
-//               </ProtectedRoute>
-//             }
-//           />
-//           <Route
-//             path="/team"
-//             element={
-//               <ProtectedRoute>
-//                 <TeamAnalytics />
-//               </ProtectedRoute>
-//             }
-//           />
-//           <Route
-//             path="/lead"
-//             element={
-//               <ProtectedRoute>
-//                 <Teams />
-//               </ProtectedRoute>
-//             }
-//           />
-
-//           <Route path="*" element={<NotFound />} />
-//           </Routes>
-//         </BrowserRouter>
-//       </EventDialogProvider>
-//     </TooltipProvider>
-//   </QueryClientProvider>
-// );
 
 const App = () => (
   <BrowserRouter>
@@ -96,6 +39,7 @@ const App = () => (
             <Route path="/team" element={<ProtectedRoute><TeamAnalytics /></ProtectedRoute>} />
             <Route path="/lead" element={<ProtectedRoute><Teams /></ProtectedRoute>} />
             <Route path="/language" element={<ProtectedRoute><LanguageManagement /></ProtectedRoute>} />
+            <Route path="/areaofintrest" element={<ProtectedRoute><AreaOfInterestManagement /></ProtectedRoute>} />
             <Route path="/report" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
             <Route path="/template" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
