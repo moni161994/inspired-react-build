@@ -24,6 +24,7 @@ import {
   Folder,
   LayoutList,
   Languages,
+  LandPlot,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -72,6 +73,7 @@ const PAGE_OPTIONS: PageOption[] = [
   { icon: Folder, label: "Report", path: "/report" },
   { icon: LayoutList, label: "Template", path: "/template" },
   { icon: Languages, label: "Language", path: "/language" },
+  { icon: LandPlot, label: "Area Of Intrest", path: "/areaofintrest" },
 ];
 
 const ACTION_OPTIONS: Record<string, ActionOption[]> = {
