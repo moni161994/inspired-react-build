@@ -73,24 +73,17 @@ export default function AreaOfInterestManagement() {
         setMyAccess(parsed);
 
         // 1. Check Page Access
-        // Note: Using exact string from your prompt "/areaofintrest"
         const hasPageAccess = parsed.page.includes("/areaofintrest");
         setCanViewPage(hasPageAccess);
 
         if (hasPageAccess) {
-          fetchAreas(); // Only fetch data if user has page access
+          fetchAreas();
         }
 
         // 2. Check Action Access
-        // Logic: Checks if the specific action string exists in the user's points
-        // Based on your config: "create_aoi", "edit_aoi", "delete_aoi"
-        
-        // Helper to construct the point string. 
-        // Usually it is action_pagename, but here we check for the explicit action provided.
         const pageName = "areaofintrest"; 
         
         const checkPermission = (action: string) => {
-            // We check both the raw action AND the standard action_page format to be safe
             return parsed.point.includes(action) || parsed.point.includes(`${action}_${pageName}`);
         };
 
@@ -206,10 +199,10 @@ export default function AreaOfInterestManagement() {
         <DashboardHeader />
         <main className="flex-1 overflow-auto p-6">
           
-          <div className="flex items-center justify-between mb-6">
+          {/* Header Section: Spans Full Width */}
+          <div className="flex items-center justify-between mb-6 w-full">
             <h2 className="text-2xl font-bold tracking-tight">Areas of Interest</h2>
             
-            {/* CONDITIONAL RENDER: Create Button */}
             {canCreate && (
               <Button onClick={() => openDialog()}>
                 <Plus className="w-4 h-4 mr-2" /> Add New
@@ -217,71 +210,70 @@ export default function AreaOfInterestManagement() {
             )}
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Manage List</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-              ) : areas.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  No areas of interest found. 
-                  {canCreate && " Click \"Add New\" to create one."}
-                </div>
-              ) : (
-                <div className="border rounded-md">
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-muted/50 text-muted-foreground font-medium">
-                      <tr>
-                        {/* <th className="p-4 w-[80px]">ID</th> */}
-                        <th className="p-4">Name</th>
-                        {/* Hide Actions header if user can't edit OR delete */}
-                        {(canEdit || canDelete) && <th className="p-4 text-right">Actions</th>}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {areas.map((area) => (
-                        <tr key={area.id} className="hover:bg-muted/10 transition-colors">
-                          {/* <td className="p-4 font-mono text-xs">{area.id}</td> */}
-                          <td className="py-3 px-4">{area.name}</td>
-                          
-                          {(canEdit || canDelete) && (
-                            <td className="p-4 text-right space-x-2">
-                              {/* CONDITIONAL RENDER: Edit Button */}
-                              {canEdit && (
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  onClick={() => openDialog(area)}
-                                >
-                                  <Edit3 className="h-4 w-4" />
-                                </Button>
-                              )}
-                              
-                              {/* CONDITIONAL RENDER: Delete Button */}
-                              {canDelete && (
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  className="text-destructive hover:text-destructive/90"
-                                  onClick={() => handleDelete(area.id)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </td>
-                          )}
+          {/* Table Section: Half Width on Large Screens */}
+          <div className="w-full lg:w-1/2">
+            <Card>
+                <CardHeader>
+                <CardTitle>Manage List</CardTitle>
+                </CardHeader>
+                <CardContent>
+                {isLoading ? (
+                    <div className="flex justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    </div>
+                ) : areas.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                    No areas of interest found. 
+                    {canCreate && " Click \"Add New\" to create one."}
+                    </div>
+                ) : (
+                    <div className="border rounded-md">
+                    <table className="text-sm text-left w-full">
+                        <thead className="bg-muted/50 text-muted-foreground font-medium">
+                        <tr>
+                            <th className="p-4">Name</th>
+                            {(canEdit || canDelete) && <th className="p-4 text-right">Actions</th>}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                        </thead>
+                        <tbody className="divide-y">
+                        {areas.map((area) => (
+                            <tr key={area.id} className="hover:bg-muted/10 transition-colors">
+                            <td className="py-1 px-4 font-medium">{area.name}</td>
+                            
+                            {(canEdit || canDelete) && (
+                                <td className="py-1 px-4 text-right space-x-2">
+                                {canEdit && (
+                                    <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    onClick={() => openDialog(area)}
+                                    className="h-8 w-8"
+                                    >
+                                    <Edit3 className="h-4 w-4" />
+                                    </Button>
+                                )}
+                                
+                                {canDelete && (
+                                    <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="text-destructive hover:text-destructive/90 h-8 w-8"
+                                    onClick={() => handleDelete(area.id)}
+                                    >
+                                    <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                )}
+                                </td>
+                            )}
+                            </tr>
+                        ))}
+                        </tbody>
+                    </table>
+                    </div>
+                )}
+                </CardContent>
+            </Card>
+          </div>
         </main>
       </div>
 
