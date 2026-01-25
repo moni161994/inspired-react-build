@@ -478,8 +478,8 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
 
                 <div className="col-span-2 border-t pt-4 space-y-3">
                   <Label className="text-sm font-bold">Capture Type *</Label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {["Booth Give Away", "Full Lead Form"].map((label) => (
+                  <div className="grid grid-cols-3 gap-3">
+                    {["Booth Give Away", "Full Lead Form","Workshop"].map((label) => (
                       <div key={label} onClick={() => toggleArrayItem("capture_type", label)} className={`cursor-pointer border rounded-lg p-4 transition-all ${formData.capture_type.includes(label) ? "border-primary bg-primary/10 ring-1 ring-primary" : "border-gray hover:bg-accent"}`}>
                         <div className="flex justify-between items-center text-sm font-semibold">
                           {label} {formData.capture_type.includes(label) && <Check className="h-4 w-4 text-primary" />}

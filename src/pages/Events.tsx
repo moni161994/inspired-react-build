@@ -50,7 +50,8 @@ export interface Event {
   capture_type: string[];
   lead_type?: string[];
   event_type?: string;
-  area_of_interest?: string[] | string; // ✅ Added
+  // ✅ Changed to 'any' to handle both [{id, label}] (from API) and string[] (for UI)
+  area_of_interest?: any; 
 }
 
 interface AccessPointData {
@@ -76,7 +77,7 @@ function UpdateEventPopup({
   // 🔹 DATA STATES
   const [teams, setTeams] = useState<string[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
-  const [aoiList, setAoiList] = useState<any[]>([]);
+  const [aoiList, setAoiList] = useState<any[]>([]); // API list of AOIs
   
   // 🔹 LOCATION SEARCH STATES
   const [locationSearch, setLocationSearch] = useState("");
@@ -84,7 +85,7 @@ function UpdateEventPopup({
   const [isLocationLoading, setIsLocationLoading] = useState(false);
   const [isLocationOpen, setIsLocationOpen] = useState(false);
 
-  // 🔹 INITIALIZE STATE DIRECTLY (Fixes Date Loading Issue)
+  // 🔹 INITIALIZE STATE DIRECTLY
   const [selectedTeams, setSelectedTeams] = useState<string[]>(() => {
     return event?.team ? event.team.split(", ").filter(Boolean) : [];
   });
@@ -123,16 +124,32 @@ function UpdateEventPopup({
       }
     }
 
-    // 2. Parse Arrays
-    const parseArray = (val: any) => {
+    // 2. Parse Arrays (ROBUST PARSER FIX)
+    const parseArray = (val: any): string[] => {
       if (!val) return [];
-      if (Array.isArray(val)) return val;
-      try {
-        const parsed = JSON.parse(val);
-        return Array.isArray(parsed) ? parsed : [];
-      } catch {
-        return [];
+      
+      let parsed = val;
+      
+      // If string, try to JSON parse it
+      if (typeof val === 'string') {
+        try {
+          parsed = JSON.parse(val);
+        } catch {
+          return [];
+        }
       }
+
+      // Ensure it is an array
+      if (!Array.isArray(parsed)) return [];
+
+      // ✅ FIX: Map Objects ({id, label}) to Strings ("label")
+      // This prevents the "Objects are not valid as React child" error
+      return parsed.map((item: any) => {
+        if (typeof item === 'object' && item !== null && 'label' in item) {
+          return item.label; // Extract the name/label
+        }
+        return String(item); // Ensure it's a string
+      });
     };
 
     return {
@@ -142,19 +159,19 @@ function UpdateEventPopup({
       event_type: event.event_type || "Tradeshow",
       template_id: event.template_id ? String(event.template_id) : "",
       location: event.location,
-      start_date: event.start_date || "", // Ensure strictly string
-      end_date: event.end_date || "",     // Ensure strictly string
+      start_date: event.start_date || "",
+      end_date: event.end_date || "",
       budget_value: bValue,
       currency: bCurrency,
       event_size: event.event_size || "medium",
       priority_leads: event.priority_leads || 0,
       lead_type: parseArray(event.lead_type),
       capture_type: parseArray(event.capture_type),
-      area_of_interest: parseArray(event.area_of_interest),
+      area_of_interest: parseArray(event.area_of_interest), // ✅ Now strictly string[]
     };
   });
 
-  // 🔹 FETCH API DATA (Teams, Templates, AOI)
+  // 🔹 FETCH API DATA
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -290,7 +307,7 @@ function UpdateEventPopup({
                 </Select>
               </div>
 
-              {/* AREA OF INTEREST */}
+              {/* ✅ AREA OF INTEREST (Multi-Select) */}
               <div className="col-span-2 md:col-span-1">
                 <Label>Area of Interest</Label>
                 <Popover>
@@ -323,6 +340,7 @@ function UpdateEventPopup({
                         </Command>
                     </PopoverContent>
                 </Popover>
+                {/* Selected Badges (Renders strings safely now) */}
                 <div className="flex flex-wrap gap-1 mt-2">
                     {formData.area_of_interest.map((item) => (
                         <Badge 
@@ -337,7 +355,7 @@ function UpdateEventPopup({
                 </div>
               </div>
 
-              <div className="col-span-2 md:col-span-2">
+              <div className="col-span-2">
                  {/* SEARCHABLE LOCATION */}
                 <Label>Location *</Label>
                 <Popover open={isLocationOpen} onOpenChange={setIsLocationOpen}>
@@ -373,7 +391,6 @@ function UpdateEventPopup({
                 </Popover>
               </div>
 
-              {/* ✅ DATES (Now initialized directly in state) */}
               <DateInput label="Start Date" value={formData.start_date} required onChange={(v) => handleChange("start_date", v)} />
               <DateInput label="End Date" value={formData.end_date} required onChange={(v) => handleChange("end_date", v)} />
             </div>
@@ -461,6 +478,7 @@ function UpdateEventPopup({
                     {[
                       { id: "booth", label: "Booth Give Away", desc: "Gamified entry" },
                       { id: "full", label: "Full Lead Form", desc: "Detailed data entry" },
+                      { id: "workshop", label: "Workshop", desc: "Workshop" },
                     ].map(({ label, desc }) => (
                       <div
                         key={label}

@@ -463,13 +463,14 @@ export default function Teams() {
                   <thead className="bg-muted/30">
                     <tr>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Name</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Company</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Designation</th>
+                      {/* <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Company</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Designation</th> */}
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Phone</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Email</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Signature</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Captured By</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Event</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Date Of Capture</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
                     </tr>
                   </thead>
@@ -484,8 +485,8 @@ export default function Teams() {
                       paginatedLeads.map((lead: any) => (
                         <tr key={lead?.lead_id} className="border-b hover:bg-muted/20">
                           <td className="py-3 px-4 font-medium">{lead?.name || "-"}</td>
-                          <td className="py-3 px-4">{lead?.company || "-"}</td>
-                          <td className="py-3 px-4">{lead?.designation || "-"}</td>
+                          {/* <td className="py-3 px-4">{lead?.company || "-"}</td>
+                          <td className="py-3 px-4">{lead?.designation || "-"}</td> */}
                           <td className="py-3 px-4">{lead?.phone_numbers?.[0] || "-"}</td>
                           <td className="py-3 px-4">{lead?.emails?.[0] || "-"}</td>
                           <td className="py-3 px-4">
@@ -499,6 +500,7 @@ export default function Teams() {
                           </td>
                           <td className="py-3 px-4">{lead?.captured_by_name || "Active Event"}</td>
                           <td className="py-3 px-4">{lead?.event_name || "Active Event"}</td>
+                          <td className="py-3 px-4">{lead?.created_at?.split('T')[0] || "Active Event"}</td>
                           <td className="py-3 px-4">
                             <div className="flex space-x-2">
                               <Button variant="link" size="sm" onClick={() => setSelectedLead(lead)}>

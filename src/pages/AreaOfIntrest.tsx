@@ -236,7 +236,7 @@ export default function AreaOfInterestManagement() {
                   <table className="w-full text-sm text-left">
                     <thead className="bg-muted/50 text-muted-foreground font-medium">
                       <tr>
-                        <th className="p-4 w-[80px]">ID</th>
+                        {/* <th className="p-4 w-[80px]">ID</th> */}
                         <th className="p-4">Name</th>
                         {/* Hide Actions header if user can't edit OR delete */}
                         {(canEdit || canDelete) && <th className="p-4 text-right">Actions</th>}
@@ -245,8 +245,8 @@ export default function AreaOfInterestManagement() {
                     <tbody className="divide-y">
                       {areas.map((area) => (
                         <tr key={area.id} className="hover:bg-muted/10 transition-colors">
-                          <td className="p-4 font-mono text-xs">{area.id}</td>
-                          <td className="p-4 font-medium">{area.name}</td>
+                          {/* <td className="p-4 font-mono text-xs">{area.id}</td> */}
+                          <td className="py-3 px-4">{area.name}</td>
                           
                           {(canEdit || canDelete) && (
                             <td className="p-4 text-right space-x-2">

@@ -73,6 +73,11 @@ const DEFAULT_CHECKED_LABELS = [
   "Company",
   "Phone Numbers",
   "Emails",
+  "Websites",
+  "Other",
+  "City",
+  "State",
+  "ZIP",
 ];
 
 // 2. Convert them to keys once (e.g., ["name", "designation", ...])

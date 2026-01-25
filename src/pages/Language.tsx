@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Edit3, Plus, Upload, FileDown, Loader2, AlertTriangle } from "lucide-react";
+import { Trash2, Edit3, Plus, Upload, FileDown, Loader2, AlertTriangle, ChevronDown } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -26,7 +26,20 @@ type Language = {
 };
 
 // --- CONSTANTS ---
-const LANGUAGE_NAME_KEY = "_Language Name"; // Reserved key for Row 2 in CSV
+const LANGUAGE_NAME_KEY = "_Language Name"; 
+
+// 🎨 COLOR THEMES FOR CATEGORIES
+const CATEGORY_COLORS: Record<string, { bg: string, border: string, text: string, badgeBg: string, badgeText: string }> = {
+  "App Headings": { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-800", badgeBg: "bg-white", badgeText: "text-blue-700" },
+  "App Other Text": { bg: "bg-slate-100", border: "border-slate-200", text: "text-slate-800", badgeBg: "bg-white", badgeText: "text-slate-700" },
+  "Alert & Other Messages": { bg: "bg-rose-50", border: "border-rose-200", text: "text-rose-800", badgeBg: "bg-white", badgeText: "text-rose-700" },
+  "Lead Contact fields": { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-800", badgeBg: "bg-white", badgeText: "text-emerald-700" },
+  "Lead Labels": { bg: "bg-violet-50", border: "border-violet-200", text: "text-violet-800", badgeBg: "bg-white", badgeText: "text-violet-700" },
+  "Manual Lead form": { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-800", badgeBg: "bg-white", badgeText: "text-amber-700" },
+  "Email Opt-in": { bg: "bg-cyan-50", border: "border-cyan-200", text: "text-cyan-800", badgeBg: "bg-white", badgeText: "text-cyan-700" },
+  "Area of Interest": { bg: "bg-indigo-50", border: "border-indigo-200", text: "text-indigo-800", badgeBg: "bg-white", badgeText: "text-indigo-700" },
+  "Uncategorized": { bg: "bg-gray-50", border: "border-gray-200", text: "text-gray-800", badgeBg: "bg-white", badgeText: "text-gray-700" }
+};
 
 const KEY_CATEGORIES: Record<string, string> = {
   "Dashboard": "App Headings",
@@ -852,21 +865,32 @@ export default function LanguageManagement() {
             {/* Accordion Translations */}
             <h3 className="text-sm font-semibold text-foreground/80 mb-2">Translations</h3>
             
-            <Accordion type="multiple" defaultValue={["App Headings"]} className="w-full border rounded-lg bg-background">
+            <Accordion type="multiple" defaultValue={["App Headings"]} className="w-full space-y-2">
               {SECTION_ORDER.map((category) => {
                 const keys = groupedKeys[category];
                 if (!keys || keys.length === 0) return null;
 
+                const theme = CATEGORY_COLORS[category] || CATEGORY_COLORS["Uncategorized"];
+
                 return (
-                  <AccordionItem key={category} value={category} className="border-b last:border-b-0">
-                    <AccordionTrigger className="px-4 py-3 hover:bg-muted/10">
+                  <AccordionItem 
+                    key={category} 
+                    value={category} 
+                    className={`border rounded-lg overflow-hidden ${theme.border} ${theme.bg}`}
+                  >
+                    <AccordionTrigger className={`px-4 py-3 hover:opacity-90 transition-opacity ${theme.text}`}>
                       <div className="flex items-center gap-2">
                         <span className="font-semibold">{category}</span>
-                        <Badge variant="secondary" className="text-xs">{keys.length}</Badge>
+                        <Badge 
+                          variant="outline" 
+                          className={`text-xs border-0 ${theme.badgeBg} ${theme.badgeText}`}
+                        >
+                          {keys.length}
+                        </Badge>
                       </div>
                     </AccordionTrigger>
-                    <AccordionContent className="p-4 bg-muted/5">
-                      <div className="space-y-3">
+                    <AccordionContent className="p-4 bg-white border-t border-gray-100">
+                      <div className="space-y-4">
                         {keys.map((key) => (
                           <div key={key} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
                             <div className="md:col-span-4 pt-2">
