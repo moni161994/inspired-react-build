@@ -29,13 +29,14 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 
+// --- TYPES ---
 type UserData = {
   employee_id: number;
   email_address: string;
   user_name: string;
   profile: string;
   parent_id: number;
-  teams: any; // We don't rely on this anymore for filtering
+  teams: any; 
   status: number;
 };
 
@@ -64,6 +65,7 @@ type ActionOption = {
   action: string;
 };
 
+// --- CONSTANTS ---
 const PAGE_OPTIONS: PageOption[] = [
   { icon: LayoutGrid, label: "Dashboard", path: "/" },
   { icon: Calendar, label: "Events", path: "/events" },
@@ -91,6 +93,7 @@ const ACTION_OPTIONS: Record<string, ActionOption[]> = {
     { label: "Download Reports", action: "download_reports" },
     { label: "Delete Lead", action: "delete_lead" },
     { label: "User Filter", action: "filter" },
+    { label: "View Signature", action: "signature" },
   ],
   "/team": [
     { label: "View Team", action: "view_team" },
@@ -134,24 +137,47 @@ const UsersPage = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [teamFilter, setTeamFilter] = useState<string>("all"); 
   const [teams, setTeams] = useState<any[]>([]); 
-  const [canEditUser, setCanEditUser] = useState(false);
-
-  // Access Point Modal States (for selected row)
+  
+  // Access Point Modal States
   const [accessPointOpen, setAccessPointOpen] = useState(false);
-  const [selectedUserForAccess, setSelectedUserForAccess] =
-    useState<UserData | null>(null);
+  const [selectedUserForAccess, setSelectedUserForAccess] = useState<UserData | null>(null);
   const [selectedPages, setSelectedPages] = useState<PageOption[]>([]);
-  const [selectedPageActions, setSelectedPageActions] = useState<
-    Record<string, string[]>
-  >({});
-  const [userAccessPointRow, setUserAccessPointRow] =
-    useState<AccessPointRow | null>(null);
+  const [selectedPageActions, setSelectedPageActions] = useState<Record<string, string[]>>({});
+  const [userAccessPointRow, setUserAccessPointRow] = useState<AccessPointRow | null>(null);
 
-  // Current logged‑in user's own access (for hiding options)
+  // Scroll State
+  const [scrollToPage, setScrollToPage] = useState<string | null>(null);
+
+  // Permissions
   const [myAccess, setMyAccess] = useState<AccessPointData | null>(null);
   const [canCreateUser, setCanCreateUser] = useState(false);
   const [canChangeAccess, setCanChangeAccess] = useState(false);
   const [canGenerateCode, setCanGenerateCode] = useState(false);
+  const [canEditUser, setCanEditUser] = useState(false);
+
+  // --- EFFECTS ---
+
+  // Handle Auto Scroll inside Modal
+  useEffect(() => {
+    if (scrollToPage) {
+      const timer = setTimeout(() => {
+        const element = document.getElementById(`action-group-${scrollToPage}`);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+        setScrollToPage(null);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedPages, scrollToPage]);
+
+  useEffect(() => {
+    fetchUser();
+    fetchTeams();
+    loadMyAccess();
+  }, []);
+
+  // --- HELPERS & API ---
 
   const getCurrentUserId = (): number => {
     try {
@@ -185,7 +211,6 @@ const UsersPage = () => {
   const fetchTeams = async () => {
     try {
       const res = await request("/get_all_teams", "GET");
-      // Handle the API response format (array directly or nested in data)
       if (Array.isArray(res)) {
         setTeams(res);
       } else if (res && res.data && Array.isArray(res.data)) {
@@ -196,7 +221,6 @@ const UsersPage = () => {
     }
   };
 
-  // LOAD CURRENT USER ACCESS (for hiding buttons)
   const loadMyAccess = async () => {
     const userId = getCurrentUserId();
     if (!userId) return;
@@ -218,18 +242,10 @@ const UsersPage = () => {
           return parsed.point.includes(suffix);
         };
 
-        setCanCreateUser(
-          hasPage("/users") && hasAction("/users", "create_user")
-        );
-        setCanChangeAccess(
-          hasPage("/users") && hasAction("/users", "change_access")
-        );
-        setCanGenerateCode(
-          hasPage("/users") && hasAction("/users", "generate_code")
-        );
-        setCanEditUser(
-          hasPage("/users") && hasAction("/users", "update_user")
-        );
+        setCanCreateUser(hasPage("/users") && hasAction("/users", "create_user"));
+        setCanChangeAccess(hasPage("/users") && hasAction("/users", "change_access"));
+        setCanGenerateCode(hasPage("/users") && hasAction("/users", "generate_code"));
+        setCanEditUser(hasPage("/users") && hasAction("/users", "update_user"));
       }
     } catch (e) {
       console.error("loadMyAccess error", e);
@@ -240,7 +256,6 @@ const UsersPage = () => {
     }
   };
 
-  // FETCH ACCESS FOR SELECTED USER (Access Point modal prefill)
   const fetchUserAccessPoint = async (userId: number) => {
     try {
       const res = await request(`/get_single_access/${userId}`, "GET");
@@ -351,6 +366,8 @@ const UsersPage = () => {
 
   const handlePageSelect = (page: PageOption, checked: boolean) => {
     if (checked) {
+      setScrollToPage(page.path); // Trigger Scroll logic
+      
       setSelectedPages((prev) => {
         if (prev.some((p) => p.path === page.path)) return prev;
         return [...prev, page];
@@ -460,13 +477,6 @@ const UsersPage = () => {
     }
   };
 
-  useEffect(() => {
-    fetchUser();
-    fetchTeams();
-    loadMyAccess();
-  }, []);
-
-  // 🔹 REVISED FILTER LOGIC (Now looks up members in 'teams' data)
   const filteredUsers = user
     ? user.filter((u) => {
       const nameMatch = u.user_name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -477,10 +487,7 @@ const UsersPage = () => {
       if (teamFilter === "all") {
         teamMatch = true;
       } else {
-        // Find the selected team in the loaded 'teams' array
         const selectedTeam = teams.find((t: any) => String(t.team_id) === teamFilter);
-
-        // Check if the current user (u) is in that team's member list
         if (selectedTeam && Array.isArray(selectedTeam.members)) {
           teamMatch = selectedTeam.members.some(
             (member: any) => Number(member.employee_id) === Number(u.employee_id)
@@ -603,13 +610,9 @@ const UsersPage = () => {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b bg-muted/30">
-                          {/* <th className="py-3 px-4 text-left">ID</th> */}
                           <th className="py-3 px-4 text-left">Name</th>
                           <th className="py-3 px-4 text-left">Email</th>
                           <th className="py-3 px-4 text-left">Designation</th>
-                          {/* <th className="py-3 px-4 text-left">
-                            Manager User Id
-                          </th> */}
                           <th className="py-3 px-4 text-left">Status</th>
                           {(canEditUser || canChangeAccess || canGenerateCode)&&<th className="py-3 px-4 text-center">Actions</th>}
                         </tr>
@@ -620,9 +623,6 @@ const UsersPage = () => {
                             key={data.employee_id}
                             className="border-b hover:bg-muted/50 transition-colors"
                           >
-                            {/* <td className="py-3 px-4 whitespace-nowrap">
-                              {data.employee_id}
-                            </td> */}
                             <td className="py-3 px-4 whitespace-nowrap">
                               {data.user_name}
                             </td>
@@ -632,9 +632,6 @@ const UsersPage = () => {
                             <td className="py-3 px-4 whitespace-nowrap">
                               <Badge variant="outline">{data.profile}</Badge>
                             </td>
-                            {/* <td className="py-3 px-4 whitespace-nowrap">
-                              {data.parent_id}
-                            </td> */}
                             <td className="py-3 px-4 whitespace-nowrap">
                               {data.status === 1 ? "Active" : "Inactive"}
                             </td>
@@ -716,13 +713,21 @@ const UsersPage = () => {
                                 handlePageSelect(page, !!checked)
                               }
                             />
-                            <Label
-                              htmlFor={`page-${page.path}`}
+                            {/* Replaced Label with div.
+                                1. Removing htmlFor prevents clicking text from toggling checkbox.
+                                2. Added onClick to handle auto-scroll ONLY if selected.
+                            */}
+                            <div
                               className="flex items-center space-x-2 cursor-pointer flex-1 font-medium"
+                              onClick={() => {
+                                if (isChecked) {
+                                  setScrollToPage(page.path);
+                                }
+                              }}
                             >
                               <page.icon className="w-4 h-4 flex-shrink-0" />
                               <span>{page.label}</span>
-                            </Label>
+                            </div>
                           </div>
                         );
                       })}
@@ -734,52 +739,53 @@ const UsersPage = () => {
                       <h3 className="font-semibold mb-4 text-lg">
                         Select Actions for Pages
                       </h3>
-                      <div  className="overflow-y-auto" style={{height:"220px"}}>
-                      <div className="space-y-4 max-h-96 ">
-                        {selectedPages.map((page) => (
-                          <div
-                            key={page.path}
-                            className="border p-4 rounded-lg bg-card"
-                          >
-                            <h4 className="font-medium mb-3 flex items-center space-x-2 text-foreground">
-                              <page.icon className="w-4 h-4 flex-shrink-0" />
-                              <span>{page.label}</span>
-                            </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              {ACTION_OPTIONS[page.path]?.map((action) => {
-                                const isChecked = (
-                                  selectedPageActions[page.path] || []
-                                ).includes(action.action);
+                      <div className="overflow-y-auto" style={{height:"220px"}}>
+                        <div className="space-y-4 max-h-96 ">
+                          {selectedPages.map((page) => (
+                            <div
+                              key={page.path}
+                              id={`action-group-${page.path}`} 
+                              className="border p-4 rounded-lg bg-card"
+                            >
+                              <h4 className="font-medium mb-3 flex items-center space-x-2 text-foreground">
+                                <page.icon className="w-4 h-4 flex-shrink-0" />
+                                <span>{page.label}</span>
+                              </h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {ACTION_OPTIONS[page.path]?.map((action) => {
+                                  const isChecked = (
+                                    selectedPageActions[page.path] || []
+                                  ).includes(action.action);
 
-                                return (
-                                  <div
-                                    key={action.action}
-                                    className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded cursor-pointer transition-colors"
-                                  >
-                                    <Checkbox
-                                      id={`action-${page.path}-${action.action}`}
-                                      checked={isChecked}
-                                      onCheckedChange={(checked) =>
-                                        handleActionSelect(
-                                          page.path,
-                                          action.action,
-                                          !!checked
-                                        )
-                                      }
-                                    />
-                                    <Label
-                                      htmlFor={`action-${page.path}-${action.action}`}
-                                      className="cursor-pointer text-sm font-normal"
+                                  return (
+                                    <div
+                                      key={action.action}
+                                      className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded cursor-pointer transition-colors"
                                     >
-                                      {action.label}
-                                    </Label>
-                                  </div>
-                                );
-                              })}
+                                      <Checkbox
+                                        id={`action-${page.path}-${action.action}`}
+                                        checked={isChecked}
+                                        onCheckedChange={(checked) =>
+                                          handleActionSelect(
+                                            page.path,
+                                            action.action,
+                                            !!checked
+                                          )
+                                        }
+                                      />
+                                      <Label
+                                        htmlFor={`action-${page.path}-${action.action}`}
+                                        className="cursor-pointer text-sm font-normal"
+                                      >
+                                        {action.label}
+                                      </Label>
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   )}

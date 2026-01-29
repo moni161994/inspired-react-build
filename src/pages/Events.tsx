@@ -261,7 +261,7 @@ function UpdateEventPopup({
         
         <div className="flex items-center gap-2 mb-6">
           <Progress value={step === 1 ? 50 : 100} className="h-2 flex-1" />
-          <span className="text-xs text-muted-foreground whitespace-nowrap">Step {step} of 2</span>
+          <span className="text-sm font-semibold whitespace-nowrap">Step {step} of 2</span>
         </div>
 
         <div className="flex-1 overflow-y-auto px-1">
@@ -307,8 +307,44 @@ function UpdateEventPopup({
                 </Select>
               </div>
 
-              {/* ✅ AREA OF INTEREST (Multi-Select) */}
               <div className="col-span-2 md:col-span-1">
+                 {/* SEARCHABLE LOCATION */}
+                <Label>Location *</Label>
+                <Popover open={isLocationOpen} onOpenChange={setIsLocationOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between border-gray font-normal">
+                      {formData.location ? <span className="truncate">{formData.location}</span> : "Search city..."}
+                      <MapPin className="ml-2 h-4 w-4 opacity-50 shrink-0" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[350px] p-0" align="start">
+                    <Command shouldFilter={false}>
+                      <CommandInput placeholder="Type 4+ characters..." value={locationSearch} onValueChange={setLocationSearch} />
+                      <CommandList>
+                        <CommandEmpty>
+                           {isLocationLoading ? <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin"/> Searching...</span> : "No results found."}
+                        </CommandEmpty>
+                        <CommandGroup>
+                          {locationSuggestions.map((item) => (
+                            <CommandItem key={item.GeoNameId} onSelect={() => {
+                              handleChange("location", `${item.Location}, ${item.State}, ${item.Country}`);
+                              setIsLocationOpen(false);
+                            }}>
+                              <div className="flex flex-col">
+                                <span>{item.Location}</span>
+                                <span className="text-xs text-muted-foreground">{item.State}, {item.Country}</span>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* ✅ AREA OF INTEREST (Multi-Select) */}
+              <div className="col-span-2 ">
                 <Label>Area of Interest</Label>
                 <Popover>
                     <PopoverTrigger asChild>
@@ -355,41 +391,7 @@ function UpdateEventPopup({
                 </div>
               </div>
 
-              <div className="col-span-2">
-                 {/* SEARCHABLE LOCATION */}
-                <Label>Location *</Label>
-                <Popover open={isLocationOpen} onOpenChange={setIsLocationOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-between border-gray font-normal">
-                      {formData.location ? <span className="truncate">{formData.location}</span> : "Search city..."}
-                      <MapPin className="ml-2 h-4 w-4 opacity-50 shrink-0" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[350px] p-0" align="start">
-                    <Command shouldFilter={false}>
-                      <CommandInput placeholder="Type 4+ characters..." value={locationSearch} onValueChange={setLocationSearch} />
-                      <CommandList>
-                        <CommandEmpty>
-                           {isLocationLoading ? <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin"/> Searching...</span> : "No results found."}
-                        </CommandEmpty>
-                        <CommandGroup>
-                          {locationSuggestions.map((item) => (
-                            <CommandItem key={item.GeoNameId} onSelect={() => {
-                              handleChange("location", `${item.Location}, ${item.State}, ${item.Country}`);
-                              setIsLocationOpen(false);
-                            }}>
-                              <div className="flex flex-col">
-                                <span>{item.Location}</span>
-                                <span className="text-xs text-muted-foreground">{item.State}, {item.Country}</span>
-                              </div>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
+            
 
               <DateInput label="Start Date" value={formData.start_date} required onChange={(v) => handleChange("start_date", v)} />
               <DateInput label="End Date" value={formData.end_date} required onChange={(v) => handleChange("end_date", v)} />
@@ -894,11 +896,11 @@ export default function Events() {
                   <thead className="bg-muted/30">
                     <tr>
                       <th className="py-3 px-4 text-left">Status</th>
-                      <th className="py-3 px-4 text-left">Event Name</th>
-                      <th className="py-3 px-4 text-left">Dates</th>
+                      <th className="py-3 px-4 text-left">Event Name & Dates</th>
+                      {/* <th className="py-3 px-4 text-left">Dates</th> */}
                       <th className="py-3 px-4 text-left">Location</th>
                       <th className="py-3 px-4 text-left">Team</th>
-                      <th className="py-3 px-4 text-left">Priority</th>
+                      <th className="py-3 px-4 text-left">Event Type</th>
                       <th className="py-3 px-4 text-left">Actions</th>
                     </tr>
                   </thead>
@@ -920,13 +922,13 @@ export default function Events() {
                               getStatusFromDates(event, event.start_date, event.end_date)
                             )}
                           </td>
-                          <td className="py-3 px-4">{event.event_name}</td>
-                          <td className="py-3 px-4">
+                          <td className="py-3 px-4">{event.event_name} <br/><span className="text-xs">({event.start_date} → {event.end_date})</span></td>
+                          {/* <td className="py-3 px-4">
                             {event.start_date} → {event.end_date}
-                          </td>
+                          </td> */}
                           <td className="py-3 px-4">{event.location}</td>
                           <td className="py-3 px-4">{event.team}</td>
-                          <td className="py-3 px-4">{event.priority_leads}</td>
+                          <td className="py-3 px-4">{event.event_type}</td>
                           <td className="py-3 px-4">
                             <Button
                               variant="ghost"

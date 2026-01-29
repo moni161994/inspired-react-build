@@ -865,7 +865,7 @@ export default function LanguageManagement() {
             {/* Accordion Translations */}
             <h3 className="text-sm font-semibold text-foreground/80 mb-2">Translations</h3>
             
-            <Accordion type="multiple" defaultValue={["App Headings"]} className="w-full space-y-2">
+            <Accordion type="multiple" defaultValue={[]} className="w-full space-y-2">
               {SECTION_ORDER.map((category) => {
                 const keys = groupedKeys[category];
                 if (!keys || keys.length === 0) return null;

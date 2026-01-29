@@ -347,7 +347,7 @@ function Templates() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ID</TableHead>
+                {/* <TableHead>ID</TableHead> */}
                 <TableHead>Template Name</TableHead>
                 <TableHead>Fields</TableHead>
                 <TableHead>Image</TableHead>
@@ -366,7 +366,7 @@ function Templates() {
               ) : (
                 templates.map((tpl: any) => (
                   <TableRow key={tpl.id}>
-                    <TableCell>{tpl.id}</TableCell>
+                    {/* <TableCell>{tpl.id}</TableCell> */}
                     <TableCell>{tpl.template_name}</TableCell>
                     <TableCell className="max-w-[200px] truncate">
                       {tpl.fields
@@ -433,8 +433,8 @@ function Templates() {
 
           {editing && (
             <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-50 p-4">
-              <div className="bg-background p-6 rounded-xl w-[500px] max-h-[90vh] overflow-y-auto shadow-2xl border">
-                <h2 className="text-xl font-semibold mb-4">Edit Template</h2>
+              <div className="bg-background p-6 rounded-sm max-w-xl max-h-[90vh] overflow-y-auto shadow-2xl border">
+                <h2 className="text-xl font-semibold mb-4">Edit Template</h2> 
 
                 <div className="space-y-4 mb-6">
                   <div>
@@ -479,6 +479,27 @@ function Templates() {
                   :  <img src={editing.template_image}></img>}
                   </div> */}
 
+                
+
+                  <div>
+                    <label className="text-sm font-semibold mb-2 block">Select Fields</label>
+                    <div className="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto">
+                      {AVAILABLE_FIELDS.map((label) => {
+                        const api = convertToApiKey(label);
+                        return (
+                          <label key={label} className="flex items-center gap-2 p-2 border rounded-md hover:bg-accent cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedFields.some((f) => f.field_name === api)}
+                              onChange={() => toggleField(label)}
+                              className="rounded"
+                            />
+                            <span className="text-sm">{label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
                   <div>
                     <label className="text-sm font-semibold mb-1 block">Template Image</label>
                     <Input
@@ -506,33 +527,13 @@ function Templates() {
                         />
                       ) : (
                         // Show placeholder if no image
-                        <div className="w-[100px] h-[80px] bg-muted rounded border flex items-center justify-center text-xs text-muted-foreground">
+                        <div className=" bg-muted rounded border flex items-center justify-center text-xs text-muted-foreground">
                           No image
                         </div>
                       )}
                       {templateImageBase64 && (
                         <p className="text-xs text-muted-foreground mt-1">New image selected</p>
                       )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-semibold mb-2 block">Select Fields</label>
-                    <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
-                      {AVAILABLE_FIELDS.map((label) => {
-                        const api = convertToApiKey(label);
-                        return (
-                          <label key={label} className="flex items-center gap-2 p-2 border rounded-md hover:bg-accent cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={selectedFields.some((f) => f.field_name === api)}
-                              onChange={() => toggleField(label)}
-                              className="rounded"
-                            />
-                            <span className="text-sm">{label}</span>
-                          </label>
-                        );
-                      })}
                     </div>
                   </div>
                 </div>

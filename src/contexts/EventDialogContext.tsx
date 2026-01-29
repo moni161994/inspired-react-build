@@ -244,7 +244,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
             <span>Event Owner : {getEmail}</span>
             <div className="flex items-center gap-2 mt-2">
               <Progress value={step === 1 ? 50 : 100} className="h-2" />
-              <span className="text-xs text-muted-foreground font-medium">Step {step} of 2</span>
+              <span className="text-sm font-semibold whitespace-nowrap">Step {step} of 2</span>
             </div>
           </DialogHeader>
 
@@ -290,54 +290,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className=" space-y-2">
-                    <Label className="text-sm font-semibold">Area of Interest</Label>
-                    <Popover>
-                    <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-between border-gray font-normal">
-                        {formData.area_of_interest.length > 0 
-                            ? `${formData.area_of_interest.length} selected` 
-                            : "Select Area of Interest..."}
-                        <ChevronsUpDown className="h-4 w-4 opacity-50" />
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[400px] p-0">
-                        <Command>
-                        <CommandInput placeholder="Search areas..." />
-                        <CommandList>
-                            <CommandEmpty>No area found.</CommandEmpty>
-                            <CommandGroup className="max-h-48 overflow-auto">
-                            {aoiList.map((area) => (
-                                <CommandItem 
-                                    key={area.id} 
-                                    value={area.name}
-                                    onSelect={() => toggleArrayItem("area_of_interest", area.name)}
-                                >
-                                <Check className={`mr-2 h-4 w-4 ${formData.area_of_interest.includes(area.name) ? "opacity-100" : "opacity-0"}`} />
-                                {area.name}
-                                </CommandItem>
-                            ))}
-                            </CommandGroup>
-                        </CommandList>
-                        </Command>
-                    </PopoverContent>
-                    </Popover>
-                    {/* Selected Badges */}
-                    <div className="flex flex-wrap gap-1 mt-2">
-                        {formData.area_of_interest.map((item) => (
-                            <Badge 
-                                key={item} 
-                                variant="outline" 
-                                className="cursor-pointer bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-800"
-                                onClick={() => toggleArrayItem("area_of_interest", item)}
-                            >
-                                {item} ×
-                            </Badge>
-                        ))}
-                    </div>
-                </div>
-
-                <div className="col-span-2 space-y-2">
+                <div className="space-y-2">
                   <Label className="text-sm font-semibold">Location *</Label>
                   <Popover open={isLocationOpen} onOpenChange={setIsLocationOpen}>
                     <PopoverTrigger asChild>
@@ -396,6 +349,54 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                     </PopoverContent>
                   </Popover>
                 </div>
+                <div className="col-span-2 space-y-2">
+                    <Label className="text-sm font-semibold">Area of Interest</Label>
+                    <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-between border-gray font-normal">
+                        {formData.area_of_interest.length > 0 
+                            ? `${formData.area_of_interest.length} selected` 
+                            : "Select Area of Interest..."}
+                        <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[400px] p-0">
+                        <Command>
+                        <CommandInput placeholder="Search areas..." />
+                        <CommandList>
+                            <CommandEmpty>No area found.</CommandEmpty>
+                            <CommandGroup className="max-h-48 overflow-auto">
+                            {aoiList.map((area) => (
+                                <CommandItem 
+                                    key={area.id} 
+                                    value={area.name}
+                                    onSelect={() => toggleArrayItem("area_of_interest", area.name)}
+                                >
+                                <Check className={`mr-2 h-4 w-4 ${formData.area_of_interest.includes(area.name) ? "opacity-100" : "opacity-0"}`} />
+                                {area.name}
+                                </CommandItem>
+                            ))}
+                            </CommandGroup>
+                        </CommandList>
+                        </Command>
+                    </PopoverContent>
+                    </Popover>
+                    {/* Selected Badges */}
+                    <div className="flex flex-wrap gap-1 mt-2">
+                        {formData.area_of_interest.map((item) => (
+                            <Badge 
+                                key={item} 
+                                variant="outline" 
+                                className="cursor-pointer bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-800"
+                                onClick={() => toggleArrayItem("area_of_interest", item)}
+                            >
+                                {item} ×
+                            </Badge>
+                        ))}
+                    </div>
+                </div>
+
+               
 
                 <DateInput label="Start Date" value={formData.startDate} required onChange={(v) => handleSelectChange("startDate", v)} />
                 <DateInput label="End Date" value={formData.endDate} required onChange={(v) => handleSelectChange("endDate", v)} />

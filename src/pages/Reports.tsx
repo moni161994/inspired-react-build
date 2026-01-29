@@ -250,7 +250,7 @@ export default function Reports() {
 
           {summary && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-              <Card className="shadow">
+              <Card className="shadow bg-blue-50 ">
                 <CardHeader className="pb-2">
                   <CardTitle>Total Leads</CardTitle>
                 </CardHeader>
@@ -452,7 +452,7 @@ export default function Reports() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Lead ID</TableHead>
+                    {/* <TableHead>Lead ID</TableHead> */}
                     <TableHead>Name</TableHead>
                     <TableHead>Event Name</TableHead>
                     <TableHead>Email</TableHead>
@@ -468,7 +468,7 @@ export default function Reports() {
                 <TableBody>
                   {filteredReports.map((item: any) => (
                     <TableRow key={item.lead_id}>
-                      <TableCell>{item.lead_id}</TableCell>
+                      {/* <TableCell>{item.lead_id}</TableCell> */}
                       <TableCell>{item.name}</TableCell>
                       <TableCell>{item.event_name}</TableCell>
                       <TableCell>{item.emails}</TableCell>

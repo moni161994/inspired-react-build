@@ -59,6 +59,7 @@ export default function Teams() {
   // 🔹 ACCESS CONTROL STATES
   const [myAccess, setMyAccess] = useState<AccessPointData | null>(null);
   const [canViewLeads, setCanViewLeads] = useState(false);
+  const [canViewSignature, setCanViewSignature] = useState(false);
   const [canDeleteLead, setCanDeleteLead] = useState(false);
   const [canFilterLeads, setCanFilterLeads] = useState(false);
   const [canDownloadReports, setCanDownloadReports] = useState(false);
@@ -130,6 +131,7 @@ export default function Teams() {
     const userId = getCurrentUserId();
     if (!userId) {
       setCanViewLeads(false);
+      setCanViewSignature(false);
       return;
     }
 
@@ -150,21 +152,24 @@ export default function Teams() {
           return parsed.point.includes(suffix);
         };
 
-        // 👈 LEAD-SPECIFIC PERMISSIONS
+        // 👈 LEAD-SPECIFIC PERMISSIONS setCanViewSignature
         setCanViewLeads(true);
         setCanDeleteLead(hasPage("/lead") && hasAction("/lead", "delete_lead"));
         setCanFilterLeads(hasPage("/lead") && hasAction("/lead", "filter"));
+        setCanViewSignature(hasPage("/lead") && hasAction("/lead", "signature"));
         setCanDownloadReports(hasPage("/lead") && hasAction("/lead", "download_reports"));
       } else {
         setCanViewLeads(true);
         setCanDeleteLead(false);
         setCanFilterLeads(false);
         setCanDownloadReports(false);
+        setCanViewSignature(false);
       }
     } catch (e) {
       console.error("loadMyAccess error", e);
       setCanViewLeads(false);
       setCanDeleteLead(false);
+      setCanViewSignature(false);
       setCanFilterLeads(false);
       setCanDownloadReports(false);
     }
@@ -467,7 +472,7 @@ export default function Teams() {
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Designation</th> */}
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Phone</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Email</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Signature</th>
+                      {canViewSignature && <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Signature</th>}
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Captured By</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Event</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Date Of Capture</th>
@@ -489,7 +494,7 @@ export default function Teams() {
                           <td className="py-3 px-4">{lead?.designation || "-"}</td> */}
                           <td className="py-3 px-4">{lead?.phone_numbers?.[0] || "-"}</td>
                           <td className="py-3 px-4">{lead?.emails?.[0] || "-"}</td>
-                          <td className="py-3 px-4">
+                          {canViewSignature && <td className="py-3 px-4">
                             {lead?.signature && (
                               <img
                                 src={`data:image/png;base64,${lead.signature}`}
@@ -497,7 +502,7 @@ export default function Teams() {
                                 style={{ height: "60px", width: "80px", objectFit: "cover" }}
                               />
                             )}
-                          </td>
+                          </td>}
                           <td className="py-3 px-4">{lead?.captured_by_name || "Active Event"}</td>
                           <td className="py-3 px-4">{lead?.event_name || "Active Event"}</td>
                           <td className="py-3 px-4">{lead?.created_at?.split('T')[0] || "Active Event"}</td>
@@ -578,7 +583,7 @@ export default function Teams() {
                     <div className="space-y-3">
                       <h3 className="font-semibold text-lg border-b pb-2 text-foreground/80">Contact Information</h3>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                        {selectedLead?.lead_id && <InfoRow label="Lead ID" value={selectedLead.lead_id} />}
+                        {/* {selectedLead?.lead_id && <InfoRow label="Lead ID" value={selectedLead.lead_id} />} */}
                         {selectedLead?.company && <InfoRow label="Company" value={selectedLead.company} />}
                         {selectedLead?.designation && <InfoRow label="Designation" value={selectedLead.designation} />}
                         {selectedLead?.phone_numbers?.length > 0 && (
@@ -674,21 +679,16 @@ export default function Teams() {
                       </div>
                     )}
 
-                    {selectedLead?.signature_binary ? (
+                    {(selectedLead?.signature_binary && canViewSignature )? (
                       <div className="border rounded-lg p-3 bg-muted/10">
                         <span className="text-sm font-medium text-muted-foreground mb-2 block">Signature</span>
                         <div className="bg-white border rounded p-2 flex items-center justify-center h-24">
-                          {/* <img
-                  src={`data:image/png;base64,${selectedLead.signature_binary}`}
-                  alt="Signature"
-                  className="max-h-full max-w-full object-contain"
-                /> */}
                           <img
 
                             src={`data:image/png;base64,${selectedLead.signature}`}
 
                             alt="Signature"
-
+                              style={{height: "200px" }}
                             className="w-full h-full object-contain p-2"
 
                           />
