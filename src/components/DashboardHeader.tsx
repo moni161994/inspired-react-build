@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Search, Plus } from "lucide-react";
+import { Search, Plus, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -29,8 +29,9 @@ import {
   CommandItem,
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
-import { X } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
+// --- TYPES ---
 type User = {
   employee_id: number;
   user_name: string;
@@ -42,6 +43,10 @@ type AccessPointData = {
   user_id: number;
 };
 
+// Define valid template types explicitly
+type TemplateType = "booth_give_away" | "full_lead_form" | "workshop";
+
+// --- CONSTANTS ---
 const AVAILABLE_FIELDS = [
   "Name",
   "Designation",
@@ -62,11 +67,11 @@ const AVAILABLE_FIELDS = [
   "Email Opt In",
 ];
 
-// Helper function
+// Helper to sanitize labels for API keys
 const convertToApiKey = (label: string) =>
   label.toLowerCase().replace(/ /g, "_");
 
-// 1. Define the list of fields you want checked by default
+// Default fields checked when creating a new template
 const DEFAULT_CHECKED_LABELS = [
   "Name",
   "Designation",
@@ -80,7 +85,6 @@ const DEFAULT_CHECKED_LABELS = [
   "ZIP",
 ];
 
-// 2. Convert them to keys once (e.g., ["name", "designation", ...])
 const DEFAULT_CHECKED_KEYS = DEFAULT_CHECKED_LABELS.map(convertToApiKey);
 
 export function DashboardHeader() {
@@ -89,33 +93,41 @@ export function DashboardHeader() {
   const { request } = useApi();
   const { toast } = useToast();
 
+  // --- STATE ---
   const [teamDialogOpen, setTeamDialogOpen] = useState(false);
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
-
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // Team Form Data
   const [formData, setFormData] = useState({
     team_name: "",
     manager_id: "",
     employees_id: [] as string[],
   });
 
-  // CREATE TEMPLATE STATES
+  // Template Form Data
   const [templateName, setTemplateName] = useState("");
   const [templateDescription, setTemplateDescription] = useState("");
-  
-  // 3. Initialize state with the default keys
-  const [selectedFields, setSelectedFields] = useState<string[]>(DEFAULT_CHECKED_KEYS);
-  
   const [templateLogoBase64, setTemplateLogoBase64] = useState<string>("");
 
-  // ACCESS STATES
+  // 1. STATE FOR TABS & INDEPENDENT SELECTIONS
+  const [activeTab, setActiveTab] = useState<TemplateType>("booth_give_away");
+
+  // Stores selections separately for each tab type
+  const [fieldSelections, setFieldSelections] = useState<Record<TemplateType, string[]>>({
+    booth_give_away: [...DEFAULT_CHECKED_KEYS],
+    full_lead_form: [...DEFAULT_CHECKED_KEYS],
+    workshop: [...DEFAULT_CHECKED_KEYS],
+  });
+
+  // Access Control State
   const [access, setAccess] = useState<AccessPointData | null>(null);
   const [canCreateTeam, setCanCreateTeam] = useState(false);
   const [canCreateTemplate, setCanCreateTemplate] = useState(false);
   const [canCreateEvent, setCanCreateEvent] = useState(false);
 
+  // --- HELPERS ---
   const getCurrentUserId = (): number => {
     try {
       const raw = localStorage.getItem("user_id");
@@ -125,6 +137,9 @@ export function DashboardHeader() {
     }
   };
 
+  const getEmail = localStorage.getItem("email") || "";
+
+  // --- API / LOADERS ---
   const loadAccess = async () => {
     const userId = getCurrentUserId();
     if (!userId) return;
@@ -162,6 +177,29 @@ export function DashboardHeader() {
     }
   };
 
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const res = await request("/get_users", "GET");
+        if (Array.isArray(res?.data)) {
+          setUsers(res?.data);
+        } else {
+          setUsers([]);
+        }
+      } catch (err) {
+        console.error("Error fetching users:", err);
+      }
+    };
+    fetchUsers();
+    loadAccess();
+  }, [teamDialogOpen]); // Refresh users when team dialog opens/closes context
+
+  // --- HANDLERS ---
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
+
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -173,40 +211,59 @@ export function DashboardHeader() {
     reader.readAsDataURL(file);
   };
 
+  // 2. TOGGLE LOGIC: Updates only the active tab's list
   const toggleField = (label: string) => {
     const api = convertToApiKey(label);
-    setSelectedFields((prev) =>
-      prev.includes(api) ? prev.filter((f) => f !== api) : [...prev, api]
-    );
-  };
 
-  const buildFieldsPayload = () => {
-    return selectedFields.map((field_name) => {
-      let field_type = "text";
-      if (field_name === "phone_numbers") field_type = "number";
+    setFieldSelections((prev) => {
+      const currentList = prev[activeTab]; // Get list for currently active tab
+      const newList = currentList.includes(api)
+        ? currentList.filter((f) => f !== api)
+        : [...currentList, api];
+
       return {
-        field_name,
-        field_type,
-        is_required: false,
+        ...prev,
+        [activeTab]: newList, // Update only active tab in state
       };
     });
+  };
+
+  // 3. BUILD PAYLOAD: Flattens all 3 tabs into one array
+  const buildFieldsPayload = () => {
+    let combinedFields: any[] = [];
+
+    (Object.keys(fieldSelections) as TemplateType[]).forEach((type) => {
+      const fieldsForType = fieldSelections[type];
+
+      const mappedFields = fieldsForType.map((field_name) => ({
+        field_name,
+        field_type: type, // e.g. "booth_give_away", "workshop"
+        is_required: false,
+      }));
+
+      combinedFields = [...combinedFields, ...mappedFields];
+    });
+
+    return combinedFields;
   };
 
   const handleCreateTemplate = async () => {
     if (!templateName.trim()) {
       toast({
         variant: "destructive",
-        title: "Missing Template Name",
-        description: "Please provide a template name.",
+        title: "Missing Name",
+        description: "Template name is required.",
       });
       return;
     }
 
-    if (selectedFields.length === 0) {
+    // Optional: Validate that at least one field is selected in total
+    const totalSelected = Object.values(fieldSelections).flat().length;
+    if (totalSelected === 0) {
       toast({
         variant: "destructive",
-        title: "No Fields Selected",
-        description: "Please select at least one field for the template.",
+        title: "No Fields",
+        description: "Please select at least one field in one of the tabs.",
       });
       return;
     }
@@ -225,7 +282,7 @@ export function DashboardHeader() {
     const payload = {
       templateName: templateName,
       description: templateDescription,
-      fields: buildFieldsPayload(),
+      fields: buildFieldsPayload(), // Send combined data
       template_image_base64: templateLogoBase64,
     };
 
@@ -239,22 +296,26 @@ export function DashboardHeader() {
       ) {
         toast({
           title: "Template Created",
-          description: "Your new template has been added.",
+          description: "Your new template has been added successfully.",
         });
 
+        // Reset Form
         setTemplateDialogOpen(false);
         setTemplateName("");
         setTemplateDescription("");
-        // 4. Reset to default selections instead of empty array
-        setSelectedFields(DEFAULT_CHECKED_KEYS); 
-        
+        setTemplateLogoBase64("");
+        setFieldSelections({
+          booth_give_away: [...DEFAULT_CHECKED_KEYS],
+          full_lead_form: [...DEFAULT_CHECKED_KEYS],
+          workshop: [...DEFAULT_CHECKED_KEYS],
+        });
+
         window.location.href = "/template";
       } else {
         toast({
           variant: "destructive",
-          title: "Failed to Create Template",
-          description:
-            res?.message || res?.msg || "Unexpected error occurred.",
+          title: "Failed",
+          description: res?.message || res?.msg || "Unexpected error.",
         });
       }
     } catch (err: any) {
@@ -269,32 +330,8 @@ export function DashboardHeader() {
     }
   };
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const res = await request("/get_users", "GET");
-        if (Array.isArray(res?.data)) {
-          setUsers(res?.data);
-        } else {
-          setUsers([]);
-        }
-      } catch (err) {
-        console.error("Error fetching users:", err);
-      }
-    };
-    fetchUsers();
-  }, [teamDialogOpen]);
-
-  useEffect(() => {
-    loadAccess();
-  }, []);
-
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Team Creation Handlers
+  const handleTeamChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
     setFormData((prev) => ({ ...prev, [id]: value }));
   };
@@ -311,21 +348,15 @@ export function DashboardHeader() {
 
   const handleCreateTeam = async () => {
     if (!canCreateTeam) {
-      toast({
-        variant: "destructive",
-        title: "Permission Denied",
-        description: "You are not allowed to create teams.",
-      });
+      toast({ variant: "destructive", title: "Permission Denied" });
       return;
     }
-
     const { team_name, manager_id, employees_id } = formData;
-
     if (!team_name || !manager_id || employees_id?.length === 0) {
       toast({
         variant: "destructive",
-        title: "⚠️ Missing Required Fields",
-        description: "Please fill all required fields.",
+        title: "Missing Fields",
+        description: "Please fill all required team fields.",
       });
       return;
     }
@@ -339,10 +370,7 @@ export function DashboardHeader() {
     setLoading(false);
 
     if (res?.message === "Team created successfully") {
-      toast({
-        title: "Team Created",
-        description: "Your team has been created successfully.",
-      });
+      toast({ title: "Team Created", description: "Team created successfully." });
       setTeamDialogOpen(false);
       setFormData({ team_name: "", manager_id: "", employees_id: [] });
       window.location.href = "/team";
@@ -350,18 +378,54 @@ export function DashboardHeader() {
       toast({
         variant: "destructive",
         title: "Failed",
-        description: res?.msg || "Unexpected error occurred.",
+        description: res?.msg || "Error creating team.",
       });
     }
   };
 
-  const getEmail = localStorage.getItem("email") || "";
+  // 4. COMPONENT: Field Checkboxes (Renders checkboxes for current Active Tab)
+  const FieldCheckboxes = () => {
+    const currentSelectedList = fieldSelections[activeTab];
+
+    return (
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4 max-h-[300px] overflow-y-auto pr-2">
+        {AVAILABLE_FIELDS.map((label) => {
+          const api = convertToApiKey(label);
+          const isChecked = currentSelectedList.includes(api);
+
+          return (
+            <label
+              key={label}
+              className={`flex items-center gap-2 border p-2 rounded cursor-pointer transition-colors text-sm ${
+                isChecked
+                  ? "bg-primary/10 border-primary"
+                  : "hover:bg-muted border-input"
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={isChecked}
+                onChange={() => toggleField(label)}
+                className="w-4 h-4 rounded border-gray-300 accent-primary focus:ring-primary"
+              />
+              <span className="select-none truncate">{label}</span>
+            </label>
+          );
+        })}
+      </div>
+    );
+  };
 
   return (
     <>
       <header className="flex items-center justify-between h-16 px-6 bg-card border-b border-border">
         <div className="flex items-center space-x-4">
-          <h2 className="text-lg font-semibold text-foreground">Eprevent Admin </h2> <span className="ml-2 text-base">Login As ( {getEmail} )</span>
+          <h2 className="text-lg font-semibold text-foreground">
+            Eprevent Admin
+          </h2>{" "}
+          <span className="ml-2 text-sm text-muted-foreground hidden sm:inline-block">
+            Login As ({getEmail})
+          </span>
         </div>
 
         <div className="flex items-center space-x-4">
@@ -371,7 +435,8 @@ export function DashboardHeader() {
               onClick={() => setTemplateDialogOpen(true)}
             >
               <Plus className="w-4 h-4 mr-2" />
-              Create Template
+              <span className="hidden sm:inline">Create Template</span>
+              <span className="sm:hidden">Template</span>
             </Button>
           )}
 
@@ -381,7 +446,8 @@ export function DashboardHeader() {
               onClick={openEventDialog}
             >
               <Plus className="w-4 h-4 mr-2" />
-              Add New Event
+              <span className="hidden sm:inline">Add New Event</span>
+              <span className="sm:hidden">Event</span>
             </Button>
           )}
 
@@ -391,9 +457,9 @@ export function DashboardHeader() {
         </div>
       </header>
 
-      {/* TEAM DIALOG */}
+      {/* --- TEAM DIALOG --- */}
       <Dialog open={teamDialogOpen} onOpenChange={setTeamDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create a New Team</DialogTitle>
           </DialogHeader>
@@ -402,11 +468,11 @@ export function DashboardHeader() {
             <div>
               <Label htmlFor="team_name">Team Name *</Label>
               <Input
-              className="border-gray focus:border-gray"
+                className="border-gray-300 focus:border-primary"
                 id="team_name"
                 placeholder="Enter team name"
                 value={formData.team_name}
-                onChange={handleChange}
+                onChange={handleTeamChange}
               />
             </div>
 
@@ -418,7 +484,7 @@ export function DashboardHeader() {
                   setFormData((prev) => ({ ...prev, manager_id: val }))
                 }
               >
-                <SelectTrigger className="border-gray focus:border-gray">
+                <SelectTrigger className="border-gray-300 focus:border-primary">
                   <SelectValue placeholder="Select Manager" />
                 </SelectTrigger>
                 <SelectContent>
@@ -436,7 +502,7 @@ export function DashboardHeader() {
 
             <div>
               <Label>Employees *</Label>
-              <Command className="border rounded-md">
+              <Command className="border rounded-md border-gray-300">
                 <CommandInput placeholder="Search employees..." />
                 <CommandEmpty>No results found.</CommandEmpty>
                 <CommandGroup className="max-h-48 overflow-auto">
@@ -472,12 +538,12 @@ export function DashboardHeader() {
                   return (
                     <Badge
                       key={id}
-                      className="flex items-center space-x-1"
+                      className="flex items-center space-x-1 pl-2 pr-1 py-1"
                       variant="secondary"
                     >
                       <span>{emp?.user_name || `User ${id}`}</span>
                       <X
-                        className="w-3 h-3 cursor-pointer"
+                        className="w-3 h-3 cursor-pointer hover:text-destructive ml-1"
                         onClick={() => toggleEmployee(id)}
                       />
                     </Badge>
@@ -498,69 +564,117 @@ export function DashboardHeader() {
         </DialogContent>
       </Dialog>
 
-      {/* CREATE TEMPLATE DIALOG */}
+      {/* --- TEMPLATE DIALOG --- */}
       <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Template</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 mt-4">
-            <div>
-              <Label>Template Name *</Label>
-              <Input
-              className="border-gray focus:border-gray"
-                placeholder="Enter template name"
-                value={templateName}
-                onChange={(e) => setTemplateName(e.target.value)}
-              />
+            {/* Top Row: Name & Logo */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Template Name *</Label>
+                <Input
+                  className="border-gray-300 focus:border-primary mt-1.5"
+                  placeholder="Enter template name"
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label>Brand Logo</Label>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoUpload}
+                  className="border-gray-300 focus:border-primary mt-1.5 file:mr-4 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                />
+              </div>
             </div>
 
             <div>
               <Label>Description</Label>
               <Input
-              className="border-gray focus:border-gray"
+                className="border-gray-300 focus:border-primary mt-1.5"
                 placeholder="Enter description"
                 value={templateDescription}
                 onChange={(e) => setTemplateDescription(e.target.value)}
               />
             </div>
 
-            <div>
-              <Label>Select Fields *</Label>
-              <div className="grid grid-cols-3 gap-2 mt-2">
-                {AVAILABLE_FIELDS.map((label) => {
-                  const api = convertToApiKey(label);
-                  return (
-                    <label
-                      key={label}
-                      style={{ whiteSpace: "nowrap" }}
-                      className="flex items-center gap-2 border p-2 rounded"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedFields.includes(api)}
-                        onChange={() => toggleField(label)}
-                      />
-                      <span className="select-none">{label}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-            <div>
-              <Label>Brand Logo Image</Label>
-              <Input
-                id="logo-upload"
-                type="file"
-                accept="image/*"
-                onChange={handleLogoUpload}
-                className="border-gray focus:border-gray mt-1 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-              />
+            {/* TABS SECTION */}
+            <div className="mt-6 border-t pt-4">
+              <Label className="text-base font-semibold mb-4 block">
+                Configure Fields per Type
+              </Label>
+
+              <Tabs
+                value={activeTab}
+                onValueChange={(val) => setActiveTab(val as TemplateType)}
+                className="w-full"
+              >
+                <TabsList className="grid w-full grid-cols-3 mb-4">
+                  <TabsTrigger value="booth_give_away">
+                    Booth Give Away
+                  </TabsTrigger>
+                  <TabsTrigger value="full_lead_form">
+                    Full Lead Form
+                  </TabsTrigger>
+                  <TabsTrigger value="workshop">Workshop</TabsTrigger>
+                </TabsList>
+
+                {/* Tab Contents: Reusing FieldCheckboxes Component */}
+                <TabsContent
+                  value="booth_give_away"
+                  className="border rounded-md p-4 bg-slate-50/50"
+                >
+                  <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-200">
+                    <h4 className="font-medium text-sm text-muted-foreground">
+                      Select fields for Booth Give Away
+                    </h4>
+                    <Badge variant="outline" className="bg-white">
+                      {fieldSelections.booth_give_away.length} Selected
+                    </Badge>
+                  </div>
+                  <FieldCheckboxes />
+                </TabsContent>
+
+                <TabsContent
+                  value="full_lead_form"
+                  className="border rounded-md p-4 bg-slate-50/50"
+                >
+                  <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-200">
+                    <h4 className="font-medium text-sm text-muted-foreground">
+                      Select fields for Full Lead Form
+                    </h4>
+                    <Badge variant="outline" className="bg-white">
+                      {fieldSelections.full_lead_form.length} Selected
+                    </Badge>
+                  </div>
+                  <FieldCheckboxes />
+                </TabsContent>
+
+                <TabsContent
+                  value="workshop"
+                  className="border rounded-md p-4 bg-slate-50/50"
+                >
+                  <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-200">
+                    <h4 className="font-medium text-sm text-muted-foreground">
+                      Select fields for Workshop
+                    </h4>
+                    <Badge variant="outline" className="bg-white">
+                      {fieldSelections.workshop.length} Selected
+                    </Badge>
+                  </div>
+                  <FieldCheckboxes />
+                </TabsContent>
+              </Tabs>
             </div>
           </div>
 
-          <div className="flex justify-end space-x-3 pt-6">
+          <div className="flex justify-end space-x-3 pt-6 mt-4 border-t">
             <Button
               variant="outline"
               onClick={() => setTemplateDialogOpen(false)}
@@ -568,7 +682,7 @@ export function DashboardHeader() {
               Cancel
             </Button>
             <Button onClick={handleCreateTemplate} disabled={loading}>
-              {loading ? "Saving..." : "Save Template"}
+              {loading ? "Saving Template..." : "Save Template (All Types)"}
             </Button>
           </div>
         </DialogContent>

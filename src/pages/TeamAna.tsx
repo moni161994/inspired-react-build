@@ -349,7 +349,7 @@ export default function TeamAnalytics() {
                   <table className="w-full">
                     <thead className="bg-muted/30">
                       <tr>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Team ID</th>
+                        {/* <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Team ID</th> */}
                         <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Manager</th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Team Name</th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Members</th>
@@ -359,12 +359,29 @@ export default function TeamAnalytics() {
                     <tbody>
                       {filteredTeams.map((team) => (
                         <tr key={team.team_id} className="border-b hover:bg-muted/20">
-                          <td className="py-3 px-4 font-mono text-sm">{team.team_id}</td>
+                          {/* <td className="py-3 px-4 font-mono text-sm">{team.team_id}</td> */}
                           <td className="py-3 px-4">{team.manager_name}</td>
                           <td className="py-3 px-4 font-medium">{team.team_name}</td>
-                          <td className="py-3 px-4">
-                            <Badge variant="secondary">{team.members.length}</Badge>
+                          
+                          {/* 🔹 UPDATED: LISTING TEAM MEMBERS WITH BADGES INSTEAD OF COUNT */}
+                          <td className="py-3 px-4 max-w-[400px]">
+                            <div className="flex flex-wrap gap-1">
+                                {team.members && team.members.length > 0 ? (
+                                    team.members.map((member) => (
+                                        <Badge 
+                                            key={member.employee_id} 
+                                            variant="outline" 
+                                            className="font-normal text-xs bg-muted/30"
+                                        >
+                                            {member.user_name}
+                                        </Badge>
+                                    ))
+                                ) : (
+                                    <span className="text-muted-foreground text-xs">-</span>
+                                )}
+                            </div>
                           </td>
+
                           <td className="py-3 px-4">
                             {canEditTeam ? (
                               <Button 
