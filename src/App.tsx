@@ -19,11 +19,44 @@ import Reports from "./pages/Reports";
 import Templates from "./pages/Templates";
 import LanguageManagement from "./pages/Language";
 import AreaOfInterestManagement from "./pages/AreaOfIntrest";
+import { useEffect } from "react";
 
 const queryClient = new QueryClient();
 
 
-const App = () => (
+const App = () => 
+  {
+    useEffect(() => {
+      // 1. Disable Right Click
+      const handleContextMenu = (e: MouseEvent) => {
+        e.preventDefault();
+      };
+  
+      // 2. Disable Keyboard Shortcuts (Inspect, View Source, Save)
+      const handleKeyDown = (e: KeyboardEvent) => {
+        // Disable F12, Ctrl + Shift + I, Ctrl + Shift + J, Ctrl + U
+        if (
+          e.key === 'F12' ||
+          (e.ctrlKey && e.shiftKey && e.key === 'I') ||
+          (e.ctrlKey && e.shiftKey && e.key === 'J') ||
+          (e.ctrlKey && e.key === 'U') ||
+          (e.ctrlKey && e.key === 'S') // Optional: Disable Save
+        ) {
+          e.preventDefault();
+        }
+      };
+  
+      // Add Event Listeners
+      document.addEventListener('contextmenu', handleContextMenu);
+      document.addEventListener('keydown', handleKeyDown);
+  
+      // Cleanup Listeners on Unmount
+      return () => {
+        document.removeEventListener('contextmenu', handleContextMenu);
+        document.removeEventListener('keydown', handleKeyDown);
+      };
+    }, []);
+    return (
   <BrowserRouter>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -48,7 +81,7 @@ const App = () => (
       </TooltipProvider>
     </QueryClientProvider>
   </BrowserRouter>
-);
+);}
 
 
 export default App;
