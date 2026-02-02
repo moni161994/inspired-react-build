@@ -50,6 +50,7 @@ const KEY_CATEGORIES: Record<string, string> = {
   "Logout": "App Headings",
   "New Lead Captured": "Alert & Other Messages",
   "CRM Sync Completed": "Alert & Other Messages",
+  "Please Select Event To Continue": "Alert & Other Messages",
   "CRM Sync": "Alert & Other Messages",
   "Hot Lead Identified": "Alert & Other Messages",
   "Hide Details": "App Headings",

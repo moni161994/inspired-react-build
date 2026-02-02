@@ -50,7 +50,6 @@ export interface Event {
   capture_type: string[];
   lead_type?: string[];
   event_type?: string;
-  // ✅ Changed to 'any' to handle both [{id, label}] (from API) and string[] (for UI)
   area_of_interest?: any; 
 }
 
@@ -59,6 +58,15 @@ interface AccessPointData {
   point: string[];
   user_id: number;
 }
+
+// ================= CONSTANTS =================
+const CAPTURE_OPTIONS = [
+  { id: "booth", label: "Booth Give Away", desc: "Gamified entry" },
+  { id: "full", label: "Full Lead Form", desc: "Detailed data entry" },
+  { id: "workshop", label: "Workshop", desc: "Workshop" },
+];
+
+const LEAD_TYPES = ["Visiting Card", "Badge", "Manual"];
 
 // ================= UPDATE POPUP COMPONENT =================
 function UpdateEventPopup({
@@ -143,7 +151,6 @@ function UpdateEventPopup({
       if (!Array.isArray(parsed)) return [];
 
       // ✅ FIX: Map Objects ({id, label}) to Strings ("label")
-      // This prevents the "Objects are not valid as React child" error
       return parsed.map((item: any) => {
         if (typeof item === 'object' && item !== null && 'label' in item) {
           return item.label; // Extract the name/label
@@ -167,7 +174,7 @@ function UpdateEventPopup({
       priority_leads: event.priority_leads || 0,
       lead_type: parseArray(event.lead_type),
       capture_type: parseArray(event.capture_type),
-      area_of_interest: parseArray(event.area_of_interest), // ✅ Now strictly string[]
+      area_of_interest: parseArray(event.area_of_interest),
     };
   });
 
@@ -228,6 +235,15 @@ function UpdateEventPopup({
     });
   };
 
+  // ✅ NEW: Handle Select All / Deselect All
+  const handleSelectAll = (field: "capture_type" | "area_of_interest", allItems: string[]) => {
+    setFormData(prev => {
+      const currentList = prev[field];
+      const isAllSelected = currentList.length === allItems.length && allItems.length > 0;
+      return { ...prev, [field]: isAllSelected ? [] : allItems };
+    });
+  };
+
   const handleSave = async () => {
     const payload = {
       ...formData,
@@ -248,6 +264,13 @@ function UpdateEventPopup({
       toast({ variant: "destructive", title: "Update Failed", description: "Could not save changes." });
     }
   };
+
+  // 🔹 CALCULATED STATES FOR SELECT ALL
+  const allAoiNames = aoiList.map(a => a.name);
+  const isAllAoiSelected = allAoiNames.length > 0 && formData.area_of_interest.length === allAoiNames.length;
+  
+  const allCaptureLabels = CAPTURE_OPTIONS.map(c => c.label);
+  const isAllCaptureSelected = formData.capture_type.length === allCaptureLabels.length;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 p-4 animate-in fade-in duration-200">
@@ -345,7 +368,20 @@ function UpdateEventPopup({
 
               {/* ✅ AREA OF INTEREST (Multi-Select) */}
               <div className="col-span-2 ">
-                <Label>Area of Interest</Label>
+                <div className="flex justify-between items-center mb-1">
+                    <Label>Area of Interest</Label>
+                    {aoiList.length > 0 && (
+                        <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => handleSelectAll("area_of_interest", allAoiNames)}
+                            className="h-6 text-xs border-dashed px-2"
+                        >
+                            {isAllAoiSelected ? "Deselect All" : "Select All"}
+                        </Button>
+                    )}
+                </div>
                 <Popover>
                     <PopoverTrigger asChild>
                         <Button variant="outline" className="w-full justify-between border-gray font-normal">
@@ -376,7 +412,7 @@ function UpdateEventPopup({
                         </Command>
                     </PopoverContent>
                 </Popover>
-                {/* Selected Badges (Renders strings safely now) */}
+                {/* Selected Badges */}
                 <div className="flex flex-wrap gap-1 mt-2">
                     {formData.area_of_interest.map((item) => (
                         <Badge 
@@ -390,8 +426,6 @@ function UpdateEventPopup({
                     ))}
                 </div>
               </div>
-
-            
 
               <DateInput label="Start Date" value={formData.start_date} required onChange={(v) => handleChange("start_date", v)} />
               <DateInput label="End Date" value={formData.end_date} required onChange={(v) => handleChange("end_date", v)} />
@@ -465,7 +499,7 @@ function UpdateEventPopup({
               <div className="col-span-2 border-t pt-4">
                 <Label className="font-bold mb-2 block text-sm">Lead Type *</Label>
                 <div className="flex gap-2">
-                  {["Visiting Card", "Badge", "Manual"].map((type) => (
+                  {LEAD_TYPES.map((type) => (
                     <Badge key={type} variant={formData.lead_type.includes(type) ? "default" : "outline"} className="cursor-pointer px-4 py-2" onClick={() => toggleArrayItem("lead_type", type)}>
                       {type} {formData.lead_type.includes(type) && <Check className="ml-1 h-3 w-3" />}
                     </Badge>
@@ -473,15 +507,23 @@ function UpdateEventPopup({
                 </div>
               </div>
 
-              {/* CAPTURE TYPE */}
+              {/* ✅ CAPTURE TYPE */}
               <div className="col-span-2 border-t pt-4">
-                <Label className="font-bold mb-2 block text-sm">Capture Type *</Label>
+                <div className="flex justify-between items-center mb-2">
+                    <Label className="font-bold block text-sm">Capture Type *</Label>
+                    <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleSelectAll("capture_type", allCaptureLabels)}
+                        className="h-6 text-xs border-dashed px-2"
+                    >
+                        {isAllCaptureSelected ? "Deselect All" : "Select All"}
+                    </Button>
+                </div>
+                
                 <div className="grid grid-cols-3 gap-3">
-                    {[
-                      { id: "booth", label: "Booth Give Away", desc: "Gamified entry" },
-                      { id: "full", label: "Full Lead Form", desc: "Detailed data entry" },
-                      { id: "workshop", label: "Workshop", desc: "Workshop" },
-                    ].map(({ label, desc }) => (
+                    {CAPTURE_OPTIONS.map(({ label, desc }) => (
                       <div
                         key={label}
                         onClick={() => toggleArrayItem("capture_type", label)}

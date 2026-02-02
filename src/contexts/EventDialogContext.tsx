@@ -51,6 +51,10 @@ const EventDialogContext = createContext<EventDialogContextType | undefined>(
   undefined
 );
 
+// Defined constants for consistency
+const CAPTURE_TYPES = ["Booth Give Away", "Full Lead Form", "Workshop"];
+const LEAD_TYPES = ["Visiting Card", "Badge", "Manual"];
+
 export function EventDialogProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const { request } = useApi<any>();
@@ -174,6 +178,19 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  // Generic Select All / Deselect All
+  const handleSelectAll = (field: "capture_type" | "area_of_interest", allItems: string[]) => {
+    setFormData(prev => {
+        const currentList = prev[field];
+        const isAllSelected = currentList.length === allItems.length && allItems.length > 0;
+        
+        return {
+            ...prev,
+            [field]: isAllSelected ? [] : allItems
+        };
+    });
+  };
+
   const validateStep1 = () => {
     const required = ["eventName", "template_id", "location", "startDate", "endDate"];
     for (const key of required) {
@@ -203,7 +220,6 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
       priority_leads: Number(formData.priorityLeads) || 0,
       lead_type: formData.lead_type,
       capture_type: formData.capture_type,
-      // Pass the array directly. The DB will store it as JSON [ "aoi1", "aoi2" ]
       area_of_interest: formData.area_of_interest, 
       total_leads: 0,
     };
@@ -233,6 +249,13 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
 
   const closeEventDialog = () => setIsOpen(false);
 
+  // Computed helper for AoI 'All Selected' state
+  const allAoiNames = aoiList.map(a => a.name);
+  const isAllAoiSelected = allAoiNames.length > 0 && formData.area_of_interest.length === allAoiNames.length;
+
+  // Computed helper for Capture Type 'All Selected' state
+  const isAllCaptureSelected = formData.capture_type.length === CAPTURE_TYPES.length;
+
   return (
     <EventDialogContext.Provider value={{ openEventDialog, closeEventDialog }}>
       {children}
@@ -251,7 +274,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
           <div className="py-4">
             {step === 1 && (
               <div className="grid grid-cols-2 gap-5">
-                {/* ... Step 1 Inputs remain the same ... */}
+                {/* ... Step 1 Inputs ... */}
                 <div className="col-span-2 space-y-2">
                   <Label className="text-sm font-semibold">Event Name *</Label>
                   <Input id="eventName" placeholder="Enter event name..." value={formData.eventName} onChange={handleChange} className="border-gray" />
@@ -290,6 +313,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                     </SelectContent>
                   </Select>
                 </div>
+
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold">Location *</Label>
                   <Popover open={isLocationOpen} onOpenChange={setIsLocationOpen}>
@@ -349,8 +373,24 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                     </PopoverContent>
                   </Popover>
                 </div>
+
+                {/* --- AREA OF INTEREST --- */}
                 <div className="col-span-2 space-y-2">
-                    <Label className="text-sm font-semibold">Area of Interest</Label>
+                    <div className="flex justify-between items-center">
+                        <Label className="text-sm font-semibold">Area of Interest</Label>
+                        {aoiList.length > 0 && (
+                            <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => handleSelectAll("area_of_interest", allAoiNames)}
+                                className="h-6 text-xs border-dashed px-2"
+                            >
+                                {isAllAoiSelected ? "Deselect All" : "Select All"}
+                            </Button>
+                        )}
+                    </div>
+
                     <Popover>
                     <PopoverTrigger asChild>
                         <Button variant="outline" className="w-full justify-between border-gray font-normal">
@@ -381,7 +421,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                         </Command>
                     </PopoverContent>
                     </Popover>
-                    {/* Selected Badges */}
+                    
                     <div className="flex flex-wrap gap-1 mt-2">
                         {formData.area_of_interest.map((item) => (
                             <Badge 
@@ -395,8 +435,6 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                         ))}
                     </div>
                 </div>
-
-               
 
                 <DateInput label="Start Date" value={formData.startDate} required onChange={(v) => handleSelectChange("startDate", v)} />
                 <DateInput label="End Date" value={formData.endDate} required onChange={(v) => handleSelectChange("endDate", v)} />
@@ -469,7 +507,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 <div className="col-span-2 border-t pt-4 space-y-3">
                   <Label className="text-sm font-bold">Lead Type *</Label>
                   <div className="flex gap-2">
-                    {["Visiting Card", "Badge", "Manual"].map((type) => (
+                    {LEAD_TYPES.map((type) => (
                       <Badge key={type} variant={formData.lead_type.includes(type) ? "default" : "outline"} className="cursor-pointer px-4 py-2 text-sm" onClick={() => toggleArrayItem("lead_type", type)}>
                         {type} {formData.lead_type.includes(type) && <Check className="ml-1 h-3 w-3" />}
                       </Badge>
@@ -477,10 +515,23 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                   </div>
                 </div>
 
+                {/* --- CAPTURE TYPE --- */}
                 <div className="col-span-2 border-t pt-4 space-y-3">
-                  <Label className="text-sm font-bold">Capture Type *</Label>
+                  <div className="flex justify-between items-center">
+                    <Label className="text-sm font-bold">Capture Type *</Label>
+                    <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleSelectAll("capture_type", CAPTURE_TYPES)}
+                        className="h-6 text-xs border-dashed px-2"
+                    >
+                        {isAllCaptureSelected ? "Deselect All" : "Select All"}
+                    </Button>
+                  </div>
+
                   <div className="grid grid-cols-3 gap-3">
-                    {["Booth Give Away", "Full Lead Form","Workshop"].map((label) => (
+                    {CAPTURE_TYPES.map((label) => (
                       <div key={label} onClick={() => toggleArrayItem("capture_type", label)} className={`cursor-pointer border rounded-lg p-4 transition-all ${formData.capture_type.includes(label) ? "border-primary bg-primary/10 ring-1 ring-primary" : "border-gray hover:bg-accent"}`}>
                         <div className="flex justify-between items-center text-sm font-semibold">
                           {label} {formData.capture_type.includes(label) && <Check className="h-4 w-4 text-primary" />}

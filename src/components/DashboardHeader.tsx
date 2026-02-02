@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Search, Plus, X } from "lucide-react";
+import { Search, Plus, X, Asterisk } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch"; 
 
 // --- TYPES ---
 type User = {
@@ -43,8 +44,13 @@ type AccessPointData = {
   user_id: number;
 };
 
-// Define valid template types explicitly
 type TemplateType = "booth_give_away" | "full_lead_form" | "workshop";
+
+// New Type for Field Selection
+type FieldConfig = {
+  key: string;
+  required: boolean;
+};
 
 // --- CONSTANTS ---
 const AVAILABLE_FIELDS = [
@@ -67,11 +73,17 @@ const AVAILABLE_FIELDS = [
   "Email Opt In",
 ];
 
-// Helper to sanitize labels for API keys
 const convertToApiKey = (label: string) =>
   label.toLowerCase().replace(/ /g, "_");
 
-// Default fields checked when creating a new template
+// Helper to create initial default objects
+const createDefaultFields = (labels: string[]): FieldConfig[] => {
+  return labels.map((label) => ({
+    key: convertToApiKey(label),
+    required: false, // Default to not required
+  }));
+};
+
 const DEFAULT_CHECKED_LABELS = [
   "Name",
   "Designation",
@@ -84,8 +96,6 @@ const DEFAULT_CHECKED_LABELS = [
   "State",
   "ZIP",
 ];
-
-const DEFAULT_CHECKED_KEYS = DEFAULT_CHECKED_LABELS.map(convertToApiKey);
 
 export function DashboardHeader() {
   const navigate = useNavigate();
@@ -111,14 +121,15 @@ export function DashboardHeader() {
   const [templateDescription, setTemplateDescription] = useState("");
   const [templateLogoBase64, setTemplateLogoBase64] = useState<string>("");
 
-  // 1. STATE FOR TABS & INDEPENDENT SELECTIONS
   const [activeTab, setActiveTab] = useState<TemplateType>("booth_give_away");
 
-  // Stores selections separately for each tab type
-  const [fieldSelections, setFieldSelections] = useState<Record<TemplateType, string[]>>({
-    booth_give_away: [...DEFAULT_CHECKED_KEYS],
-    full_lead_form: [...DEFAULT_CHECKED_KEYS],
-    workshop: [...DEFAULT_CHECKED_KEYS],
+  // UPDATED STATE: Stores objects instead of strings
+  const [fieldSelections, setFieldSelections] = useState<
+    Record<TemplateType, FieldConfig[]>
+  >({
+    booth_give_away: createDefaultFields(DEFAULT_CHECKED_LABELS),
+    full_lead_form: createDefaultFields(DEFAULT_CHECKED_LABELS),
+    workshop: createDefaultFields(DEFAULT_CHECKED_LABELS),
   });
 
   // Access Control State
@@ -156,7 +167,8 @@ export function DashboardHeader() {
 
         const hasPage = (p: string) => parsed.page.includes(p);
         const hasAction = (page: string, action: string) => {
-          const pageName = page.replace("/", "").replace(/\/+$/, "") || "dashboard";
+          const pageName =
+            page.replace("/", "").replace(/\/+$/, "") || "dashboard";
           const suffix = `${action}_${pageName}`;
           return parsed.point.includes(suffix);
         };
@@ -192,7 +204,7 @@ export function DashboardHeader() {
     };
     fetchUsers();
     loadAccess();
-  }, [teamDialogOpen]); // Refresh users when team dialog opens/closes context
+  }, [teamDialogOpen]);
 
   // --- HANDLERS ---
   const handleLogout = () => {
@@ -211,34 +223,52 @@ export function DashboardHeader() {
     reader.readAsDataURL(file);
   };
 
-  // 2. TOGGLE LOGIC: Updates only the active tab's list
+  // 2. TOGGLE FIELD SELECTION
   const toggleField = (label: string) => {
     const api = convertToApiKey(label);
 
     setFieldSelections((prev) => {
-      const currentList = prev[activeTab]; // Get list for currently active tab
-      const newList = currentList.includes(api)
-        ? currentList.filter((f) => f !== api)
-        : [...currentList, api];
+      const currentList = prev[activeTab];
+      const exists = currentList.find((f) => f.key === api);
 
-      return {
-        ...prev,
-        [activeTab]: newList, // Update only active tab in state
-      };
+      let newList;
+      if (exists) {
+        // Remove
+        newList = currentList.filter((f) => f.key !== api);
+      } else {
+        // Add (default not required)
+        newList = [...currentList, { key: api, required: false }];
+      }
+
+      return { ...prev, [activeTab]: newList };
     });
   };
 
-  // 3. BUILD PAYLOAD: Flattens all 3 tabs into one array
+  // 3. TOGGLE REQUIRED STATUS
+  const toggleRequired = (label: string) => {
+    const api = convertToApiKey(label);
+
+    setFieldSelections((prev) => {
+      const currentList = prev[activeTab];
+      const newList = currentList.map((f) =>
+        f.key === api ? { ...f, required: !f.required } : f
+      );
+
+      return { ...prev, [activeTab]: newList };
+    });
+  };
+
+  // 4. BUILD PAYLOAD
   const buildFieldsPayload = () => {
     let combinedFields: any[] = [];
 
     (Object.keys(fieldSelections) as TemplateType[]).forEach((type) => {
       const fieldsForType = fieldSelections[type];
 
-      const mappedFields = fieldsForType.map((field_name) => ({
-        field_name,
-        field_type: type, // e.g. "booth_give_away", "workshop"
-        is_required: false,
+      const mappedFields = fieldsForType.map((field) => ({
+        field_name: field.key,
+        field_type: type,
+        is_required: field.required, // Pass the boolean to API
       }));
 
       combinedFields = [...combinedFields, ...mappedFields];
@@ -257,7 +287,6 @@ export function DashboardHeader() {
       return;
     }
 
-    // Optional: Validate that at least one field is selected in total
     const totalSelected = Object.values(fieldSelections).flat().length;
     if (totalSelected === 0) {
       toast({
@@ -282,7 +311,7 @@ export function DashboardHeader() {
     const payload = {
       templateName: templateName,
       description: templateDescription,
-      fields: buildFieldsPayload(), // Send combined data
+      fields: buildFieldsPayload(),
       template_image_base64: templateLogoBase64,
     };
 
@@ -299,15 +328,14 @@ export function DashboardHeader() {
           description: "Your new template has been added successfully.",
         });
 
-        // Reset Form
         setTemplateDialogOpen(false);
         setTemplateName("");
         setTemplateDescription("");
         setTemplateLogoBase64("");
         setFieldSelections({
-          booth_give_away: [...DEFAULT_CHECKED_KEYS],
-          full_lead_form: [...DEFAULT_CHECKED_KEYS],
-          workshop: [...DEFAULT_CHECKED_KEYS],
+          booth_give_away: createDefaultFields(DEFAULT_CHECKED_LABELS),
+          full_lead_form: createDefaultFields(DEFAULT_CHECKED_LABELS),
+          workshop: createDefaultFields(DEFAULT_CHECKED_LABELS),
         });
 
         window.location.href = "/template";
@@ -330,7 +358,7 @@ export function DashboardHeader() {
     }
   };
 
-  // Team Creation Handlers
+  // ... Team Creation Handlers (unchanged) ...
   const handleTeamChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
     setFormData((prev) => ({ ...prev, [id]: value }));
@@ -370,7 +398,10 @@ export function DashboardHeader() {
     setLoading(false);
 
     if (res?.message === "Team created successfully") {
-      toast({ title: "Team Created", description: "Team created successfully." });
+      toast({
+        title: "Team Created",
+        description: "Team created successfully.",
+      });
       setTeamDialogOpen(false);
       setFormData({ team_name: "", manager_id: "", employees_id: [] });
       window.location.href = "/team";
@@ -383,35 +414,85 @@ export function DashboardHeader() {
     }
   };
 
-  // 4. COMPONENT: Field Checkboxes (Renders checkboxes for current Active Tab)
+  // 5. UPDATED COMPONENT: Field Checkboxes with Required Toggle
   const FieldCheckboxes = () => {
     const currentSelectedList = fieldSelections[activeTab];
+    const allKeys = AVAILABLE_FIELDS.map(convertToApiKey);
+    const isAllSelected = currentSelectedList.length === allKeys.length;
+
+    const handleSelectAll = () => {
+      setFieldSelections((prev) => ({
+        ...prev,
+        [activeTab]: isAllSelected
+          ? []
+          : allKeys.map((k) => ({ key: k, required: false })),
+      }));
+    };
 
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4 max-h-[300px] overflow-y-auto pr-2">
-        {AVAILABLE_FIELDS.map((label) => {
-          const api = convertToApiKey(label);
-          const isChecked = currentSelectedList.includes(api);
+      <div className="space-y-2 mt-4">
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleSelectAll}
+            className="h-8 text-xs border-dashed"
+          >
+            {isAllSelected ? "Deselect All" : "Select All"}
+          </Button>
+        </div>
 
-          return (
-            <label
-              key={label}
-              className={`flex items-center gap-2 border p-2 rounded cursor-pointer transition-colors text-sm ${
-                isChecked
-                  ? "bg-primary/10 border-primary"
-                  : "hover:bg-muted border-input"
-              }`}
-            >
-              <input
-                type="checkbox"
-                checked={isChecked}
-                onChange={() => toggleField(label)}
-                className="w-4 h-4 rounded border-gray-300 accent-primary focus:ring-primary"
-              />
-              <span className="select-none truncate">{label}</span>
-            </label>
-          );
-        })}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[400px] overflow-y-auto pr-2">
+          {AVAILABLE_FIELDS.map((label) => {
+            const api = convertToApiKey(label);
+            const fieldConfig = currentSelectedList.find((f) => f.key === api);
+            const isChecked = !!fieldConfig;
+            const isRequired = fieldConfig?.required || false;
+
+            return (
+              <div
+                key={label}
+                className={`flex items-center justify-between border p-2 rounded transition-colors text-sm ${
+                  isChecked
+                    ? "bg-primary/5 border-primary"
+                    : "hover:bg-muted border-input"
+                }`}
+              >
+                {/* Left Side: Checkbox & Label */}
+                <label className="flex items-center gap-2 cursor-pointer flex-1">
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={() => toggleField(label)}
+                    className="w-4 h-4 rounded border-gray-300 accent-primary focus:ring-primary"
+                  />
+                  <span className="select-none truncate font-medium">
+                    {label}
+                  </span>
+                </label>
+
+                {/* Right Side: Required Switch */}
+                {isChecked && (
+                  <div className="flex items-center gap-1.5 border-l pl-2 ml-2">
+                    <span
+                      className={`text-[10px] uppercase font-bold ${
+                        isRequired ? "text-red-500" : "text-muted-foreground"
+                      }`}
+                    >
+                      {isRequired ? "Req" : "Opt"}
+                    </span>
+                    <Switch
+                      checked={isRequired}
+                      onCheckedChange={() => toggleRequired(label)}
+                      className="scale-75"
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   };
@@ -460,7 +541,8 @@ export function DashboardHeader() {
       {/* --- TEAM DIALOG --- */}
       <Dialog open={teamDialogOpen} onOpenChange={setTeamDialogOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+          {/* ... Team Dialog Content (Same as before) ... */}
+           <DialogHeader>
             <DialogTitle>Create a New Team</DialogTitle>
           </DialogHeader>
 
@@ -532,9 +614,7 @@ export function DashboardHeader() {
 
               <div className="flex flex-wrap gap-2 mt-2">
                 {formData?.employees_id?.map((id) => {
-                  const emp = users?.find(
-                    (u) => String(u.employee_id) === id
-                  );
+                  const emp = users?.find((u) => String(u.employee_id) === id);
                   return (
                     <Badge
                       key={id}
@@ -566,7 +646,7 @@ export function DashboardHeader() {
 
       {/* --- TEMPLATE DIALOG --- */}
       <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Template</DialogTitle>
           </DialogHeader>
@@ -625,7 +705,6 @@ export function DashboardHeader() {
                   <TabsTrigger value="workshop">Workshop</TabsTrigger>
                 </TabsList>
 
-                {/* Tab Contents: Reusing FieldCheckboxes Component */}
                 <TabsContent
                   value="booth_give_away"
                   className="border rounded-md p-4 bg-slate-50/50"
@@ -634,9 +713,15 @@ export function DashboardHeader() {
                     <h4 className="font-medium text-sm text-muted-foreground">
                       Select fields for Booth Give Away
                     </h4>
-                    <Badge variant="outline" className="bg-white">
-                      {fieldSelections.booth_give_away.length} Selected
-                    </Badge>
+                    <div className="flex gap-2">
+                         <Badge variant="outline" className="bg-white">
+                           {fieldSelections.booth_give_away.length} Selected
+                         </Badge>
+                          <Badge variant="outline" className="bg-white text-red-600 border-red-200">
+                           {fieldSelections.booth_give_away.filter(f=>f.required).length} Required
+                         </Badge>
+                    </div>
+                   
                   </div>
                   <FieldCheckboxes />
                 </TabsContent>
@@ -649,9 +734,14 @@ export function DashboardHeader() {
                     <h4 className="font-medium text-sm text-muted-foreground">
                       Select fields for Full Lead Form
                     </h4>
-                    <Badge variant="outline" className="bg-white">
-                      {fieldSelections.full_lead_form.length} Selected
-                    </Badge>
+                    <div className="flex gap-2">
+                         <Badge variant="outline" className="bg-white">
+                           {fieldSelections.full_lead_form.length} Selected
+                         </Badge>
+                          <Badge variant="outline" className="bg-white text-red-600 border-red-200">
+                           {fieldSelections.full_lead_form.filter(f=>f.required).length} Required
+                         </Badge>
+                    </div>
                   </div>
                   <FieldCheckboxes />
                 </TabsContent>
@@ -664,9 +754,14 @@ export function DashboardHeader() {
                     <h4 className="font-medium text-sm text-muted-foreground">
                       Select fields for Workshop
                     </h4>
-                    <Badge variant="outline" className="bg-white">
-                      {fieldSelections.workshop.length} Selected
-                    </Badge>
+                    <div className="flex gap-2">
+                         <Badge variant="outline" className="bg-white">
+                           {fieldSelections.workshop.length} Selected
+                         </Badge>
+                          <Badge variant="outline" className="bg-white text-red-600 border-red-200">
+                           {fieldSelections.workshop.filter(f=>f.required).length} Required
+                         </Badge>
+                    </div>
                   </div>
                   <FieldCheckboxes />
                 </TabsContent>
