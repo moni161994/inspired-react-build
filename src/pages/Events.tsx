@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +31,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { useToast } from "@/components/ui/use-toast";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { EventOptInSelector } from "@/contexts/EventOptInSelector";
 
 // ================= INTERFACES =================
 export interface Event {
@@ -51,6 +52,7 @@ export interface Event {
   lead_type?: string[];
   event_type?: string;
   area_of_interest?: any; 
+  opt_ins?: any; // Added for Email Opt-ins
 }
 
 interface AccessPointData {
@@ -85,7 +87,7 @@ function UpdateEventPopup({
   // 🔹 DATA STATES
   const [teams, setTeams] = useState<string[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
-  const [aoiList, setAoiList] = useState<any[]>([]); // API list of AOIs
+  const [aoiList, setAoiList] = useState<any[]>([]); 
   
   // 🔹 LOCATION SEARCH STATES
   const [locationSearch, setLocationSearch] = useState("");
@@ -93,7 +95,7 @@ function UpdateEventPopup({
   const [isLocationLoading, setIsLocationLoading] = useState(false);
   const [isLocationOpen, setIsLocationOpen] = useState(false);
 
-  // 🔹 INITIALIZE STATE DIRECTLY
+  // 🔹 INITIALIZE STATE
   const [selectedTeams, setSelectedTeams] = useState<string[]>(() => {
     return event?.team ? event.team.split(", ").filter(Boolean) : [];
   });
@@ -116,10 +118,10 @@ function UpdateEventPopup({
         priority_leads: 0,
         lead_type: [] as string[],
         capture_type: [] as string[],
+        opt_ins: [] as any[],
       };
     }
 
-    // 1. Parse Budget
     let bValue = 0;
     let bCurrency = "USD";
     if (event.budget) {
@@ -132,31 +134,25 @@ function UpdateEventPopup({
       }
     }
 
-    // 2. Parse Arrays (ROBUST PARSER FIX)
     const parseArray = (val: any): string[] => {
       if (!val) return [];
-      
       let parsed = val;
-      
-      // If string, try to JSON parse it
       if (typeof val === 'string') {
-        try {
-          parsed = JSON.parse(val);
-        } catch {
-          return [];
-        }
+        try { parsed = JSON.parse(val); } catch { return []; }
       }
-
-      // Ensure it is an array
       if (!Array.isArray(parsed)) return [];
-
-      // ✅ FIX: Map Objects ({id, label}) to Strings ("label")
       return parsed.map((item: any) => {
         if (typeof item === 'object' && item !== null && 'label' in item) {
-          return item.label; // Extract the name/label
+          return item.label;
         }
-        return String(item); // Ensure it's a string
+        return String(item);
       });
+    };
+
+    const parseOptIns = (val: any) => {
+      if (!val) return [];
+      if (Array.isArray(val)) return val;
+      try { return JSON.parse(val); } catch { return []; }
     };
 
     return {
@@ -175,6 +171,7 @@ function UpdateEventPopup({
       lead_type: parseArray(event.lead_type),
       capture_type: parseArray(event.capture_type),
       area_of_interest: parseArray(event.area_of_interest),
+      opt_ins: parseOptIns(event.opt_ins),
     };
   });
 
@@ -182,16 +179,13 @@ function UpdateEventPopup({
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Teams
         const teamRes = await request("/get_all_teams", "GET");
         if (Array.isArray(teamRes)) {
           setTeams(teamRes.map((t: any) => t.team_name).filter(Boolean));
         }
-        // Templates
         const tplRes = await request("/form_template_list", "GET");
         if (tplRes?.data) setTemplates(tplRes.data);
 
-        // Areas of Interest
         const aoiRes = await request("/get_areas_of_interest", "GET");
         if (aoiRes?.status_code === 200 && Array.isArray(aoiRes.data)) {
             setAoiList(aoiRes.data);
@@ -222,7 +216,6 @@ function UpdateEventPopup({
     return () => clearTimeout(delayDebounceFn);
   }, [locationSearch]);
 
-  // 🔹 HANDLERS
   const handleChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
@@ -235,7 +228,6 @@ function UpdateEventPopup({
     });
   };
 
-  // ✅ NEW: Handle Select All / Deselect All
   const handleSelectAll = (field: "capture_type" | "area_of_interest", allItems: string[]) => {
     setFormData(prev => {
       const currentList = prev[field];
@@ -265,10 +257,8 @@ function UpdateEventPopup({
     }
   };
 
-  // 🔹 CALCULATED STATES FOR SELECT ALL
   const allAoiNames = aoiList.map(a => a.name);
   const isAllAoiSelected = allAoiNames.length > 0 && formData.area_of_interest.length === allAoiNames.length;
-  
   const allCaptureLabels = CAPTURE_OPTIONS.map(c => c.label);
   const isAllCaptureSelected = formData.capture_type.length === allCaptureLabels.length;
 
@@ -276,22 +266,20 @@ function UpdateEventPopup({
     <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 p-4 animate-in fade-in duration-200">
       <div className="bg-white p-6 rounded-lg w-full max-w-4xl shadow-xl max-h-[90vh] overflow-y-auto flex flex-col">
         
-        {/* HEADER */}
         <div className="flex justify-between items-center mb-2">
           <h2 className="text-xl font-bold">Update Event</h2>
           <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4"/></Button>
         </div>
         
         <div className="flex items-center gap-2 mb-6">
-          <Progress value={step === 1 ? 50 : 100} className="h-2 flex-1" />
-          <span className="text-sm font-semibold whitespace-nowrap">Step {step} of 2</span>
+          <Progress value={(step / 3) * 100} className="h-2 flex-1" />
+          <span className="text-sm font-semibold whitespace-nowrap">Step {step} of 3</span>
         </div>
 
         <div className="flex-1 overflow-y-auto px-1">
-          {/* ================= STEP 1 ================= */}
+          {/* ================= STEP 1: BASIC DETAILS ================= */}
           {step === 1 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-in slide-in-from-right-4">
-              
               <div className="col-span-2">
                 <Label>Event Name *</Label>
                 <Input value={formData.event_name} onChange={(e) => handleChange("event_name", e.target.value)} className="border-gray" />
@@ -331,7 +319,6 @@ function UpdateEventPopup({
               </div>
 
               <div className="col-span-2 md:col-span-1">
-                 {/* SEARCHABLE LOCATION */}
                 <Label>Location *</Label>
                 <Popover open={isLocationOpen} onOpenChange={setIsLocationOpen}>
                   <PopoverTrigger asChild>
@@ -366,21 +353,9 @@ function UpdateEventPopup({
                 </Popover>
               </div>
 
-              {/* ✅ AREA OF INTEREST (Multi-Select) */}
               <div className="col-span-2 ">
                 <div className="flex justify-between items-center mb-1">
                     <Label>Area of Interest</Label>
-                    {aoiList.length > 0 && (
-                        <Button 
-                            type="button" 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => handleSelectAll("area_of_interest", allAoiNames)}
-                            className="h-6 text-xs border-dashed px-2"
-                        >
-                            {isAllAoiSelected ? "Deselect All" : "Select All"}
-                        </Button>
-                    )}
                 </div>
                 <Popover>
                     <PopoverTrigger asChild>
@@ -412,16 +387,10 @@ function UpdateEventPopup({
                         </Command>
                     </PopoverContent>
                 </Popover>
-                {/* Selected Badges */}
                 <div className="flex flex-wrap gap-1 mt-2">
                     {formData.area_of_interest.map((item) => (
-                        <Badge 
-                            key={item} 
-                            variant="outline" 
-                            className="cursor-pointer bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-800"
-                            onClick={() => toggleArrayItem("area_of_interest", item)}
-                        >
-                            {item} ×
+                        <Badge key={item} variant="outline" className="bg-blue-50 border-blue-200 text-blue-800">
+                            {item}
                         </Badge>
                     ))}
                 </div>
@@ -432,10 +401,9 @@ function UpdateEventPopup({
             </div>
           )}
 
-          {/* ================= STEP 2 ================= */}
+          {/* ================= STEP 2: LOGISTICS & TARGETS ================= */}
           {step === 2 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-in slide-in-from-right-4">
-              
               <div className="col-span-2">
                 <Label>Select Team(s) *</Label>
                 <Popover>
@@ -462,9 +430,7 @@ function UpdateEventPopup({
                 </Popover>
                 <div className="flex flex-wrap gap-1 mt-2">
                   {selectedTeams.map((t) => (
-                    <Badge key={t} variant="secondary" className="cursor-pointer hover:bg-destructive/10 hover:text-destructive" onClick={() => setSelectedTeams(prev => prev.filter(i => i !== t))}>
-                      {t} ×
-                    </Badge>
+                    <Badge key={t} variant="secondary">{t}</Badge>
                   ))}
                 </div>
               </div>
@@ -494,8 +460,8 @@ function UpdateEventPopup({
                 <Label>Priority Leads Target</Label>
                 <Input type="number" value={formData.priority_leads} onChange={(e) => handleChange("priority_leads", e.target.value)} className="border-gray" />
               </div>
+           
 
-              {/* LEAD TYPE */}
               <div className="col-span-2 border-t pt-4">
                 <Label className="font-bold mb-2 block text-sm">Lead Type *</Label>
                 <div className="flex gap-2">
@@ -507,7 +473,6 @@ function UpdateEventPopup({
                 </div>
               </div>
 
-              {/* ✅ CAPTURE TYPE */}
               <div className="col-span-2 border-t pt-4">
                 <div className="flex justify-between items-center mb-2">
                     <Label className="font-bold block text-sm">Capture Type *</Label>
@@ -543,22 +508,39 @@ function UpdateEventPopup({
                     ))}
                   </div>
               </div>
+            </div>
+            
+          )}
 
+          {/* ================= STEP 3: LEAD CONFIGURATION ================= */}
+          {step === 3 && (
+            <div className="grid grid-cols-1 gap-6 animate-in slide-in-from-right-4">
+              
+              {/* EMAIL OPT-IN SECTION */}
+              <div className="p-4 bg-slate-50 rounded-lg border">
+                 <Label className="font-bold mb-4 block text-base text-primary">Email Opt-In Configuration</Label>
+                 <EventOptInSelector 
+                    value={formData.opt_ins} 
+                    onChange={(val) => handleChange("opt_ins", val)} 
+                 />
+              </div>
+
+             
             </div>
           )}
         </div>
 
-        {/* FOOTER */}
+        {/* FOOTER NAVIGATION */}
         <div className="flex justify-between items-center mt-6 pt-4 border-t">
           {step === 1 ? (
             <Button variant="ghost" onClick={onClose}>Cancel</Button>
           ) : (
-            <Button variant="outline" onClick={() => setStep(1)}><ArrowLeft className="mr-2 h-4 w-4"/> Back</Button>
+            <Button variant="outline" onClick={() => setStep(prev => prev - 1)}><ArrowLeft className="mr-2 h-4 w-4"/> Back</Button>
           )}
           
           <div className="flex gap-2">
-            {step === 1 ? (
-              <Button onClick={() => setStep(2)}>Next Step <ArrowRight className="ml-2 h-4 w-4"/></Button>
+            {step < 3 ? (
+              <Button onClick={() => setStep(prev => prev + 1)}>Next Step <ArrowRight className="ml-2 h-4 w-4"/></Button>
             ) : (
               <Button onClick={handleSave} disabled={loading}>{loading ? "Saving..." : "Update Event"}</Button>
             )}
@@ -600,17 +582,14 @@ export default function Events() {
   const [popupOpen, setPopupOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   
-  // 🔹 FILTER STATES
   const [status, setStatus] = useState("All");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("All");
 
-  // 🔹 DATA STATES
   const [users, setUsers] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
 
-  // 🔹 ACCESS CONTROL STATES
   const [myAccess, setMyAccess] = useState<AccessPointData | null>(null);
   const [canViewEvents, setCanViewEvents] = useState(false);
   const [canEditEvent, setCanEditEvent] = useState(false);
@@ -653,13 +632,10 @@ export default function Events() {
     loadMyAccess();
   }, []);
 
-  // 🔹 FETCH USERS AND TEMPLATES
   useEffect(() => {
     const fetchData = async () => {
       try {
         const currentUserId = getCurrentUserId();
-        
-        // Fetch Users
         const userRes = await fetch("https://api.inditechit.com/get_users");
         const userResult = await userRes.json();
         if (userResult.status_code === 200 && Array.isArray(userResult.data)) {
@@ -669,13 +645,10 @@ export default function Events() {
           }
           setUsers(list);
         }
-
-        // Fetch Templates
         const tplRes: any = await request("/form_template_list", "GET");
         if (tplRes?.data && Array.isArray(tplRes.data)) {
             setTemplates(tplRes.data);
         }
-
       } catch (err) {
         console.error("Fetch data error:", err);
       }
@@ -683,7 +656,6 @@ export default function Events() {
     fetchData();
   }, []);
 
-  // 🔹 FETCH EVENTS
   useEffect(() => {
     const fetchEvents = async () => {
       const user_id = getCurrentUserId();
@@ -784,8 +756,6 @@ export default function Events() {
       await handleResetToAllEvents();
     };
 
-  const showFilters = canFilterEvents;
-
   if (myAccess === null) {
     return (
       <div className="flex h-screen bg-background">
@@ -849,7 +819,7 @@ export default function Events() {
           <div className="flex justify-between items-center">
             <div className="flex justify-between items-center space-x-6">
               <h1 className="text-2xl font-semibold text-foreground">Your Events</h1>
-              {showFilters && (
+              {canFilterEvents && (
                 <div className="relative">
                   <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
                   <input
@@ -862,7 +832,7 @@ export default function Events() {
                 </div>
               )}
             </div>
-            {showFilters && (
+            {canFilterEvents && (
               <div className="flex items-center space-x-4">
                 <Select
                   value={selectedUserId?.toString() || "all-events"}
@@ -903,7 +873,6 @@ export default function Events() {
                   </SelectContent>
                 </Select>
 
-                {/* 🔹 NEW TEMPLATE FILTER SELECT */}
                 <Select
                   value={selectedTemplateId}
                   onValueChange={(v) => setSelectedTemplateId(v)}
@@ -928,9 +897,6 @@ export default function Events() {
             )}
           </div>
 
-          {loading && <p>Loading events...</p>}
-          {error && <p className="text-red-500">Error: {error}</p>}
-
           <Card>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
@@ -939,7 +905,6 @@ export default function Events() {
                     <tr>
                       <th className="py-3 px-4 text-left">Status</th>
                       <th className="py-3 px-4 text-left">Event Name & Dates</th>
-                      {/* <th className="py-3 px-4 text-left">Dates</th> */}
                       <th className="py-3 px-4 text-left">Location</th>
                       <th className="py-3 px-4 text-left">Team</th>
                       <th className="py-3 px-4 text-left">Event Type</th>
@@ -965,9 +930,6 @@ export default function Events() {
                             )}
                           </td>
                           <td className="py-3 px-4">{event.event_name} <br/><span className="text-xs">({event.start_date} → {event.end_date})</span></td>
-                          {/* <td className="py-3 px-4">
-                            {event.start_date} → {event.end_date}
-                          </td> */}
                           <td className="py-3 px-4">{event.location}</td>
                           <td className="py-3 px-4">{event.team}</td>
                           <td className="py-3 px-4">{event.event_type}</td>
