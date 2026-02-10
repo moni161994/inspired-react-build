@@ -25,6 +25,7 @@ import {
   LayoutList,
   Languages,
   LandPlot,
+  Mail,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -76,6 +77,7 @@ const PAGE_OPTIONS: PageOption[] = [
   { icon: LayoutList, label: "Template", path: "/template" },
   { icon: Languages, label: "Language", path: "/language" },
   { icon: LandPlot, label: "Area Of Intrest", path: "/areaofintrest" },
+  { icon: Mail, label: "Email Opt In", path: "/opt-in" },
 ];
 
 const ACTION_OPTIONS: Record<string, ActionOption[]> = {
