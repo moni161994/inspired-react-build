@@ -32,6 +32,7 @@ const ALL_NAVIGATION_ITEMS: PageOption[] = [
   { icon: LayoutList, label: "Template", path: "/template" },
   { icon: Languages, label: "Language", path: "/language" },
   { icon: LandPlot, label: "Area Of Intrest", path: "/areaofintrest" },
+  { icon: LandPlot, label: "Email-opt in", path: "/opt-in" },
 ];
 
 export function DashboardSidebar() {

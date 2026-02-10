@@ -20,6 +20,7 @@ import Templates from "./pages/Templates";
 import LanguageManagement from "./pages/Language";
 import AreaOfInterestManagement from "./pages/AreaOfIntrest";
 import { useEffect } from "react";
+import OptInLibrary from "./pages/OptInLibrary";
 
 const queryClient = new QueryClient();
 
@@ -75,6 +76,7 @@ const App = () =>
             <Route path="/areaofintrest" element={<ProtectedRoute><AreaOfInterestManagement /></ProtectedRoute>} />
             <Route path="/report" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
             <Route path="/template" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
+            <Route path="/opt-in" element={<ProtectedRoute><OptInLibrary /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </EventDialogProvider>

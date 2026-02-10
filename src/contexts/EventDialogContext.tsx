@@ -38,9 +38,18 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Check, ChevronsUpDown, ArrowRight, ArrowLeft, Loader2, MapPin } from "lucide-react";
+import { 
+  Check, 
+  ChevronsUpDown, 
+  ArrowRight, 
+  ArrowLeft, 
+  Loader2, 
+  MapPin, 
+  ShieldCheck 
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { EventOptInSelector } from "./EventOptInSelector"; // Ensure this path is correct
 
 type EventDialogContextType = {
   openEventDialog: () => void;
@@ -51,7 +60,7 @@ const EventDialogContext = createContext<EventDialogContextType | undefined>(
   undefined
 );
 
-// Defined constants for consistency
+// --- CONSTANTS ---
 const CAPTURE_TYPES = ["Booth Give Away", "Full Lead Form", "Workshop"];
 const LEAD_TYPES = ["Visiting Card", "Badge", "Manual"];
 
@@ -59,15 +68,20 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const { request } = useApi<any>();
 
+  // --- STATE MANAGEMENT ---
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState(1);
-  
+  const [isLoading, setIsLoading] = useState(false);
+
+  // New: Opt-In Configuration (Step 3)
+  const [optInConfig, setOptInConfig] = useState<any[]>([]);
+
   // Data Lists
   const [teams, setTeams] = useState<string[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
-  const [aoiList, setAoiList] = useState<any[]>([]); // New State for API data
+  const [aoiList, setAoiList] = useState<any[]>([]);
   
-  // Location States
+  // Location Search State
   const [locationSearch, setLocationSearch] = useState("");
   const [locationSuggestions, setLocationSuggestions] = useState<any[]>([]);
   const [isLocationLoading, setIsLocationLoading] = useState(false);
@@ -76,6 +90,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
   const getEmail = localStorage.getItem("email") || "";
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
 
+  // Form Data
   const [formData, setFormData] = useState({
     eventName: "",
     eventType: "Tradeshow",
@@ -90,25 +105,28 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     priorityLeads: 0,
     lead_type: [] as string[],
     capture_type: [] as string[],
-    area_of_interest: [] as string[], // New Field
+    area_of_interest: [] as string[],
   });
 
-  // ================= FETCH TEAMS, TEMPLATES & AOI =================
+  console.log(optInConfig, "Opt-In Config Debug");
+
+  // ================= API DATA FETCHING =================
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // 1. Teams
+        // 1. Fetch Teams
         const teamRes = await request("/get_all_teams", "GET");
         if (teamRes?.length > 0) {
+          // Filter out nulls and duplicates
           const names = Array.from(new Set(teamRes.map((t: any) => t.team_name).filter(Boolean)));
           setTeams(names as string[]);
         }
         
-        // 2. Templates
+        // 2. Fetch Region/Templates
         const tplRes = await request("/form_template_list", "GET");
         if (tplRes?.data) setTemplates(tplRes.data);
 
-        // 3. Areas of Interest (NEW)
+        // 3. Fetch Areas of Interest
         const aoiRes = await request("/get_areas_of_interest", "GET");
         if (aoiRes?.status_code === 200 && Array.isArray(aoiRes.data)) {
             setAoiList(aoiRes.data);
@@ -150,7 +168,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     setLocationSearch("");
   };
 
-  // ================= HELPERS =================
+  // ================= FORM HANDLERS =================
   const handleChange = (e: any) => {
     const { id, value } = e.target;
     setFormData((prev) => ({ 
@@ -191,19 +209,41 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  // ================= VALIDATION =================
   const validateStep1 = () => {
     const required = ["eventName", "template_id", "location", "startDate", "endDate"];
-    for (const key of required) {
-      if (!formData[key as keyof typeof formData]) {
-        toast({ variant: "destructive", title: "Missing Field", description: `${key} is required.` });
-        return false;
-      }
+    const missing = required.filter(key => !formData[key as keyof typeof formData]);
+    
+    if (missing.length > 0) {
+      toast({ 
+        variant: "destructive", 
+        title: "Missing Fields", 
+        description: `Please fill in: ${missing.join(', ')}` 
+      });
+      return false;
     }
     return true;
   };
 
+  const validateStep2 = () => {
+    if (selectedTeams.length === 0) {
+        toast({ variant: "destructive", title: "Team Required", description: "Please select at least one team." });
+        return false;
+    }
+    if (formData.lead_type.length === 0) {
+        toast({ variant: "destructive", title: "Lead Type Required", description: "Select at least one lead type." });
+        return false;
+    }
+    if (formData.capture_type.length === 0) {
+        toast({ variant: "destructive", title: "Capture Type Required", description: "Select at least one capture method." });
+        return false;
+    }
+    return true;
+  };
+
+  // ================= SUBMIT LOGIC =================
   const handleSubmit = async () => {
-    if (selectedTeams.length === 0) return toast({ variant: "destructive", title: "Select a Team" });
+    setIsLoading(true);
 
     const payload = {
       event_owner: getEmail,
@@ -225,14 +265,36 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     };
     
     try {
+      // 1. Create the Event
       const res = await request("/create_events", "POST", payload);
-      if (res?.message === "Event created successfully" || res?.success) {
-        toast({ title: "✅ Event Created" });
+      
+      // Check for various success responses depending on your API wrapper
+      if (res?.success || res?.message === "Event created successfully") {
+        
+        // 2. Get the new Event ID
+        const newEventId = res.id || res.data?.id || res.insertId;
+
+        // 3. Save Opt-In Configuration (If any selected)
+        if (newEventId && optInConfig.length > 0) {
+            console.log(`Saving opt-ins for event ${newEventId}...`);
+            await request(`/events/${newEventId}/optins`, "POST", { optIns: optInConfig });
+        }
+
+        toast({ title: "✅ Event Created Successfully" });
         closeEventDialog();
         window.location.reload();
+      } else {
+        toast({ 
+            variant: "destructive", 
+            title: "Creation Failed", 
+            description: res?.message || "Unknown error occurred" 
+        });
       }
     } catch (error) {
-      toast({ variant: "destructive", title: "Submission failed" });
+      console.error("Submit Error:", error);
+      toast({ variant: "destructive", title: "Submission failed", description: "Check console for details." });
+    } finally {
+        setIsLoading(false);
     }
   };
 
@@ -240,6 +302,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     setIsOpen(true);
     setStep(1);
     setSelectedTeams([]);
+    setOptInConfig([]); // Reset Opt-Ins
     setFormData({
       eventName: "", eventType: "Tradeshow", template_id: "", status: "Upcoming",
       location: "", startDate: "", endDate: "", budget: 0, currency: "USD",
@@ -249,12 +312,13 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
 
   const closeEventDialog = () => setIsOpen(false);
 
-  // Computed helper for AoI 'All Selected' state
+  // --- Computed Helpers ---
   const allAoiNames = aoiList.map(a => a.name);
   const isAllAoiSelected = allAoiNames.length > 0 && formData.area_of_interest.length === allAoiNames.length;
-
-  // Computed helper for Capture Type 'All Selected' state
   const isAllCaptureSelected = formData.capture_type.length === CAPTURE_TYPES.length;
+  
+  // Progress Bar Calculation
+  const progressValue = step === 1 ? 33 : step === 2 ? 66 : 100;
 
   return (
     <EventDialogContext.Provider value={{ openEventDialog, closeEventDialog }}>
@@ -264,26 +328,39 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">Create New Event</DialogTitle>
-            <span>Event Owner : {getEmail}</span>
-            <div className="flex items-center gap-2 mt-2">
-              <Progress value={step === 1 ? 50 : 100} className="h-2" />
-              <span className="text-sm font-semibold whitespace-nowrap">Step {step} of 2</span>
+            <div className="flex justify-between items-center pr-4">
+                <span className="text-xs text-muted-foreground">Owner: {getEmail}</span>
+            </div>
+            
+            {/* Progress Bar */}
+            <div className="flex items-center gap-3 mt-4">
+              <Progress value={progressValue} className="h-2 flex-1" />
+              <span className="text-sm font-medium whitespace-nowrap text-muted-foreground">
+                Step {step} of 3
+              </span>
             </div>
           </DialogHeader>
 
-          <div className="py-4">
+          <div className="py-6 min-h-[400px]">
+            
+            {/* ================= STEP 1: LOGISTICS ================= */}
             {step === 1 && (
-              <div className="grid grid-cols-2 gap-5">
-                {/* ... Step 1 Inputs ... */}
+              <div className="grid grid-cols-2 gap-5 animate-in fade-in slide-in-from-right-4 duration-300">
                 <div className="col-span-2 space-y-2">
-                  <Label className="text-sm font-semibold">Event Name *</Label>
-                  <Input id="eventName" placeholder="Enter event name..." value={formData.eventName} onChange={handleChange} className="border-gray" />
+                  <Label className="text-sm font-semibold">Event Name <span className="text-red-500">*</span></Label>
+                  <Input 
+                    id="eventName" 
+                    placeholder="e.g. Global Tech Summit 2024" 
+                    value={formData.eventName} 
+                    onChange={handleChange} 
+                    className="border-gray-200 focus-visible:ring-primary"
+                  />
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-semibold">Region *</Label>
+                  <Label className="text-sm font-semibold">Region Template <span className="text-red-500">*</span></Label>
                   <Select value={formData.template_id} onValueChange={(v) => handleSelectChange("template_id", v)}>
-                    <SelectTrigger className="border-gray"><SelectValue placeholder="Select Region" /></SelectTrigger>
+                    <SelectTrigger className="border-gray-200"><SelectValue placeholder="Select Region" /></SelectTrigger>
                     <SelectContent>
                       {templates.map((tpl: any) => (
                         <SelectItem key={tpl.id} value={String(tpl.id)}>{tpl.template_name}</SelectItem>
@@ -293,36 +370,37 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-semibold">Event Type *</Label>
+                  <Label className="text-sm font-semibold">Event Type <span className="text-red-500">*</span></Label>
                   <Select value={formData.eventType} onValueChange={(v) => handleSelectChange("eventType", v)}>
-                    <SelectTrigger className="border-gray"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="border-gray-200"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Tradeshow">Tradeshow</SelectItem>
                       <SelectItem value="Webinar">Webinar</SelectItem>
+                      <SelectItem value="Conference">Conference</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-semibold">Status *</Label>
+                  <Label className="text-sm font-semibold">Status <span className="text-red-500">*</span></Label>
                   <Select value={formData.status} onValueChange={(v) => handleSelectChange("status", v)}>
-                    <SelectTrigger className="border-gray"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="border-gray-200"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Upcoming">Upcoming</SelectItem>
                       <SelectItem value="Active">Active</SelectItem>
+                      <SelectItem value="Completed">Completed</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-sm font-semibold">Location *</Label>
+                <div className="col-span-2 sm:col-span-1 space-y-2">
+                  <Label className="text-sm font-semibold">Location <span className="text-red-500">*</span></Label>
                   <Popover open={isLocationOpen} onOpenChange={setIsLocationOpen}>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
                         role="combobox"
-                        aria-expanded={isLocationOpen}
-                        className="w-full justify-between border-gray font-normal truncate"
+                        className="w-full justify-between border-gray-200 font-normal truncate"
                       >
                         {formData.location ? (
                           <span className="flex items-center gap-2 truncate">
@@ -333,10 +411,10 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-[400px] p-0" align="start">
+                    <PopoverContent className="w-[300px] p-0" align="start">
                       <Command shouldFilter={false}>
                         <CommandInput 
-                          placeholder="Type at least 4 letters..." 
+                          placeholder="Type 4+ letters..." 
                           value={locationSearch}
                           onValueChange={setLocationSearch}
                         />
@@ -374,7 +452,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                   </Popover>
                 </div>
 
-                {/* --- AREA OF INTEREST --- */}
+                {/* 2. Area of Interest */}
                 <div className="col-span-2 space-y-2">
                     <div className="flex justify-between items-center">
                         <Label className="text-sm font-semibold">Area of Interest</Label>
@@ -393,7 +471,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
 
                     <Popover>
                     <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-between border-gray font-normal">
+                        <Button variant="outline" className="w-full justify-between border-gray-200 font-normal">
                         {formData.area_of_interest.length > 0 
                             ? `${formData.area_of_interest.length} selected` 
                             : "Select Area of Interest..."}
@@ -422,7 +500,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                     </PopoverContent>
                     </Popover>
                     
-                    <div className="flex flex-wrap gap-1 mt-2">
+                    <div className="flex flex-wrap gap-1 mt-2 max-h-[60px] overflow-y-auto">
                         {formData.area_of_interest.map((item) => (
                             <Badge 
                                 key={item} 
@@ -436,20 +514,33 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                     </div>
                 </div>
 
-                <DateInput label="Start Date" value={formData.startDate} required onChange={(v) => handleSelectChange("startDate", v)} />
-                <DateInput label="End Date" value={formData.endDate} required onChange={(v) => handleSelectChange("endDate", v)} />
+                {/* <div className="col-span-2 sm:col-span-1 grid grid-cols-2 gap-2"> */}
+                    <DateInput 
+                        label="Start Date" 
+                        value={formData.startDate} 
+                        required 
+                        onChange={(v) => handleSelectChange("startDate", v)} 
+                    />
+                    <DateInput 
+                        label="End Date" 
+                        value={formData.endDate} 
+                        required 
+                        onChange={(v) => handleSelectChange("endDate", v)} 
+                    />
+                {/* </div> */}
               </div>
             )}
 
+            {/* ================= STEP 2: TARGETING & DETAILS ================= */}
             {step === 2 && (
-              <div className="grid grid-cols-2 gap-5 animate-in fade-in slide-in-from-right-4">
+              <div className="grid grid-cols-2 gap-5 animate-in fade-in slide-in-from-right-4 duration-300">
                 
                 {/* 1. Teams Selection */}
                 <div className="col-span-2 space-y-2">
-                  <Label className="text-sm font-semibold">Select Team(s) *</Label>
+                  <Label className="text-sm font-semibold">Assign Team(s) <span className="text-red-500">*</span></Label>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-full justify-between border-gray font-normal">
+                      <Button variant="outline" className="w-full justify-between border-gray-200 font-normal">
                         {selectedTeams.length > 0 ? `${selectedTeams.length} teams selected` : "Select teams..."}
                         <ChevronsUpDown className="h-4 w-4 opacity-50" />
                       </Button>
@@ -471,54 +562,66 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                     </PopoverContent>
                   </Popover>
                   <div className="flex flex-wrap gap-1 mt-2">
-                    {selectedTeams.map((t) => <Badge key={t} variant="secondary" className="cursor-pointer" onClick={() => handleTeamSelection(t)}>{t} ×</Badge>)}
+                    {selectedTeams.map((t) => (
+                        <Badge key={t} variant="secondary" className="cursor-pointer hover:bg-destructive/10" onClick={() => handleTeamSelection(t)}>
+                            {t} ×
+                        </Badge>
+                    ))}
                   </div>
                 </div>
+
+                
 
                 {/* 3. Budget & Size */}
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold">Budget</Label>
                   <div className="flex gap-2">
                     <Select value={formData.currency} onValueChange={(v) => handleSelectChange("currency", v)}>
-                      <SelectTrigger className="w-24 border-gray"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="w-24 border-gray-200"><SelectValue /></SelectTrigger>
                       <SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="EUR">EUR</SelectItem></SelectContent>
                     </Select>
-                    <Input id="budget" type="number" value={formData.budget} onChange={handleChange} className="border-gray" />
+                    <Input id="budget" type="number" value={formData.budget} onChange={handleChange} className="border-gray-200" />
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold">Event Size</Label>
                   <Select value={formData.eventSize} onValueChange={(v) => handleSelectChange("eventSize", v)}>
-                    <SelectTrigger className="border-gray"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="border-gray-200"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="small">Small</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="large">Large</SelectItem>
+                      <SelectItem value="small">Small (0-100)</SelectItem>
+                      <SelectItem value="medium">Medium (100-500)</SelectItem>
+                      <SelectItem value="large">Large (500+)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="col-span-2 space-y-2">
                   <Label className="text-sm font-semibold">Priority Leads Target</Label>
-                  <Input id="priorityLeads" type="number" value={formData.priorityLeads} onChange={handleChange} className="border-gray" />
+                  <Input id="priorityLeads" type="number" value={formData.priorityLeads} onChange={handleChange} className="border-gray-200" />
                 </div>
 
+                {/* 4. Lead Type */}
                 <div className="col-span-2 border-t pt-4 space-y-3">
-                  <Label className="text-sm font-bold">Lead Type *</Label>
+                  <Label className="text-sm font-bold">Lead Type <span className="text-red-500">*</span></Label>
                   <div className="flex gap-2">
                     {LEAD_TYPES.map((type) => (
-                      <Badge key={type} variant={formData.lead_type.includes(type) ? "default" : "outline"} className="cursor-pointer px-4 py-2 text-sm" onClick={() => toggleArrayItem("lead_type", type)}>
+                      <Badge 
+                        key={type} 
+                        variant={formData.lead_type.includes(type) ? "default" : "outline"} 
+                        className="cursor-pointer px-4 py-2 text-sm select-none" 
+                        onClick={() => toggleArrayItem("lead_type", type)}
+                      >
                         {type} {formData.lead_type.includes(type) && <Check className="ml-1 h-3 w-3" />}
                       </Badge>
                     ))}
                   </div>
                 </div>
 
-                {/* --- CAPTURE TYPE --- */}
+                {/* 5. Capture Type */}
                 <div className="col-span-2 border-t pt-4 space-y-3">
                   <div className="flex justify-between items-center">
-                    <Label className="text-sm font-bold">Capture Type *</Label>
+                    <Label className="text-sm font-bold">Capture Type <span className="text-red-500">*</span></Label>
                     <Button 
                         type="button" 
                         variant="outline" 
@@ -530,11 +633,20 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                     </Button>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {CAPTURE_TYPES.map((label) => (
-                      <div key={label} onClick={() => toggleArrayItem("capture_type", label)} className={`cursor-pointer border rounded-lg p-4 transition-all ${formData.capture_type.includes(label) ? "border-primary bg-primary/10 ring-1 ring-primary" : "border-gray hover:bg-accent"}`}>
+                      <div 
+                        key={label} 
+                        onClick={() => toggleArrayItem("capture_type", label)} 
+                        className={`cursor-pointer border rounded-lg p-4 transition-all select-none ${
+                            formData.capture_type.includes(label) 
+                            ? "border-primary bg-primary/10 ring-1 ring-primary" 
+                            : "border-gray-200 hover:bg-accent"
+                        }`}
+                      >
                         <div className="flex justify-between items-center text-sm font-semibold">
-                          {label} {formData.capture_type.includes(label) && <Check className="h-4 w-4 text-primary" />}
+                          {label} 
+                          {formData.capture_type.includes(label) && <Check className="h-4 w-4 text-primary" />}
                         </div>
                       </div>
                     ))}
@@ -542,18 +654,67 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
                 </div>
               </div>
             )}
+
+            {/* ================= STEP 3: COMPLIANCE & OPT-INS ================= */}
+            {step === 3 && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                    <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 flex items-start gap-3">
+                        <div className="bg-blue-100 p-2 rounded-full">
+                             <ShieldCheck className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                            <h4 className="text-sm font-semibold text-blue-900">Compliance & Consent Configuration</h4>
+                            <p className="text-xs text-blue-700 mt-1 leading-relaxed">
+                                Select the legal consent checkboxes (e.g., Marketing, GDPR) that will appear on the Lead Form for this event. 
+                                Mark them as <strong>"Required"</strong> if the attendee must agree to proceed. 
+                                If no boxes are selected, the lead form will appear without any custom consent checkboxes.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="border-t pt-2">
+                        {/* THE NEW OPT-IN SELECTOR COMPONENT */}
+                        <EventOptInSelector 
+                            value={optInConfig}
+                            onChange={(val) => setOptInConfig(val)} 
+                        />
+                    </div>
+                </div>
+            )}
+
           </div>
 
-          <DialogFooter className="flex justify-between w-full border-t pt-4">
-            {step === 2 && <Button variant="outline" onClick={() => setStep(1)}><ArrowLeft className="mr-2 h-4 w-4"/> Back</Button>}
+          <DialogFooter className="flex justify-between w-full border-t pt-4 bg-background z-10">
+            {step === 1 ? (
+                 <Button variant="ghost" onClick={closeEventDialog}>Cancel</Button>
+            ) : (
+                 <Button variant="outline" onClick={() => setStep(step - 1)}>
+                    <ArrowLeft className="mr-2 h-4 w-4"/> Back
+                 </Button>
+            )}
+
             <div className="flex gap-2 ml-auto">
-              <Button variant="ghost" onClick={closeEventDialog}>Cancel</Button>
-              {step === 1 ? (
-                <Button onClick={() => validateStep1() && setStep(2)}>
+              {step < 3 ? (
+                <Button onClick={() => {
+                    if(step === 1 && validateStep1()) setStep(2);
+                    if(step === 2 && validateStep2()) setStep(3);
+                }}>
                   Next Step <ArrowRight className="ml-2 h-4 w-4"/>
                 </Button>
               ) : (
-                <Button onClick={handleSubmit} className="px-8">Create Event</Button>
+                <Button 
+                    onClick={handleSubmit} 
+                    className="px-8 bg-green-600 hover:bg-green-700 text-white min-w-[140px]"
+                    disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating...
+                    </>
+                  ) : (
+                    "Confirm & Create Event"
+                  )}
+                </Button>
               )}
             </div>
           </DialogFooter>
