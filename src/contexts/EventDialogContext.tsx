@@ -87,7 +87,8 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
   const [isLocationLoading, setIsLocationLoading] = useState(false);
   const [isLocationOpen, setIsLocationOpen] = useState(false);
 
-  const getEmail = localStorage.getItem("email") || "";
+  const getEmailLocal = localStorage.getItem("userDetails") || "";
+  const getEmail = JSON.parse(getEmailLocal)
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
 
   // Form Data
@@ -246,7 +247,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
 
     const payload = {
-      event_owner: getEmail,
+      event_owner: getEmail.user_name,
       event_name: formData.eventName,
       event_type: formData.eventType,
       event_status: formData.status,
@@ -329,7 +330,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">Create New Event</DialogTitle>
             <div className="flex justify-between items-center pr-4">
-                <span className="text-xs text-muted-foreground">Owner: {getEmail}</span>
+                <span className="text-xs text-muted-foreground">Owner: {getEmail.user_name}</span>
             </div>
             
             {/* Progress Bar */}

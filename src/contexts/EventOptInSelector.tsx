@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Switch } from "@/components/ui/switch";
 import { useApi } from "@/hooks/useApi";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -20,7 +19,7 @@ export function EventOptInSelector({ value = [], onChange }: EventOptInSelectorP
   const { request, loading } = useApi<any>();
   const [library, setLibrary] = useState<any[]>([]);
 
-  // Local state to manage selections (Logic now ensures length <= 1)
+  // Local state to manage selections
   const [selections, setSelections] = useState<OptInItem[]>(value);
 
   useEffect(() => {
@@ -43,21 +42,13 @@ export function EventOptInSelector({ value = [], onChange }: EventOptInSelectorP
       const isCurrentlySelected = prev.some((item) => item.template_id === id);
       
       if (isCurrentlySelected) {
-        // If clicking the one already selected, deselect it (return empty array)
+        // If clicking the one already selected, deselect it
         return [];
       } else {
-        // Otherwise, replace the whole selection with JUST this new ID
-        return [{ template_id: id, is_mandatory: false }];
+        // Otherwise, replace selection with this ID and force mandatory to TRUE
+        return [{ template_id: id, is_mandatory: true }];
       }
     });
-  };
-
-  const toggleMandatory = (id: number) => {
-    setSelections((prev) => 
-        prev.map((item) => 
-            item.template_id === id ? { ...item, is_mandatory: !item.is_mandatory } : item
-        )
-    );
   };
 
   if (loading && library.length === 0) {
@@ -95,7 +86,7 @@ export function EventOptInSelector({ value = [], onChange }: EventOptInSelectorP
                 <Checkbox
                   checked={isSelected}
                   onCheckedChange={() => handleToggleSelection(tpl.id)}
-                  className="mt-1 rounded-full" // Rounded-full makes it look like a Radio button
+                  className="mt-1 rounded-full"
                 />
                 <div className="grid gap-1.5">
                     <span className={`font-medium text-sm leading-none ${isSelected ? "text-primary" : ""}`}>
@@ -111,14 +102,9 @@ export function EventOptInSelector({ value = [], onChange }: EventOptInSelectorP
               {isSelected && (
                 <div className="flex flex-col items-end gap-2 pl-4 border-l ml-2">
                     <div className="flex items-center gap-2">
-                        <span className={`text-[10px] font-bold uppercase ${selection.is_mandatory ? "text-red-500" : "text-muted-foreground"}`}>
-                            {selection.is_mandatory ? "Required" : "Optional"}
+                        <span className="text-[10px] font-bold uppercase text-red-500 bg-red-50 px-2 py-1 rounded border border-red-100">
+                            Required
                         </span>
-                        <Switch 
-                            checked={selection.is_mandatory} 
-                            onCheckedChange={() => toggleMandatory(tpl.id)} 
-                            className="scale-75 border-primary"
-                        />
                     </div>
                 </div>
               )}

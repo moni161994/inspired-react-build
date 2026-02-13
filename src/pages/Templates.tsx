@@ -58,14 +58,21 @@ const AVAILABLE_FIELDS = [
   "Country",
   "Area Of Interest",
   "Disclaimer",
-  "Consent Form",
+  "Capture Data Consent",
   "Term And Condition",
-  "Signature",
+  "Urgency",
   "Email Opt In",
+  "(Email Consent) Signature", // Display Name
 ];
 
-const convertToApiKey = (label: string) =>
-  label.toLowerCase().replace(/\s+/g, "_");
+// UPDATED: Helper to handle the specific mapping for Signature
+const convertToApiKey = (label: string) => {
+  // If the label is the UI-specific signature name, return the strict DB key "signature"
+  if (label === "(Email Consent) Signature") {
+    return "signature";
+  }
+  return label.toLowerCase().replace(/\s+/g, "_");
+};
 
 function Templates() {
   const { request, loading } = useApi<any>();
@@ -246,6 +253,8 @@ function Templates() {
   // 1. Add/Remove Field
   const toggleField = (label: string) => {
     const apiField = convertToApiKey(label);
+    const emailOptInKey = convertToApiKey("Email Opt In");
+    const signatureKey = convertToApiKey("(Email Consent) Signature"); // Returns "signature"
 
     setFieldSelections((prev) => {
       const currentList = prev[activeTab];
@@ -255,6 +264,11 @@ function Templates() {
       if (exists) {
         // Remove
         newList = currentList.filter((f) => f.key !== apiField);
+
+        // Logic: If user unselects 'email_opt_in', also unselect 'signature'
+        if (apiField === emailOptInKey) {
+          newList = newList.filter((f) => f.key !== signatureKey);
+        }
       } else {
         // Add (default to not required)
         newList = [...currentList, { key: apiField, required: false }];
@@ -285,7 +299,7 @@ function Templates() {
     (Object.keys(fieldSelections) as TemplateType[]).forEach((type) => {
       const fieldsForType = fieldSelections[type];
       const mappedFields = fieldsForType.map((field) => ({
-        field_name: field.key,
+        field_name: field.key, // This will be "signature" for the signature field
         field_type: type,
         is_required: field.required, // Pass boolean
         field_options: [],
@@ -341,6 +355,14 @@ function Templates() {
     const allKeys = AVAILABLE_FIELDS.map(convertToApiKey);
     const isAllSelected = currentSelectedList.length === allKeys.length;
 
+    // Check if Email Opt In is currently selected for this tab
+    const emailOptInKey = convertToApiKey("Email Opt In");
+    const signatureKey = convertToApiKey("(Email Consent) Signature"); // Returns "signature"
+
+    const isEmailOptInSelected = currentSelectedList.some(
+      (f) => f.key === emailOptInKey
+    );
+
     const handleSelectAll = () => {
       setFieldSelections((prev) => ({
         ...prev,
@@ -368,6 +390,12 @@ function Templates() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[400px] overflow-y-auto pr-2">
           {AVAILABLE_FIELDS.map((label) => {
             const api = convertToApiKey(label);
+
+            // Logic: If this field is Signature, and Email Opt In is NOT selected, skip rendering it
+            if (api === signatureKey && !isEmailOptInSelected) {
+              return null;
+            }
+
             // Check if object exists in array
             const fieldConfig = currentSelectedList.find((f) => f.key === api);
             const isChecked = !!fieldConfig;

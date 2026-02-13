@@ -11,15 +11,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
-  ArrowLeft, 
-  ArrowRight, 
-  Check, 
-  ChevronsUpDown, 
-  Edit, 
-  Loader2, 
-  MapPin, 
-  Search, 
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  ChevronsUpDown,
+  Edit,
+  Loader2,
+  MapPin,
+  Search,
   X,
   Calendar
 } from "lucide-react";
@@ -51,7 +51,7 @@ export interface Event {
   capture_type: string[];
   lead_type?: string[];
   event_type?: string;
-  area_of_interest?: any; 
+  area_of_interest?: any;
   opt_ins?: any; // Added for Email Opt-ins
 }
 
@@ -87,8 +87,8 @@ function UpdateEventPopup({
   // 🔹 DATA STATES
   const [teams, setTeams] = useState<string[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
-  const [aoiList, setAoiList] = useState<any[]>([]); 
-  
+  const [aoiList, setAoiList] = useState<any[]>([]);
+
   // 🔹 LOCATION SEARCH STATES
   const [locationSearch, setLocationSearch] = useState("");
   const [locationSuggestions, setLocationSuggestions] = useState<any[]>([]);
@@ -188,7 +188,7 @@ function UpdateEventPopup({
 
         const aoiRes = await request("/get_areas_of_interest", "GET");
         if (aoiRes?.status_code === 200 && Array.isArray(aoiRes.data)) {
-            setAoiList(aoiRes.data);
+          setAoiList(aoiRes.data);
         }
       } catch (err) { console.error(err); }
     };
@@ -204,10 +204,10 @@ function UpdateEventPopup({
           const res = await fetch(`https://api.inditechit.com/get_city_suggestion/${locationSearch}`);
           const data = await res.json();
           setLocationSuggestions(Array.isArray(data) ? data : []);
-        } catch { 
-          setLocationSuggestions([]); 
-        } finally { 
-          setIsLocationLoading(false); 
+        } catch {
+          setLocationSuggestions([]);
+        } finally {
+          setIsLocationLoading(false);
         }
       } else {
         setLocationSuggestions([]);
@@ -252,7 +252,7 @@ function UpdateEventPopup({
         onSave({ ...event, ...payload } as Event);
         onClose();
       }
-    } catch (err) { 
+    } catch (err) {
       toast({ variant: "destructive", title: "Update Failed", description: "Could not save changes." });
     }
   };
@@ -261,16 +261,20 @@ function UpdateEventPopup({
   const isAllAoiSelected = allAoiNames.length > 0 && formData.area_of_interest.length === allAoiNames.length;
   const allCaptureLabels = CAPTURE_OPTIONS.map(c => c.label);
   const isAllCaptureSelected = formData.capture_type.length === allCaptureLabels.length;
-
+  const getEmailLocal = localStorage.getItem("userDetails") || "";
+  const getEmail = JSON.parse(getEmailLocal)
   return (
     <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 p-4 animate-in fade-in duration-200">
       <div className="bg-white p-6 rounded-lg w-full max-w-4xl shadow-xl max-h-[90vh] overflow-y-auto flex flex-col">
-        
+
         <div className="flex justify-between items-center mb-2">
-          <h2 className="text-xl font-bold">Update Event</h2>
-          <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4"/></Button>
+          <div className=" justify-between items-center pr-4">
+            <h2 className="text-xl font-bold">Update Event</h2>
+            <span className="text-xs text-muted-foreground">Owner: {getEmail.user_name}</span>
+          </div>
+          <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4" /></Button>
         </div>
-        
+
         <div className="flex items-center gap-2 mb-6">
           <Progress value={(step / 3) * 100} className="h-2 flex-1" />
           <span className="text-sm font-semibold whitespace-nowrap">Step {step} of 3</span>
@@ -332,7 +336,7 @@ function UpdateEventPopup({
                       <CommandInput placeholder="Type 4+ characters..." value={locationSearch} onValueChange={setLocationSearch} />
                       <CommandList>
                         <CommandEmpty>
-                           {isLocationLoading ? <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin"/> Searching...</span> : "No results found."}
+                          {isLocationLoading ? <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Searching...</span> : "No results found."}
                         </CommandEmpty>
                         <CommandGroup>
                           {locationSuggestions.map((item) => (
@@ -355,44 +359,44 @@ function UpdateEventPopup({
 
               <div className="col-span-2 ">
                 <div className="flex justify-between items-center mb-1">
-                    <Label>Area of Interest</Label>
+                  <Label>Area of Interest</Label>
                 </div>
                 <Popover>
-                    <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-between border-gray font-normal">
-                        {formData.area_of_interest.length > 0 
-                            ? `${formData.area_of_interest.length} selected` 
-                            : "Select Area of Interest..."}
-                        <ChevronsUpDown className="h-4 w-4 opacity-50" />
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[300px] p-0">
-                        <Command>
-                        <CommandInput placeholder="Search areas..." />
-                        <CommandList>
-                            <CommandEmpty>No area found.</CommandEmpty>
-                            <CommandGroup className="max-h-48 overflow-auto">
-                            {aoiList.map((area) => (
-                                <CommandItem 
-                                    key={area.id} 
-                                    value={area.name}
-                                    onSelect={() => toggleArrayItem("area_of_interest", area.name)}
-                                >
-                                <Check className={`mr-2 h-4 w-4 ${formData.area_of_interest.includes(area.name) ? "opacity-100" : "opacity-0"}`} />
-                                {area.name}
-                                </CommandItem>
-                            ))}
-                            </CommandGroup>
-                        </CommandList>
-                        </Command>
-                    </PopoverContent>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between border-gray font-normal">
+                      {formData.area_of_interest.length > 0
+                        ? `${formData.area_of_interest.length} selected`
+                        : "Select Area of Interest..."}
+                      <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-0">
+                    <Command>
+                      <CommandInput placeholder="Search areas..." />
+                      <CommandList>
+                        <CommandEmpty>No area found.</CommandEmpty>
+                        <CommandGroup className="max-h-48 overflow-auto">
+                          {aoiList.map((area) => (
+                            <CommandItem
+                              key={area.id}
+                              value={area.name}
+                              onSelect={() => toggleArrayItem("area_of_interest", area.name)}
+                            >
+                              <Check className={`mr-2 h-4 w-4 ${formData.area_of_interest.includes(area.name) ? "opacity-100" : "opacity-0"}`} />
+                              {area.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
                 </Popover>
                 <div className="flex flex-wrap gap-1 mt-2">
-                    {formData.area_of_interest.map((item) => (
-                        <Badge key={item} variant="outline" className="bg-blue-50 border-blue-200 text-blue-800">
-                            {item}
-                        </Badge>
-                    ))}
+                  {formData.area_of_interest.map((item) => (
+                    <Badge key={item} variant="outline" className="bg-blue-50 border-blue-200 text-blue-800">
+                      {item}
+                    </Badge>
+                  ))}
                 </div>
               </div>
 
@@ -460,7 +464,7 @@ function UpdateEventPopup({
                 <Label>Priority Leads Target</Label>
                 <Input type="number" value={formData.priority_leads} onChange={(e) => handleChange("priority_leads", e.target.value)} className="border-gray" />
               </div>
-           
+
 
               <div className="col-span-2 border-t pt-4">
                 <Label className="font-bold mb-2 block text-sm">Lead Type *</Label>
@@ -475,57 +479,57 @@ function UpdateEventPopup({
 
               <div className="col-span-2 border-t pt-4">
                 <div className="flex justify-between items-center mb-2">
-                    <Label className="font-bold block text-sm">Capture Type *</Label>
-                    <Button 
-                        type="button" 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => handleSelectAll("capture_type", allCaptureLabels)}
-                        className="h-6 text-xs border-dashed px-2"
-                    >
-                        {isAllCaptureSelected ? "Deselect All" : "Select All"}
-                    </Button>
+                  <Label className="font-bold block text-sm">Capture Type *</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleSelectAll("capture_type", allCaptureLabels)}
+                    className="h-6 text-xs border-dashed px-2"
+                  >
+                    {isAllCaptureSelected ? "Deselect All" : "Select All"}
+                  </Button>
                 </div>
-                
+
                 <div className="grid grid-cols-3 gap-3">
-                    {CAPTURE_OPTIONS.map(({ label, desc }) => (
-                      <div
-                        key={label}
-                        onClick={() => toggleArrayItem("capture_type", label)}
-                        className={`
+                  {CAPTURE_OPTIONS.map(({ label, desc }) => (
+                    <div
+                      key={label}
+                      onClick={() => toggleArrayItem("capture_type", label)}
+                      className={`
                           cursor-pointer border rounded-lg p-3 transition-all
-                          ${formData.capture_type.includes(label) 
-                            ? "border-primary bg-primary/10 ring-1 ring-primary" 
-                            : "hover:bg-accent border-gray"}
+                          ${formData.capture_type.includes(label)
+                          ? "border-primary bg-primary/10 ring-1 ring-primary"
+                          : "hover:bg-accent border-gray"}
                         `}
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-medium text-sm">{label}</span>
-                          {formData.capture_type.includes(label) && <Check className="h-4 w-4 text-primary" />}
-                        </div>
-                        <p className="text-xs text-muted-foreground">{desc}</p>
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium text-sm">{label}</span>
+                        {formData.capture_type.includes(label) && <Check className="h-4 w-4 text-primary" />}
                       </div>
-                    ))}
-                  </div>
+                      <p className="text-xs text-muted-foreground">{desc}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-            
+
           )}
 
           {/* ================= STEP 3: LEAD CONFIGURATION ================= */}
           {step === 3 && (
             <div className="grid grid-cols-1 gap-6 animate-in slide-in-from-right-4">
-              
+
               {/* EMAIL OPT-IN SECTION */}
               <div className="p-4 bg-slate-50 rounded-lg border">
-                 <Label className="font-bold mb-4 block text-base text-primary">Email Opt-In Configuration</Label>
-                 <EventOptInSelector 
-                    value={formData.opt_ins} 
-                    onChange={(val) => handleChange("opt_ins", val)} 
-                 />
+                <Label className="font-bold mb-4 block text-base text-primary">Email Opt-In Configuration</Label>
+                <EventOptInSelector
+                  value={formData.opt_ins}
+                  onChange={(val) => handleChange("opt_ins", val)}
+                />
               </div>
 
-             
+
             </div>
           )}
         </div>
@@ -535,12 +539,12 @@ function UpdateEventPopup({
           {step === 1 ? (
             <Button variant="ghost" onClick={onClose}>Cancel</Button>
           ) : (
-            <Button variant="outline" onClick={() => setStep(prev => prev - 1)}><ArrowLeft className="mr-2 h-4 w-4"/> Back</Button>
+            <Button variant="outline" onClick={() => setStep(prev => prev - 1)}><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
           )}
-          
+
           <div className="flex gap-2">
             {step < 3 ? (
-              <Button onClick={() => setStep(prev => prev + 1)}>Next Step <ArrowRight className="ml-2 h-4 w-4"/></Button>
+              <Button onClick={() => setStep(prev => prev + 1)}>Next Step <ArrowRight className="ml-2 h-4 w-4" /></Button>
             ) : (
               <Button onClick={handleSave} disabled={loading}>{loading ? "Saving..." : "Update Event"}</Button>
             )}
@@ -581,7 +585,7 @@ export default function Events() {
   const [events, setEvents] = useState<Event[]>([]);
   const [popupOpen, setPopupOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  
+
   const [status, setStatus] = useState("All");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
@@ -647,7 +651,7 @@ export default function Events() {
         }
         const tplRes: any = await request("/form_template_list", "GET");
         if (tplRes?.data && Array.isArray(tplRes.data)) {
-            setTemplates(tplRes.data);
+          setTemplates(tplRes.data);
         }
       } catch (err) {
         console.error("Fetch data error:", err);
@@ -716,12 +720,12 @@ export default function Events() {
     .filter((event) => {
       const statusMatch =
         status === "All" || getStatusFromDates(event, event.start_date, event.end_date) === status;
-      
+
       const searchMatch = [event.event_name, event.team, event.location]
         .join(" ")
         .toLowerCase()
         .includes(searchTerm.toLowerCase());
-        
+
       const templateMatch = selectedTemplateId === "All" || String(event.template_id) === selectedTemplateId;
 
       return statusMatch && searchMatch && templateMatch;
@@ -731,30 +735,30 @@ export default function Events() {
         new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
     );
 
-    const handleResetToAllEvents = async () => {
-      const currentUserId = getCurrentUserId();
-      try {
-        if (currentUserId === 1015) {
-          const data: any = await request("/get_all_event_details", "GET");
-          setEvents(data?.data || []);
-        } else {
-          const response = await fetch(`https://api.inditechit.com/get_user_team_events?id=${currentUserId}`);
-          const result = await response.json();
-          setEvents(result?.data || []);
-        }
-      } catch (err) {
-        console.error("❌ Reset events error:", err);
-        setEvents([]);
+  const handleResetToAllEvents = async () => {
+    const currentUserId = getCurrentUserId();
+    try {
+      if (currentUserId === 1015) {
+        const data: any = await request("/get_all_event_details", "GET");
+        setEvents(data?.data || []);
+      } else {
+        const response = await fetch(`https://api.inditechit.com/get_user_team_events?id=${currentUserId}`);
+        const result = await response.json();
+        setEvents(result?.data || []);
       }
-      setSelectedUserId(null);
-    };
-  
-    const handleClearFilters = async () => {
-      setStatus("All");
-      setSearchTerm("");
-      setSelectedTemplateId("All");
-      await handleResetToAllEvents();
-    };
+    } catch (err) {
+      console.error("❌ Reset events error:", err);
+      setEvents([]);
+    }
+    setSelectedUserId(null);
+  };
+
+  const handleClearFilters = async () => {
+    setStatus("All");
+    setSearchTerm("");
+    setSelectedTemplateId("All");
+    await handleResetToAllEvents();
+  };
 
   if (myAccess === null) {
     return (
@@ -929,7 +933,7 @@ export default function Events() {
                               getStatusFromDates(event, event.start_date, event.end_date)
                             )}
                           </td>
-                          <td className="py-3 px-4">{event.event_name} <br/><span className="text-xs">({event.start_date} → {event.end_date})</span></td>
+                          <td className="py-3 px-4">{event.event_name} <br /><span className="text-xs">({event.start_date} → {event.end_date})</span></td>
                           <td className="py-3 px-4">{event.location}</td>
                           <td className="py-3 px-4">{event.team}</td>
                           <td className="py-3 px-4">{event.event_type}</td>

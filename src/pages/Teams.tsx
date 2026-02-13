@@ -19,7 +19,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useEffect, useState } from "react";
@@ -56,6 +55,14 @@ export default function Teams() {
   const [users, setUsers] = useState<any[]>([]);
   const [selectedLead, setSelectedLead] = useState<any | null>(null);
 
+  // 🔹 NOTES STATES
+  const [leadNotes, setLeadNotes] = useState<any[]>([]);
+  const [notesLoading, setNotesLoading] = useState(false);
+  
+  // New Note State
+  const [newNote, setNewNote] = useState("");
+  const [isAddingNote, setIsAddingNote] = useState(false);
+
   // 🔹 ACCESS CONTROL STATES
   const [myAccess, setMyAccess] = useState<AccessPointData | null>(null);
   const [canViewLeads, setCanViewLeads] = useState(false);
@@ -72,6 +79,8 @@ export default function Teams() {
       year: "numeric",
       month: "short",
       day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
     });
   };
 
@@ -152,7 +161,7 @@ export default function Teams() {
           return parsed.point.includes(suffix);
         };
 
-        // 👈 LEAD-SPECIFIC PERMISSIONS setCanViewSignature
+        // Lead Permissions
         setCanViewLeads(true);
         setCanDeleteLead(hasPage("/lead") && hasAction("/lead", "delete_lead"));
         setCanFilterLeads(hasPage("/lead") && hasAction("/lead", "filter"));
@@ -191,10 +200,9 @@ export default function Teams() {
         if (result.status_code === 200 && Array.isArray(result.data)) {
           let list: any = result.data;
           if (currentUserId !== 1015) {
-            list = list.filter((u) => (u.parent_id === currentUserId || u.employee_id == currentUserId));
+            list = list.filter((u: any) => (u.parent_id === currentUserId || u.employee_id == currentUserId));
           }
           setUsers(list);
-          // setUsers(result.data);
         }
       } catch (err) {
         console.error("Users fetch error:", err);
@@ -203,7 +211,7 @@ export default function Teams() {
     fetchUsers();
   }, []);
 
-  function getLeadType(lead: any): string {
+  function getLeadTypeFn(lead: any): string {
     if (!lead.image_url) return "manual_lead";
     if (lead.image_url && (!lead.emails || lead.emails.length === 0)) return "badge";
     if (lead.image_url && lead.emails && lead.emails.length > 0) return "visiting_card";
@@ -219,7 +227,7 @@ export default function Teams() {
 
     const matchesEvent = eventName.includes(filterEvent);
     const matchesName = leadName.includes(filterName);
-    const matchesType = !leadTypeFilter || getLeadType(lead) === leadTypeFilter;
+    const matchesType = !leadTypeFilter || getLeadTypeFn(lead) === leadTypeFilter;
 
     const leadCapturedId = Number(lead.captured_by);
     const matchesUser = !selectedUserId || leadCapturedId === selectedUserId;
@@ -229,8 +237,6 @@ export default function Teams() {
 
   const fetchLeadData = async () => {
     const currentUserId = getCurrentUserId();
-    console.log(currentUserId);
-
     const res = await request(`/get_all_leads`, "GET");
     if (res && res.success === true && res.data) {
       let data: any[] = res.data;
@@ -252,6 +258,108 @@ export default function Teams() {
       fetchLeadData();
     }
   }, [canViewLeads]);
+
+  // 🔹 FETCH NOTES LOGIC WHEN LEAD IS SELECTED
+  const fetchLeadNotes = async () => {
+    if (!selectedLead?.lead_id) {
+      setLeadNotes([]);
+      return;
+    }
+
+    setNotesLoading(true);
+    try {
+      const res: any = await request(`/get_lead_notes?lead_id=${selectedLead.lead_id}`, "GET");
+      if (res && res.success === true) {
+        setLeadNotes(res.data);
+      } else {
+        setLeadNotes([]);
+      }
+    } catch (error) {
+      console.error("Error fetching notes:", error);
+      setLeadNotes([]);
+    } finally {
+      setNotesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedLead) {
+      fetchLeadNotes();
+      setNewNote(""); // Reset input when opening new lead
+    }
+  }, [selectedLead]);
+
+  // 🔹 ADD NOTE FUNCTION
+  const handleAddNote = async () => {
+    if (!newNote.trim() || !selectedLead) return;
+
+    setIsAddingNote(true);
+    const userId = getCurrentUserId();
+
+    try {
+      const payload = {
+        lead_id: selectedLead.lead_id,
+        employee_id: userId,
+        note_text: newNote,
+        created_at: new Date().toISOString()
+      };
+
+      const res = await request('/add_lead_note', 'POST', payload);
+
+      if (res && res.success) {
+        toast({
+          title: "✅ Note Added",
+          description: "Your note has been saved successfully.",
+        });
+        setNewNote("");
+        fetchLeadNotes(); // Refresh list
+      } else {
+        toast({
+          variant: "destructive",
+          title: "❌ Error",
+          description: "Failed to add note.",
+        });
+      }
+    } catch (e) {
+      toast({
+        variant: "destructive",
+        title: "❌ Network Error",
+        description: "Could not connect to the server.",
+      });
+    } finally {
+      setIsAddingNote(false);
+    }
+  };
+
+  // 🔹 DELETE NOTE FUNCTION
+  const handleDeleteNote = async (noteId: number) => {
+    // Optional: Add a confirm dialog here if preferred
+    if (!window.confirm("Are you sure you want to delete this note?")) return;
+
+    try {
+      const res = await request(`/delete_lead_note?note_id=${noteId}`, "DELETE");
+      
+      if (res && res.success) {
+        setLeadNotes((prev) => prev.filter((note) => note.note_id !== noteId));
+        toast({
+          title: "🗑️ Note Deleted",
+          description: "The note has been removed.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "❌ Error",
+          description: res?.message || "Failed to delete note.",
+        });
+      }
+    } catch (e) {
+      toast({
+        variant: "destructive",
+        title: "❌ Error",
+        description: "Something went wrong.",
+      });
+    }
+  };
 
   const handleUserSelect = (userId: number) => {
     if (canFilterLeads) {
@@ -389,7 +497,7 @@ export default function Teams() {
                   <div>
                     <Label>Filter by Event Name</Label>
                     <Input
-                    className="border-gray focus:border-gray"
+                      className="border-gray focus:border-gray"
                       placeholder="Search event"
                       value={eventNameFilter}
                       onChange={(e) => {
@@ -401,7 +509,7 @@ export default function Teams() {
                   <div>
                     <Label>Filter by Lead Name</Label>
                     <Input
-                    className="border-gray focus:border-gray"
+                      className="border-gray focus:border-gray"
                       placeholder="Search lead"
                       value={leadNameFilter}
                       onChange={(e) => {
@@ -468,8 +576,6 @@ export default function Teams() {
                   <thead className="bg-muted/30">
                     <tr>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Name</th>
-                      {/* <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Company</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Designation</th> */}
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Phone</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Email</th>
                       {canViewSignature && <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Signature</th>}
@@ -490,8 +596,6 @@ export default function Teams() {
                       paginatedLeads.map((lead: any) => (
                         <tr key={lead?.lead_id} className="border-b hover:bg-muted/20">
                           <td className="py-3 px-4 font-medium">{lead?.name || "-"}</td>
-                          {/* <td className="py-3 px-4">{lead?.company || "-"}</td>
-                          <td className="py-3 px-4">{lead?.designation || "-"}</td> */}
                           <td className="py-3 px-4">{lead?.phone_numbers?.[0] || "-"}</td>
                           <td className="py-3 px-4">{lead?.emails?.[0] || "-"}</td>
                           {canViewSignature && <td className="py-3 px-4">
@@ -583,7 +687,6 @@ export default function Teams() {
                     <div className="space-y-3">
                       <h3 className="font-semibold text-lg border-b pb-2 text-foreground/80">Contact Information</h3>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                        {/* {selectedLead?.lead_id && <InfoRow label="Lead ID" value={selectedLead.lead_id} />} */}
                         {selectedLead?.company && <InfoRow label="Company" value={selectedLead.company} />}
                         {selectedLead?.designation && <InfoRow label="Designation" value={selectedLead.designation} />}
                         {selectedLead?.phone_numbers?.length > 0 && (
@@ -636,8 +739,68 @@ export default function Teams() {
                               {selectedLead?.consent ? "Granted" : "Missing"}
                             </Badge>
                           </div>
+                          {selectedLead?.urgency && <div className="flex items-center gap-2">
+                            <span className="font-medium text-muted-foreground">Urgency:</span>
+                            <Badge variant={"destructive"}>
+                              {selectedLead?.urgency}
+                            </Badge>
+                          </div>}
                         </div>
                       </div>
+                    </div>
+
+                    {/* 🔹 SECTION: LEAD NOTES */}
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center border-b pb-2">
+                        <h3 className="font-semibold text-lg text-foreground/80">Lead Notes</h3>
+                      </div>
+                      
+                      {/* Notes List */}
+                      {notesLoading ? (
+                        <div className="text-sm text-muted-foreground py-4">Loading notes...</div>
+                      ) : leadNotes.length > 0 ? (
+                        <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                          {leadNotes.map((note: any, idx: number) => (
+                            <div key={idx} className="bg-muted/20 border rounded-lg p-3 text-sm">
+                              <p className="text-foreground whitespace-pre-wrap">{note.note_text}</p>
+                              <div className="flex justify-between items-center mt-2 pt-2 border-t border-muted/20">
+                                <span className="text-xs text-muted-foreground">{formatDate(note.created_at)}</span>
+                                {/* DELETE BUTTON (Only for user 1015) */}
+                                {getCurrentUserId() === 1015 && (
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="h-6 px-2 text-destructive hover:text-destructive/90 hover:bg-destructive/10 text-xs"
+                                    onClick={() => handleDeleteNote(note.note_id)}
+                                  >
+                                    Delete
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-sm text-muted-foreground italic py-2">No notes recorded for this lead.</div>
+                      )}
+
+                      {/* 🔹 ADD NOTE INPUT (ONLY FOR USER 1015) */}
+                      {getCurrentUserId() === 1015 && (
+                        <div className="mt-4 pt-4 border-t gap-2 flex flex-col">
+                          <Label className="text-xs font-semibold uppercase text-muted-foreground">Add New Note</Label>
+                          <textarea
+                            className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            placeholder="Type your note here..."
+                            value={newNote}
+                            onChange={(e) => setNewNote(e.target.value)}
+                          />
+                          <div className="flex justify-end">
+                            <Button size="sm" onClick={handleAddNote} disabled={isAddingNote}>
+                              {isAddingNote ? "Saving..." : "Add Note"}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Section 4: Long Text (Disclaimer/QR) */}
@@ -679,18 +842,15 @@ export default function Teams() {
                       </div>
                     )}
 
-                    {(selectedLead?.signature_binary && canViewSignature )? (
+                    {(selectedLead?.signature || selectedLead?.signature_binary) && canViewSignature ? (
                       <div className="border rounded-lg p-3 bg-muted/10">
                         <span className="text-sm font-medium text-muted-foreground mb-2 block">Signature</span>
                         <div className="bg-white border rounded p-2 flex items-center justify-center h-24">
                           <img
-
-                            src={`data:image/png;base64,${selectedLead.signature}`}
-
+                            src={`data:image/png;base64,${selectedLead.signature || selectedLead.signature_binary}`}
                             alt="Signature"
-                              style={{height: "200px" }}
+                            style={{ height: "100%", maxHeight: "80px" }}
                             className="w-full h-full object-contain p-2"
-
                           />
                         </div>
                       </div>
@@ -709,6 +869,6 @@ export default function Teams() {
           </Dialog>
         </main>
       </div>
-    </div >
+    </div>
   );
 }

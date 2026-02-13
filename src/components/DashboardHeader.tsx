@@ -30,12 +30,22 @@ import {
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Switch } from "@/components/ui/switch"; 
+import { Switch } from "@/components/ui/switch";
 
 // --- TYPES ---
 type User = {
   employee_id: number;
   user_name: string;
+};
+
+// New Type for the User Details API response
+type UserDetails = {
+  employee_id: number;
+  user_name: string;
+  email: string;
+  role?: string;
+  profile?:string;
+  // Add other fields returned by the API as needed
 };
 
 type AccessPointData = {
@@ -67,14 +77,21 @@ const AVAILABLE_FIELDS = [
   "Country",
   "Area Of Interest",
   "Disclaimer",
-  "Consent Form",
+  "Capture Data Consent",
   "Term And Condition",
-  "Signature",
+  "Urgency",
   "Email Opt In",
+  "(Email Consent) Signature", // Renamed for UI
 ];
 
-const convertToApiKey = (label: string) =>
-  label.toLowerCase().replace(/ /g, "_");
+// UPDATED: Helper to handle the specific mapping for Signature
+const convertToApiKey = (label: string) => {
+  // If the label is the UI-specific signature name, return the strict DB key "signature"
+  if (label === "(Email Consent) Signature") {
+    return "signature";
+  }
+  return label.toLowerCase().replace(/ /g, "_");
+};
 
 // Helper to create initial default objects
 const createDefaultFields = (labels: string[]): FieldConfig[] => {
@@ -108,6 +125,9 @@ export function DashboardHeader() {
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // 🔹 NEW STATE: Store Current User Details
+  const [userDetails, setUserDetails] = useState<UserDetails | null>(null);
 
   // Team Form Data
   const [formData, setFormData] = useState({
@@ -151,6 +171,45 @@ export function DashboardHeader() {
   const getEmail = localStorage.getItem("email") || "";
 
   // --- API / LOADERS ---
+
+  // 🔹 FETCH USER DETAILS INTEGRATION
+  useEffect(() => {
+    const fetchUserDetails = async () => {
+      if (!getEmail) return;
+
+      try {
+        // You can use the 'request' hook if it supports full URLs, otherwise standard fetch works here
+        const token = localStorage.getItem("token"); // Assuming you store token
+        const response = await fetch(
+          `https://api.inditechit.com/get_user_details?email=${getEmail}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              // Add Authorization if your API requires it
+              Authorization: token ? `Bearer ${token}` : "",
+            },
+          }
+        );
+
+        if (response.ok) {
+          const result = await response.json();
+          // Assuming result.data contains the user object based on standard API patterns
+          if (result && result.data) {
+            setUserDetails(result.data);
+            localStorage.setItem("userDetails",JSON.stringify(result.data))
+          }
+        } else {
+          console.error("Failed to fetch user details:", response.statusText);
+        }
+      } catch (error) {
+        console.error("Error fetching user details:", error);
+      }
+    };
+
+    fetchUserDetails();
+  }, [getEmail]);
+
   const loadAccess = async () => {
     const userId = getCurrentUserId();
     if (!userId) return;
@@ -226,6 +285,8 @@ export function DashboardHeader() {
   // 2. TOGGLE FIELD SELECTION
   const toggleField = (label: string) => {
     const api = convertToApiKey(label);
+    const emailOptInKey = convertToApiKey("Email Opt In");
+    const signatureKey = convertToApiKey("(Email Consent) Signature"); // Returns "signature"
 
     setFieldSelections((prev) => {
       const currentList = prev[activeTab];
@@ -235,6 +296,11 @@ export function DashboardHeader() {
       if (exists) {
         // Remove
         newList = currentList.filter((f) => f.key !== api);
+
+        // Logic: If user unselects 'email_opt_in', also unselect 'signature'
+        if (api === emailOptInKey) {
+          newList = newList.filter((f) => f.key !== signatureKey);
+        }
       } else {
         // Add (default not required)
         newList = [...currentList, { key: api, required: false }];
@@ -420,6 +486,14 @@ export function DashboardHeader() {
     const allKeys = AVAILABLE_FIELDS.map(convertToApiKey);
     const isAllSelected = currentSelectedList.length === allKeys.length;
 
+    // Check if Email Opt In is currently selected for this tab
+    const emailOptInKey = convertToApiKey("Email Opt In");
+    const signatureKey = convertToApiKey("(Email Consent) Signature"); // "signature"
+
+    const isEmailOptInSelected = currentSelectedList.some(
+      (f) => f.key === emailOptInKey
+    );
+
     const handleSelectAll = () => {
       setFieldSelections((prev) => ({
         ...prev,
@@ -446,6 +520,12 @@ export function DashboardHeader() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[400px] overflow-y-auto pr-2">
           {AVAILABLE_FIELDS.map((label) => {
             const api = convertToApiKey(label);
+
+            // Logic: If this field is Signature, and Email Opt In is NOT selected, skip rendering it
+            if (api === signatureKey && !isEmailOptInSelected) {
+              return null;
+            }
+
             const fieldConfig = currentSelectedList.find((f) => f.key === api);
             const isChecked = !!fieldConfig;
             const isRequired = fieldConfig?.required || false;
@@ -501,11 +581,14 @@ export function DashboardHeader() {
     <>
       <header className="flex items-center justify-between h-16 px-6 bg-card border-b border-border">
         <div className="flex items-center space-x-4">
+          {/* 🔹 UPDATED: Shows User Name from API if available */}
           <h2 className="text-lg font-semibold text-foreground">
             Eprevent Admin
-          </h2>{" "}
+          </h2>
           <span className="ml-2 text-sm text-muted-foreground hidden sm:inline-block">
-            Login As ({getEmail})
+            Login As : {userDetails?.user_name
+              ? `${userDetails.user_name} (${userDetails.profile})`
+              : ""}
           </span>
         </div>
 
@@ -542,7 +625,7 @@ export function DashboardHeader() {
       <Dialog open={teamDialogOpen} onOpenChange={setTeamDialogOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           {/* ... Team Dialog Content (Same as before) ... */}
-           <DialogHeader>
+          <DialogHeader>
             <DialogTitle>Create a New Team</DialogTitle>
           </DialogHeader>
 
@@ -714,14 +797,21 @@ export function DashboardHeader() {
                       Select fields for Booth Give Away
                     </h4>
                     <div className="flex gap-2">
-                         <Badge variant="outline" className="bg-white">
-                           {fieldSelections.booth_give_away.length} Selected
-                         </Badge>
-                          <Badge variant="outline" className="bg-white text-red-600 border-red-200">
-                           {fieldSelections.booth_give_away.filter(f=>f.required).length} Required
-                         </Badge>
+                      <Badge variant="outline" className="bg-white">
+                        {fieldSelections.booth_give_away.length} Selected
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className="bg-white text-red-600 border-red-200"
+                      >
+                        {
+                          fieldSelections.booth_give_away.filter(
+                            (f) => f.required
+                          ).length
+                        }{" "}
+                        Required
+                      </Badge>
                     </div>
-                   
                   </div>
                   <FieldCheckboxes />
                 </TabsContent>
@@ -735,12 +825,20 @@ export function DashboardHeader() {
                       Select fields for Full Lead Form
                     </h4>
                     <div className="flex gap-2">
-                         <Badge variant="outline" className="bg-white">
-                           {fieldSelections.full_lead_form.length} Selected
-                         </Badge>
-                          <Badge variant="outline" className="bg-white text-red-600 border-red-200">
-                           {fieldSelections.full_lead_form.filter(f=>f.required).length} Required
-                         </Badge>
+                      <Badge variant="outline" className="bg-white">
+                        {fieldSelections.full_lead_form.length} Selected
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className="bg-white text-red-600 border-red-200"
+                      >
+                        {
+                          fieldSelections.full_lead_form.filter(
+                            (f) => f.required
+                          ).length
+                        }{" "}
+                        Required
+                      </Badge>
                     </div>
                   </div>
                   <FieldCheckboxes />
@@ -755,12 +853,19 @@ export function DashboardHeader() {
                       Select fields for Workshop
                     </h4>
                     <div className="flex gap-2">
-                         <Badge variant="outline" className="bg-white">
-                           {fieldSelections.workshop.length} Selected
-                         </Badge>
-                          <Badge variant="outline" className="bg-white text-red-600 border-red-200">
-                           {fieldSelections.workshop.filter(f=>f.required).length} Required
-                         </Badge>
+                      <Badge variant="outline" className="bg-white">
+                        {fieldSelections.workshop.length} Selected
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className="bg-white text-red-600 border-red-200"
+                      >
+                        {
+                          fieldSelections.workshop.filter((f) => f.required)
+                            .length
+                        }{" "}
+                        Required
+                      </Badge>
                     </div>
                   </div>
                   <FieldCheckboxes />
