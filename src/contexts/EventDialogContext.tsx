@@ -88,7 +88,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
   const [isLocationOpen, setIsLocationOpen] = useState(false);
 
   const getEmailLocal = localStorage.getItem("userDetails") || "";
-  const getEmail = JSON.parse(getEmailLocal)
+const getEmail = getEmailLocal ? JSON.parse(getEmailLocal) : {};
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
 
   // Form Data
