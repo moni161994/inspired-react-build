@@ -1,4 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
+// REMOVED: import dynamic from 'next/dynamic'; 
+import ReactQuill from 'react-quill'; // CHANGED: Direct import
+import 'react-quill/dist/quill.snow.css'; // Import Quill styles
+
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Edit3, Plus, Upload, FileDown, Loader2, AlertTriangle, ChevronDown } from "lucide-react";
+import { Trash2, Edit3, Plus, Upload, FileDown, Loader2, AlertTriangle } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -41,7 +45,8 @@ const CATEGORY_COLORS: Record<string, { bg: string, border: string, text: string
   "Uncategorized": { bg: "bg-gray-50", border: "border-gray-200", text: "text-gray-800", badgeBg: "bg-white", badgeText: "text-gray-700" }
 };
 
-const KEY_CATEGORIES: Record<string, string> = {
+// Base Static Keys
+const BASE_KEY_CATEGORIES: Record<string, string> = {
   "Dashboard": "App Headings",
   "Profile": "App Headings",
   "Leads": "App Headings",
@@ -73,7 +78,6 @@ const KEY_CATEGORIES: Record<string, string> = {
   "Consent Form": "Lead Labels",
   "Term And Condition": "Lead Labels",
   "Signature": "Lead Labels",
-  "Email Opt In": "Lead Labels",
   "Captured by": "Lead Labels",
   "Support?": "App Headings",
   "No QR code detected from Vision":"App Other Text",
@@ -255,11 +259,6 @@ const KEY_CATEGORIES: Record<string, string> = {
   "Lead saved! Total pending:": "Alert & Other Messages",
   "Complete lead saved offline with all manual fields.": "Alert & Other Messages",
   "No speech detected, stopping mic safely": "Alert & Other Messages",
-  "By entering your email address, you are Opting In to receive Marketing emails from Epredia.": "Email Opt-in",
-  "This will allow us to digitally communicate with you via emails regarding products and services that we feel may be of interest to you or that are similar to those that you have already purchased or enquired about.": "Email Opt-in",
-  "You may be contacted by us, or by one of our selected partners, in each case where you have consented to receive these communications.": "Email Opt-in",
-  "You may opt out of receiving our marketing communications at any time by contacting us at privacy@epredia.com or by using the Unsubscribe link in any of our communications.": "Email Opt-in",
-  "We will continue to contact you for non-marketing related purposes where we need to issue a field corrective or safety notice, or where we need to send certain information to you under a legal, regulatory, or ethical requirement.": "Email Opt-in",
   "Thank you.": "App Other Text",
   "Opt-In": "App Other Text",
   "Opt-Out": "App Other Text",
@@ -275,16 +274,6 @@ const KEY_CATEGORIES: Record<string, string> = {
   "By accepting these terms, you agree to our Terms & Conditions and Privacy Policy.": "App Other Text",
   "This will allow us to process your lead information securely and in compliance with data protection regulations.": "App Other Text",
   "You may review the full terms at any time by contacting privacy@epredia.com.": "App Other Text",
-  "Anatomy Software": "Area of Interest",
-  "Archiving & Storage": "Area of Interest",
-  "Blades": "Area of Interest",
-  "Cryotomy": "Area of Interest",
-  "Cytology": "Area of Interest",
-  "Digital Pathology": "Area of Interest",
-  "Immunohistochemistry": "Area of Interest",
-  "Instrument Service": "Area of Interest",
-  "Labeling & Tracking": "Area of Interest",
-  "Microscope Slides": "Area of Interest",
   "All Events":"App Other Text",
   "All Types":"App Other Text",
   "Offline":"App Other Text",
@@ -296,12 +285,13 @@ const KEY_CATEGORIES: Record<string, string> = {
   "Notes":"App Other Text",
 };
 
-const PREDEFINED_KEYS = Object.keys(KEY_CATEGORIES);
-
 export default function LanguageManagement() {
   // --- State: General & Permissions ---
   const [languages, setLanguages] = useState<Language[]>([]);
   const [myAccess, setMyAccess] = useState<any>(null);
+  
+  // --- State: Dynamic Data Merging ---
+  const [finalKeyCategories, setFinalKeyCategories] = useState<Record<string, string>>(BASE_KEY_CATEGORIES);
   
   const [canCreateLanguage, setCanCreateLanguage] = useState(false);
   const [canEditLanguage, setCanEditLanguage] = useState(false);
@@ -326,13 +316,24 @@ export default function LanguageManagement() {
   const { request, loading } = useApi();
   const { toast } = useToast();
 
-  // --- Grouped Keys for Accordion ---
-  const groupedKeys = PREDEFINED_KEYS.reduce((acc, key) => {
-    const category = KEY_CATEGORIES[key] || "Uncategorized";
-    if (!acc[category]) acc[category] = [];
-    acc[category].push(key);
-    return acc;
-  }, {} as Record<string, string[]>);
+  // --- Helper: Strip HTML for display labels ---
+  const stripHtml = (html: string) => {
+    if (!html) return "";
+    return html.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim();
+  };
+
+  // --- Derived State: Grouped Keys for Accordion ---
+  const groupedKeys = useMemo(() => {
+    return Object.keys(finalKeyCategories).reduce((acc, key) => {
+      const category = finalKeyCategories[key] || "Uncategorized";
+      if (!acc[category]) acc[category] = [];
+      acc[category].push(key);
+      return acc;
+    }, {} as Record<string, string[]>);
+  }, [finalKeyCategories]);
+
+  // Derived State: List of all keys for Export/Import
+  const ALL_KEYS_LIST = useMemo(() => Object.keys(finalKeyCategories), [finalKeyCategories]);
 
   const SECTION_ORDER = [
     "App Headings",
@@ -341,8 +342,8 @@ export default function LanguageManagement() {
     "Lead Contact fields",
     "Lead Labels",
     "Manual Lead form",
-    "Email Opt-in",
-    "Area of Interest",
+    "Email Opt-in", 
+    "Area of Interest", 
     "Uncategorized"
   ];
 
@@ -350,6 +351,7 @@ export default function LanguageManagement() {
   useEffect(() => {
     loadMyAccess(); 
     fetchLanguages();
+    fetchDynamicKeys(); 
   }, []);
 
   // --- Helpers: Access Control ---
@@ -413,6 +415,39 @@ export default function LanguageManagement() {
     }
   };
 
+  const fetchDynamicKeys = async () => {
+    try {
+      const [areasRes, templatesRes] = await Promise.all([
+        request("/get_areas_of_interest", "GET"),
+        request("/admin/templates", "GET")
+      ]);
+
+      const newKeys: Record<string, string> = { ...BASE_KEY_CATEGORIES };
+
+      if (areasRes?.status_code === 200 && Array.isArray(areasRes.data)) {
+        areasRes.data.forEach((area: any) => {
+            if (area.name) {
+                newKeys[area.name] = "Area of Interest";
+            }
+        });
+      }
+
+      if (Array.isArray(templatesRes)) {
+        templatesRes.forEach((template: any) => {
+            if (template.content) {
+                newKeys[template.content] = "Email Opt-in";
+            }
+        });
+      }
+
+      setFinalKeyCategories(newKeys);
+
+    } catch (error) {
+      console.error("Failed to fetch dynamic keys", error);
+      setFinalKeyCategories(BASE_KEY_CATEGORIES);
+    }
+  };
+
   // --- Logic: Unified Dialog (Create/Edit) ---
   const openEditor = async (lang?: Language) => {
     setIsDialogOpen(true);
@@ -433,7 +468,7 @@ export default function LanguageManagement() {
       }
 
       const mergedTranslations: Record<string, string> = {};
-      PREDEFINED_KEYS.forEach(key => {
+      ALL_KEYS_LIST.forEach(key => {
         // @ts-ignore
         mergedTranslations[key] = existingTranslations[key] || "";
       });
@@ -447,7 +482,7 @@ export default function LanguageManagement() {
     } else {
       setEditingLanguage(null);
       const emptyTranslations: Record<string, string> = {};
-      PREDEFINED_KEYS.forEach(key => { emptyTranslations[key] = ""; });
+      ALL_KEYS_LIST.forEach(key => { emptyTranslations[key] = ""; });
 
       setFormData({
         language_name: "",
@@ -583,8 +618,6 @@ export default function LanguageManagement() {
     const grid = lines.map(line => parseCSVLine(line));
 
     // 2. Validate Structure
-    // Row 0: "Translation Key", "en", "fr", ...
-    // Row 1: "_Language Name", "English", "French", ...
     const headerCodes = grid[0]; 
     const headerNames = grid[1];
 
@@ -619,7 +652,8 @@ export default function LanguageManagement() {
         const row = grid[r];
         const key = row[0];
 
-        if(key && PREDEFINED_KEYS.includes(key)) {
+        // Ensure we only import keys that exist in our merged key list (Static + Dynamic)
+        if(key && ALL_KEYS_LIST.includes(key)) {
             for(let c = 1; c < row.length; c++) {
                 if(languagesToImport[c-1]) {
                     languagesToImport[c-1].translations[key] = row[c] || "";
@@ -692,8 +726,8 @@ export default function LanguageManagement() {
         // Row 2: Metadata (Names) -> "_Language Name", "English", "French"
         csvContent += `${LANGUAGE_NAME_KEY},${allLanguages.map(l => escapeCsv(l.language_name)).join(",")}\n`;
 
-        // Subsequent Rows: Keys and Values
-        PREDEFINED_KEYS.forEach(key => {
+        // Subsequent Rows: Keys and Values (Using Dynamic Keys List)
+        ALL_KEYS_LIST.forEach(key => {
             const rowValues = allLanguages.map(lang => {
                 const val = allTranslations[lang.language_code]?.[key] || "";
                 return escapeCsv(val);
@@ -907,24 +941,37 @@ export default function LanguageManagement() {
                     </AccordionTrigger>
                     <AccordionContent className="p-4 bg-white border-t border-gray-100">
                       <div className="space-y-4">
-                        {keys.map((key) => (
-                          <div key={key} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
-                            <div className="md:col-span-4 pt-2">
-                              <Label className="text-xs font-mono text-muted-foreground break-words leading-tight">
-                                {key}
-                              </Label>
+                        {keys.map((key) => {
+                          const isEmailOptIn = category === "Email Opt-in";
+                          
+                          return (
+                            <div key={key} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+                              <div className="md:col-span-4 pt-2">
+                                <Label className="text-xs font-mono text-muted-foreground break-words leading-tight block">
+                                  {isEmailOptIn ? stripHtml(key) : key}
+                                </Label>
+                              </div>
+                              <div className="md:col-span-8">
+                                {isEmailOptIn ? (
+                                  <ReactQuill 
+                                    theme="snow"
+                                    value={formData.translations[key] || ""}
+                                    onChange={(content) => updateTranslationKey(key, content)}
+                                    className="bg-white"
+                                  />
+                                ) : (
+                                  <Textarea
+                                    value={formData.translations[key] || ""}
+                                    onChange={(e) => updateTranslationKey(key, e.target.value)}
+                                    placeholder="Enter translation..."
+                                    className="min-h-[2.5rem] py-2 resize-y text-sm border-gray focus:border-gray"
+                                    rows={1}
+                                  />
+                                )}
+                              </div>
                             </div>
-                            <div className="md:col-span-8">
-                              <Textarea
-                                value={formData.translations[key] || ""}
-                                onChange={(e) => updateTranslationKey(key, e.target.value)}
-                                placeholder="Enter translation..."
-                                className="min-h-[2.5rem] py-2 resize-y text-sm border-gray focus:border-gray"
-                                rows={1}
-                              />
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </AccordionContent>
                   </AccordionItem>
