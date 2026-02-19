@@ -23,7 +23,6 @@ interface EventIntegration {
 interface ExternalEvent {
   event_id: string;
   event_name: string;
-  // Add other fields from Inditech API if needed
 }
 
 interface AccessPointData {
@@ -91,7 +90,6 @@ export default function EventIntegrationManagement() {
         };
         setMyAccess(parsed);
 
-        // 1. Check Page Access (Assuming route is /event-integrations)
         const hasPageAccess = parsed.page.includes("/event-api"); 
         setCanViewPage(hasPageAccess);
 
@@ -100,9 +98,7 @@ export default function EventIntegrationManagement() {
           fetchExternalEvents();
         }
 
-        // 2. Check Action Access
         const pageName = "event-api"; 
-        
         const checkPermission = (action: string) => {
             return parsed.point.includes(action) || parsed.point.includes(`${action}_${pageName}`);
         };
@@ -119,7 +115,6 @@ export default function EventIntegrationManagement() {
   // --- API Actions ---
   const fetchExternalEvents = async () => {
     try {
-      // Direct fetch for external API as it might differ from useApi base URL
       const response = await fetch('https://api.inditechit.com/get_all_event_details');
       const json = await response.json();
       
@@ -134,9 +129,27 @@ export default function EventIntegrationManagement() {
     }
   };
 
-
+  const fetchIntegrations = async () => {
+    setIsLoading(true);
+    try {
+      const res = await request("/get_event_integrations", "GET");
+      
+      // LOGIC UPDATE: Now checking specifically for status_code 200 and data array
+      if (res?.status_code === 200 && Array.isArray(res.data)) {
+        setIntegrations(res.data);
+      } else {
+        setIntegrations([]); 
+      }
+    } catch (error) {
+      console.error("fetchIntegrations error:", error);
+      toast({ title: "Failed to load data", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSave = async () => {
+    // Basic Validation
     if (!formData.event_id || !formData.api_key || !formData.event_unique_code) {
       toast({ title: "All fields are required", variant: "destructive" });
       return;
@@ -146,50 +159,31 @@ export default function EventIntegrationManagement() {
     try {
       let res;
       if (editingItem) {
+        // UPDATE API Call
         res = await request("/update_event_integration", "POST", {
           id: editingItem.id,
           ...formData
         });
       } else {
+        // CREATE API Call
         res = await request("/create_event_integration", "POST", {
           ...formData
         });
       }
 
+      // CHECK: Now validates against the status_code sent by backend
       if (res?.status_code === 200 || res?.status_code === 201) {
         toast({ title: editingItem ? "Updated successfully" : "Created successfully" });
         setIsDialogOpen(false);
-        fetchIntegrations();
+        fetchIntegrations(); // Refresh table immediately
       } else {
-        toast({ title: "Operation failed", description: res?.message, variant: "destructive" });
+        toast({ title: "Operation failed", description: res?.message || "Unknown error", variant: "destructive" });
       }
     } catch (e) {
+      console.error(e);
       toast({ title: "Error saving data", variant: "destructive" });
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const fetchIntegrations = async () => {
-    setIsLoading(true);
-    try {
-      const res = await request("/get_event_integrations", "GET");
-      
-      // FIXED: Check if 'res' is directly an array (matching your API response)
-      if (Array.isArray(res)) {
-        setIntegrations(res);
-      } 
-      // Fallback: Check for the standard wrapper just in case
-      else if (res?.status_code === 200 && Array.isArray(res.data)) {
-        setIntegrations(res.data);
-      } 
-      else {
-        setIntegrations([]); 
-      }
-    } catch (error) {
-      console.error("fetchIntegrations error:", error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -198,11 +192,12 @@ export default function EventIntegrationManagement() {
 
     try {
       const res = await request("/delete_event_integration", "POST", { id });
+      
       if (res?.status_code === 200) {
         toast({ title: "Deleted successfully" });
-        fetchIntegrations();
+        fetchIntegrations(); // Refresh table immediately
       } else {
-        toast({ title: "Delete failed", variant: "destructive" });
+        toast({ title: "Delete failed", description: res?.message, variant: "destructive" });
       }
     } catch (e) {
       toast({ title: "Error deleting", variant: "destructive" });
