@@ -580,6 +580,7 @@ export default function Teams() {
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Email</th>
                       {canViewSignature && <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Signature</th>}
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Captured By</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Captured Type</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Event</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Date Of Capture</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
@@ -608,6 +609,7 @@ export default function Teams() {
                             )}
                           </td>}
                           <td className="py-3 px-4">{lead?.captured_by_name || "Active Event"}</td>
+                          <td className="py-3 px-4">{lead?.is_offline ? "Offline" : "Online"}</td>
                           <td className="py-3 px-4">{lead?.event_name || "Active Event"}</td>
                           <td className="py-3 px-4">{lead?.created_at?.split('T')[0] || "Active Event"}</td>
                           <td className="py-3 px-4">
