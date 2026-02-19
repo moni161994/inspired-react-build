@@ -90,6 +90,7 @@ export default function EventIntegrationManagement() {
         };
         setMyAccess(parsed);
 
+        // 1. Check Page Access
         const hasPageAccess = parsed.page.includes("/event-api"); 
         setCanViewPage(hasPageAccess);
 
@@ -98,6 +99,7 @@ export default function EventIntegrationManagement() {
           fetchExternalEvents();
         }
 
+        // 2. Check Action Access
         const pageName = "event-api"; 
         const checkPermission = (action: string) => {
             return parsed.point.includes(action) || parsed.point.includes(`${action}_${pageName}`);
@@ -134,8 +136,11 @@ export default function EventIntegrationManagement() {
     try {
       const res = await request("/get_event_integrations", "GET");
       
-      // LOGIC UPDATE: Now checking specifically for status_code 200 and data array
-      if (res?.status_code === 200 && Array.isArray(res.data)) {
+      // Robust check: Handle both raw array OR status_code wrapper
+      if (Array.isArray(res)) {
+         setIntegrations(res);
+      }
+      else if (res?.status_code === 200 && Array.isArray(res.data)) {
         setIntegrations(res.data);
       } else {
         setIntegrations([]); 
@@ -159,23 +164,23 @@ export default function EventIntegrationManagement() {
     try {
       let res;
       if (editingItem) {
-        // UPDATE API Call
+        // UPDATE: Using POST per your backend requirement
         res = await request("/update_event_integration", "POST", {
           id: editingItem.id,
           ...formData
         });
       } else {
-        // CREATE API Call
+        // CREATE
         res = await request("/create_event_integration", "POST", {
           ...formData
         });
       }
 
-      // CHECK: Now validates against the status_code sent by backend
+      // Check success based on backend response structure
       if (res?.status_code === 200 || res?.status_code === 201) {
         toast({ title: editingItem ? "Updated successfully" : "Created successfully" });
         setIsDialogOpen(false);
-        fetchIntegrations(); // Refresh table immediately
+        fetchIntegrations(); 
       } else {
         toast({ title: "Operation failed", description: res?.message || "Unknown error", variant: "destructive" });
       }
@@ -195,7 +200,7 @@ export default function EventIntegrationManagement() {
       
       if (res?.status_code === 200) {
         toast({ title: "Deleted successfully" });
-        fetchIntegrations(); // Refresh table immediately
+        fetchIntegrations(); 
       } else {
         toast({ title: "Delete failed", description: res?.message, variant: "destructive" });
       }
@@ -209,7 +214,7 @@ export default function EventIntegrationManagement() {
     if (item) {
       setEditingItem(item);
       setFormData({ 
-        event_id: item.event_id,
+        event_id: String(item.event_id), // Ensure string for matching
         event_name: item.event_name,
         event_unique_code: item.event_unique_code,
         api_key: item.api_key
@@ -302,7 +307,7 @@ export default function EventIntegrationManagement() {
                             <tr key={item.id} className="hover:bg-muted/10 transition-colors">
                             <td className="py-2 px-4 font-medium">
                                 <div className="flex flex-col">
-                                    <span>{item.event_name}</span>
+                                    <span>{item.event_name || "Unknown Event"}</span>
                                     <span className="text-xs text-muted-foreground">ID: {item.event_id}</span>
                                 </div>
                             </td>
@@ -369,29 +374,43 @@ export default function EventIntegrationManagement() {
           
           <div className="grid gap-4 py-4">
             
-            {/* Event Dropdown */}
+            {/* Event Selection */}
             <div className="grid gap-2">
               <Label htmlFor="event_select">Select Event</Label>
-              <Select 
-                value={formData.event_id} 
-                onValueChange={handleEventSelect}
-                disabled={!!editingItem} // Usually safer to lock event ID on edit to prevent mismatch
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose an event..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {externalEvents.length === 0 ? (
-                    <div className="p-2 text-xs text-center text-muted-foreground">No events found</div>
-                  ) : (
-                    externalEvents.map((ev) => (
-                      <SelectItem key={ev.event_id} value={String(ev.event_id)}>
-                        {ev.event_name}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+              {editingItem ? (
+                // FIXED: Read-only Input during Edit Mode to ensure visibility
+                <div className="relative">
+                    <Input 
+                        value={formData.event_name || "Event Name Unavailable"} 
+                        disabled 
+                        className="bg-muted opacity-100 font-medium text-foreground"
+                    />
+                    <div className="text-[10px] text-muted-foreground mt-1">
+                        Event ID: {formData.event_id} (Cannot be changed)
+                    </div>
+                </div>
+              ) : (
+                // Dropdown during Create Mode
+                <Select 
+                    value={formData.event_id} 
+                    onValueChange={handleEventSelect}
+                >
+                    <SelectTrigger>
+                    <SelectValue placeholder="Choose an event..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                    {externalEvents.length === 0 ? (
+                        <div className="p-2 text-xs text-center text-muted-foreground">No events found</div>
+                    ) : (
+                        externalEvents.map((ev) => (
+                        <SelectItem key={ev.event_id} value={String(ev.event_id)}>
+                            {ev.event_name}
+                        </SelectItem>
+                        ))
+                    )}
+                    </SelectContent>
+                </Select>
+              )}
             </div>
 
             {/* Unique Code */}
