@@ -21,6 +21,7 @@ import LanguageManagement from "./pages/Language";
 import AreaOfInterestManagement from "./pages/AreaOfIntrest";
 import { useEffect } from "react";
 import OptInLibrary from "./pages/OptInLibrary";
+import EventIntegrationManager from "./pages/EventIntegrationManager";
 
 const queryClient = new QueryClient();
 
@@ -77,6 +78,7 @@ const App = () =>
             <Route path="/report" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
             <Route path="/template" element={<ProtectedRoute><Templates /></ProtectedRoute>} />
             <Route path="/opt-in" element={<ProtectedRoute><OptInLibrary /></ProtectedRoute>} />
+            <Route path="/event-api" element={<ProtectedRoute><EventIntegrationManager /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </EventDialogProvider>

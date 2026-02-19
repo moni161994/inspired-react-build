@@ -26,6 +26,7 @@ import {
   Languages,
   LandPlot,
   Mail,
+  Link,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -78,6 +79,7 @@ const PAGE_OPTIONS: PageOption[] = [
   { icon: Languages, label: "Language", path: "/language" },
   { icon: LandPlot, label: "Area Of Intrest", path: "/areaofintrest" },
   { icon: Mail, label: "Email Opt In", path: "/opt-in" },
+  { icon: Link, label: "Event Integration", path: "/event-api" }
 ];
 
 const ACTION_OPTIONS: Record<string, ActionOption[]> = {
@@ -126,6 +128,11 @@ const ACTION_OPTIONS: Record<string, ActionOption[]> = {
     { label: "Create AOI", action: "create_aoi" },
     { label: "Edit AOI", action: "edit_aoi" },
     { label: "Delete AOI", action: "delete_aoi" },
+  ],
+  "/event-api": [
+    { label: "Create Integration", action: "create_event_integration" },
+    { label: "Edit Integration", action: "edit_event_integration" },
+    { label: "Delete Integration", action: "delete_event_integration" },
   ]
 };
 

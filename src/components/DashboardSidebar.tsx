@@ -1,4 +1,4 @@
-import { LayoutGrid, Calendar, Clock, Users, User, Folder, LayoutList, Languages, LandPlot, Mail } from "lucide-react";
+import { LayoutGrid, Calendar, Clock, Users, User, Folder, LayoutList, Languages, LandPlot, Mail, Link } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -33,6 +33,8 @@ const ALL_NAVIGATION_ITEMS: PageOption[] = [
   { icon: Languages, label: "Language", path: "/language" },
   { icon: LandPlot, label: "Area Of Intrest", path: "/areaofintrest" },
   { icon: Mail, label: "Email-opt in", path: "/opt-in" },
+  { icon: Link, label: "Event Integration", path: "/event-api" }
+
 ];
 
 export function DashboardSidebar() {
