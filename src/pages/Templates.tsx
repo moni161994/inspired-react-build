@@ -51,7 +51,6 @@ const AVAILABLE_FIELDS = [
   "Phone Numbers",
   "Emails",
   "Websites",
-  "Other",
   "City",
   "State",
   "ZIP",
@@ -463,7 +462,7 @@ function Templates() {
               <TableRow>
                 <TableHead>Template Name</TableHead>
                 <TableHead>Description</TableHead>
-                <TableHead>Image</TableHead>
+                {/* <TableHead>Image</TableHead> */}
                 <TableHead>Created At</TableHead>
                 {(canDeleteTemplate || canEditTemplate) && (
                   <TableHead className="w-32">Actions</TableHead>
@@ -490,7 +489,7 @@ function Templates() {
                     <TableCell className="max-w-[200px] truncate text-muted-foreground">
                       {tpl.description}
                     </TableCell>
-                    <TableCell>
+                    {/* <TableCell>
                       {tpl.template_image && (
                         <img
                           src={tpl.template_image}
@@ -498,7 +497,7 @@ function Templates() {
                           className="h-10 w-16 object-cover rounded border"
                         />
                       )}
-                    </TableCell>
+                    </TableCell> */}
                     <TableCell>
                       {new Date(tpl.created_at).toLocaleDateString()}
                     </TableCell>
@@ -570,7 +569,7 @@ function Templates() {
             open={!!editing}
             onOpenChange={(open) => !open && setEditing(null)}
           >
-            <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto w-[95vw]">
+            <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto w-[95vw]">
               <DialogHeader>
                 <DialogTitle className="text-xl">Edit Template</DialogTitle>
               </DialogHeader>
@@ -584,7 +583,7 @@ function Templates() {
                         Template Name
                       </Label>
                       <Input
-                        className="mt-1.5"
+                        className="border-gray-300 focus:border-primary mt-1.5"
                         value={editName}
                         onChange={(e) => setEditName(e.target.value)}
                       />
@@ -592,7 +591,7 @@ function Templates() {
                     <div>
                       <Label className="text-sm font-medium">Description</Label>
                       <Input
-                        className="mt-1.5"
+                        className="border-gray-300 focus:border-primary mt-1.5"
                         value={editDescription}
                         onChange={(e) => setEditDescription(e.target.value)}
                       />
@@ -607,7 +606,7 @@ function Templates() {
                       type="file"
                       accept="image/*"
                       onChange={handleImageChange}
-                      className="mt-1.5 cursor-pointer file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                      className="border-gray-300 focus:border-primary mt-1.5 cursor-pointer file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
                     />
 
                     <div className="mt-3 bg-muted/20 p-2 rounded border border-dashed flex items-center justify-center min-h-[100px]">
@@ -705,7 +704,7 @@ function Templates() {
                 </div>
               </div>
 
-              <div className="flex justify-end space-x-3 pt-6 mt-4 border-t sticky bottom-0 bg-background pb-2">
+              <div className="flex justify-end space-x-3 pt-6 mt-4 border-t sticky -bottom-[3vh] bg-background pb-2">
                 <Button
                   variant="outline"
                   onClick={() => {

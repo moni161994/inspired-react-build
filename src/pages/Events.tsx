@@ -537,7 +537,7 @@ function UpdateEventPopup({
         {/* FOOTER NAVIGATION */}
         <div className="flex justify-between items-center mt-6 pt-4 border-t">
           {step === 1 ? (
-            <Button variant="ghost" onClick={onClose}>Cancel</Button>
+            <Button variant="outline" onClick={onClose}>Cancel</Button> 
           ) : (
             <Button variant="outline" onClick={() => setStep(prev => prev - 1)}><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
           )}

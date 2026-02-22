@@ -654,7 +654,6 @@ export default function Analytics() {
                   <table className="table-auto w-full mt-4 border">
                     <thead>
                       <tr className="bg-slate-200">
-                        <th className="border p-2">Employee ID</th>
                         <th className="border p-2">Employee Name</th>
                         <th className="border p-2">Event Name</th>
                         <th className="border p-2">Lead Date</th>
@@ -664,7 +663,6 @@ export default function Analytics() {
                     <tbody>
                       {filteredReport.map((row, i) => (
                         <tr key={i}>
-                          <td className="border p-2">{row.employee_id}</td>
                           <td className="border p-2">{row.user_name}</td>
                           <td className="border p-2">{row.event_name}</td>
                           <td className="border p-2">
