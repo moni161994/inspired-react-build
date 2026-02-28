@@ -9,17 +9,13 @@ type OptInItem = {
 };
 
 interface EventOptInSelectorProps {
-  // Pass existing selections if editing an event
   value?: OptInItem[]; 
-  // Callback when user changes selection
   onChange: (selected: OptInItem[]) => void; 
 }
 
 export function EventOptInSelector({ value = [], onChange }: EventOptInSelectorProps) {
   const { request, loading } = useApi<any>();
   const [library, setLibrary] = useState<any[]>([]);
-
-  // Local state to manage selections
   const [selections, setSelections] = useState<OptInItem[]>(value);
 
   useEffect(() => {
@@ -32,7 +28,6 @@ export function EventOptInSelector({ value = [], onChange }: EventOptInSelectorP
     fetchLib();
   }, []);
 
-  // Update parent when local state changes
   useEffect(() => {
     onChange(selections);
   }, [selections]);
@@ -42,10 +37,8 @@ export function EventOptInSelector({ value = [], onChange }: EventOptInSelectorP
       const isCurrentlySelected = prev.some((item) => item.template_id === id);
       
       if (isCurrentlySelected) {
-        // If clicking the one already selected, deselect it
         return [];
       } else {
-        // Otherwise, replace selection with this ID and force mandatory to TRUE
         return [{ template_id: id, is_mandatory: true }];
       }
     });
@@ -69,7 +62,6 @@ export function EventOptInSelector({ value = [], onChange }: EventOptInSelectorP
       
       <div className="grid grid-cols-1 gap-3 max-h-[300px] overflow-y-auto">
         {library.map((tpl) => {
-          // Check if this specific template is the one in our single-item array
           const selection = selections.find((s) => s.template_id === tpl.id);
           const isSelected = !!selection;
 
@@ -82,13 +74,22 @@ export function EventOptInSelector({ value = [], onChange }: EventOptInSelectorP
                   : "bg-white border-input hover:bg-slate-100"
               }`}
             >
-              <div className="flex items-start gap-3 flex-1 cursor-pointer" onClick={() => handleToggleSelection(tpl.id)}>
+              {/* FIX 1: Removed onClick from this wrapper to prevent double-firing */}
+              <div className="flex items-start gap-3 flex-1">
+                
+                {/* FIX 2: Added an ID and ensured Checkbox handles its own clicks exclusively */}
                 <Checkbox
+                  id={`optin-${tpl.id}`}
                   checked={isSelected}
                   onCheckedChange={() => handleToggleSelection(tpl.id)}
-                  className="mt-1 rounded-full"
+                  className="mt-1 rounded-full cursor-pointer"
                 />
-                <div className="grid gap-1.5">
+                
+                {/* FIX 3: Moved onClick ONLY to the text container so it acts as a clickable label */}
+                <div 
+                    className="grid gap-1.5 cursor-pointer" 
+                    onClick={() => handleToggleSelection(tpl.id)}
+                >
                     <span className={`font-medium text-sm leading-none ${isSelected ? "text-primary" : ""}`}>
                         {tpl.title}
                     </span>
