@@ -100,7 +100,7 @@ const getEmail = getEmailLocal ? JSON.parse(getEmailLocal) : {};
     location: "",
     startDate: "",
     endDate: "",
-    budget: 0,
+    budget: "",
     currency: "USD",
     eventSize: "medium",
     priorityLeads: 0,
@@ -174,7 +174,7 @@ const getEmail = getEmailLocal ? JSON.parse(getEmailLocal) : {};
     const { id, value } = e.target;
     setFormData((prev) => ({ 
       ...prev, 
-      [id]: id === "budget" || id === "priorityLeads" ? Number(value) : value 
+      [id]: id === "budget" || id === "priorityLeads" ? (value) : value 
     }));
   };
 
@@ -306,7 +306,7 @@ const getEmail = getEmailLocal ? JSON.parse(getEmailLocal) : {};
     setOptInConfig([]); // Reset Opt-Ins
     setFormData({
       eventName: "", eventType: "Tradeshow", template_id: "", status: "Upcoming",
-      location: "", startDate: "", endDate: "", budget: 0, currency: "USD",
+      location: "", startDate: "", endDate: "", budget: "", currency: "USD",
       eventSize: "medium", priorityLeads: 0, lead_type: [], capture_type: [], area_of_interest: []
     });
   };
@@ -581,7 +581,7 @@ const getEmail = getEmailLocal ? JSON.parse(getEmailLocal) : {};
                       <SelectTrigger className="w-24 border-gray-200"><SelectValue /></SelectTrigger>
                       <SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="EUR">EUR</SelectItem></SelectContent>
                     </Select>
-                    <Input id="budget" type="number" value={formData.budget} onChange={handleChange} className="border-gray-200" />
+                    <Input id="budget" type="text" value={formData.budget} onChange={handleChange} className="border-gray-200" />
                   </div>
                 </div>
 
