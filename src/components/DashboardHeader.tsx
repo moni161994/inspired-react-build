@@ -281,6 +281,34 @@ export function DashboardHeader() {
   };
 
   // 2. TOGGLE FIELD SELECTION
+  // const toggleField = (label: string) => {
+  //   const api = convertToApiKey(label);
+  //   const emailOptInKey = convertToApiKey("Email Opt In");
+  //   const signatureKey = convertToApiKey("(Email Consent) Signature"); // Returns "signature"
+
+  //   setFieldSelections((prev) => {
+  //     const currentList = prev[activeTab];
+  //     const exists = currentList.find((f) => f.key === api);
+
+  //     let newList;
+  //     if (exists) {
+  //       // Remove
+  //       newList = currentList.filter((f) => f.key !== api);
+
+  //       // Logic: If user unselects 'email_opt_in', also unselect 'signature'
+  //       if (api === emailOptInKey) {
+  //         newList = newList.filter((f) => f.key !== signatureKey);
+  //       }
+  //     } else {
+  //       // Add (default not required)
+  //       newList = [...currentList, { key: api, required: false }];
+  //     }
+
+  //     return { ...prev, [activeTab]: newList };
+  //   });
+  // };
+
+  // 2. TOGGLE FIELD SELECTION
   const toggleField = (label: string) => {
     const api = convertToApiKey(label);
     const emailOptInKey = convertToApiKey("Email Opt In");
@@ -300,8 +328,22 @@ export function DashboardHeader() {
           newList = newList.filter((f) => f.key !== signatureKey);
         }
       } else {
-        // Add (default not required)
-        newList = [...currentList, { key: api, required: false }];
+        // Add logic: Default to not required, UNLESS it is the Email Opt In field
+        const isAutomaticallyRequired = api === emailOptInKey;
+        newList = [...currentList, { key: api, required: isAutomaticallyRequired }];
+
+        // NEW LOGIC: Automatically select Signature and make it required if Email Opt In is selected
+        if (api === emailOptInKey) {
+          const hasSignature = newList.some((f) => f.key === signatureKey);
+          if (!hasSignature) {
+            newList.push({ key: signatureKey, required: true });
+          } else {
+            // If it somehow exists already, ensure it's required
+            newList = newList.map(f => 
+              f.key === signatureKey ? { ...f, required: true } : f
+            );
+          }
+        }
       }
 
       return { ...prev, [activeTab]: newList };
@@ -479,15 +521,17 @@ export function DashboardHeader() {
   };
 
   // 5. UPDATED COMPONENT: Field Checkboxes with Required Toggle
+  // 5. UPDATED COMPONENT: Field Checkboxes with Required Toggle
   const FieldCheckboxes = () => {
     const currentSelectedList = fieldSelections[activeTab];
     const allKeys = AVAILABLE_FIELDS.map(convertToApiKey);
     const isAllSelected = currentSelectedList.length === allKeys.length;
 
-    // Check if Email Opt In is currently selected for this tab
+    // Define keys for easier comparison
     const emailOptInKey = convertToApiKey("Email Opt In");
-    const signatureKey = convertToApiKey("(Email Consent) Signature"); // "signature"
+    const signatureKey = convertToApiKey("(Email Consent) Signature"); // Returns "signature"
 
+    // Check if Email Opt In is currently selected for this tab
     const isEmailOptInSelected = currentSelectedList.some(
       (f) => f.key === emailOptInKey
     );
@@ -497,7 +541,11 @@ export function DashboardHeader() {
         ...prev,
         [activeTab]: isAllSelected
           ? []
-          : allKeys.map((k) => ({ key: k, required: false })),
+          : allKeys.map((k) => ({
+              key: k,
+              // Automatically make both Email Opt In and Signature required if 'Select All' is used
+              required: k === signatureKey || k === emailOptInKey ? true : false,
+            })),
       }));
     };
 
@@ -518,9 +566,10 @@ export function DashboardHeader() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[400px] overflow-y-auto pr-2">
           {AVAILABLE_FIELDS.map((label) => {
             const api = convertToApiKey(label);
+            const isSignature = api === signatureKey;
 
             // Logic: If this field is Signature, and Email Opt In is NOT selected, skip rendering it
-            if (api === signatureKey && !isEmailOptInSelected) {
+            if (isSignature && !isEmailOptInSelected) {
               return null;
             }
 
@@ -528,14 +577,26 @@ export function DashboardHeader() {
             const isChecked = !!fieldConfig;
             const isRequired = fieldConfig?.required || false;
 
+            // --- NEW STYLING LOGIC ---
+            // Determine classes based on checked state AND if it's the signature field
+            let backgroundClasses = "hover:bg-muted border-input"; // Default unselected
+
+            if (isChecked) {
+              if (isSignature) {
+                // Selected AND it is the signature field -> Pinkish style
+                backgroundClasses = "bg-pink-50 border-pink-200 text-pink-900";
+              } else {
+                // Selected standard field -> Standard primary style
+                backgroundClasses = "bg-primary/5 border-primary";
+              }
+            }
+            // -------------------------
+
             return (
               <div
                 key={label}
-                className={`flex items-center justify-between border p-2 rounded transition-colors text-sm ${
-                  isChecked
-                    ? "bg-primary/5 border-primary"
-                    : "hover:bg-muted border-input"
-                }`}
+                // Apply the calculated background classes here
+                className={`flex items-center justify-between border p-2 rounded transition-colors text-sm ${backgroundClasses}`}
               >
                 {/* Left Side: Checkbox & Label */}
                 <label className="flex items-center gap-2 cursor-pointer flex-1">
@@ -543,7 +604,10 @@ export function DashboardHeader() {
                     type="checkbox"
                     checked={isChecked}
                     onChange={() => toggleField(label)}
-                    className="w-4 h-4 rounded border-gray-300 accent-primary focus:ring-primary"
+                    // Optional: change accent color for signature checkbox too
+                    className={`w-4 h-4 rounded border-gray-300 focus:ring-offset-0 ${
+                       isChecked && isSignature ? "accent-pink-500 focus:ring-pink-500" : "accent-primary focus:ring-primary"
+                    }`}
                   />
                   <span className="select-none truncate font-medium">
                     {label}
@@ -552,10 +616,10 @@ export function DashboardHeader() {
 
                 {/* Right Side: Required Switch */}
                 {isChecked && (
-                  <div className="flex items-center gap-1.5 border-l pl-2 ml-2">
+                  <div className={`flex items-center gap-1.5 border-l pl-2 ml-2 ${isSignature ? 'border-pink-200' : ''}`}>
                     <span
                       className={`text-[10px] uppercase font-bold ${
-                        isRequired ? "text-red-500" : "text-muted-foreground"
+                        isRequired ? (isSignature ? "text-pink-600" : "text-red-500") : "text-muted-foreground"
                       }`}
                     >
                       {isRequired ? "Req" : "Opt"}
@@ -564,6 +628,8 @@ export function DashboardHeader() {
                       checked={isRequired}
                       onCheckedChange={() => toggleRequired(label)}
                       className="scale-75"
+                      // Optional: You can also style the switch track color for signature if desired
+                      // className={`scale-75 ${isSignature && isRequired ? '[&>span]:bg-pink-500' : ''}`}
                     />
                   </div>
                 )}
@@ -575,6 +641,8 @@ export function DashboardHeader() {
     );
   };
 
+
+  
   return (
     <>
       <header className="flex items-center justify-between h-16 px-6 bg-card border-b border-border">
