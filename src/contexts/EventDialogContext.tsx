@@ -97,7 +97,7 @@ const getEmail = getEmailLocal ? JSON.parse(getEmailLocal) : {};
     eventType: "Tradeshow",
     template_id: "",
     status: "Upcoming",
-    location: "",
+    location: "", 
     startDate: "",
     endDate: "",
     budget: "",
@@ -107,6 +107,7 @@ const getEmail = getEmailLocal ? JSON.parse(getEmailLocal) : {};
     lead_type: [] as string[],
     capture_type: [] as string[],
     area_of_interest: [] as string[],
+    opt_ins: [] as any[],
   });
 
   console.log(optInConfig, "Opt-In Config Debug");
@@ -263,6 +264,7 @@ const getEmail = getEmailLocal ? JSON.parse(getEmailLocal) : {};
       capture_type: formData.capture_type,
       area_of_interest: formData.area_of_interest, 
       total_leads: 0,
+      opt_ins: optInConfig,
     };
     
     try {
@@ -283,7 +285,8 @@ const getEmail = getEmailLocal ? JSON.parse(getEmailLocal) : {};
 
         toast({ title: "✅ Event Created Successfully" });
         closeEventDialog();
-        window.location.reload();
+        // window.location.reload();
+        window.location.href = `/events`; // Redirect to the new event's page
       } else {
         toast({ 
             variant: "destructive", 
@@ -307,7 +310,7 @@ const getEmail = getEmailLocal ? JSON.parse(getEmailLocal) : {};
     setFormData({
       eventName: "", eventType: "Tradeshow", template_id: "", status: "Upcoming",
       location: "", startDate: "", endDate: "", budget: "", currency: "USD",
-      eventSize: "medium", priorityLeads: 0, lead_type: [], capture_type: [], area_of_interest: []
+      eventSize: "medium", priorityLeads: 0, lead_type: [], capture_type: [], area_of_interest: [],opt_ins: [] as any[],
     });
   };
 
