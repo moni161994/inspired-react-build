@@ -394,14 +394,14 @@ export default function Reports() {
                     {/* Template Filter */}
                     <div className="space-y-1">
                       <label className="text-xs font-medium text-muted-foreground">
-                        Template
+                        Region
                       </label>
                       <Select value={templateId} onValueChange={setTemplateId}>
                         <SelectTrigger className="h-9 border-gray focus:border-gray">
-                          <SelectValue placeholder="All Templates" />
+                          <SelectValue placeholder="All Regions" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">All Templates</SelectItem>
+                          <SelectItem value="all">All Regions</SelectItem>
                           {TEMPLATE_DATA.map((template) => (
                             <SelectItem key={template.id} value={template.id.toString()}>
                               {template.template_name}

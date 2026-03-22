@@ -407,7 +407,7 @@ export function DashboardHeader() {
       toast({
         variant: "destructive",
         title: "Permission Denied",
-        description: "You are not allowed to create templates.",
+        description: "You are not allowed to create regions.",
       });
       return;
     }
@@ -430,8 +430,8 @@ export function DashboardHeader() {
         res?.msg?.toLowerCase()?.includes("created")
       ) {
         toast({
-          title: "Template Created",
-          description: "Your new template has been added successfully.",
+          title: "Region Created",
+          description: "Your new region has been added successfully.",
         });
 
         setTemplateDialogOpen(false);
@@ -453,11 +453,11 @@ export function DashboardHeader() {
         });
       }
     } catch (err: any) {
-      console.error("create template error:", err);
+      console.error("create region error:", err);
       toast({
         variant: "destructive",
         title: "Network Error",
-        description: "Could not create template. Try again later.",
+        description: "Could not create region. Try again later.",
       });
     } finally {
       setLoading(false);
@@ -665,8 +665,8 @@ export function DashboardHeader() {
               onClick={() => setTemplateDialogOpen(true)}
             >
               <Plus className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Create Template</span>
-              <span className="sm:hidden">Template</span>
+              <span className="hidden sm:inline">Create Region</span>
+              <span className="sm:hidden">Region</span>
             </Button>
           )}
 
@@ -797,17 +797,17 @@ export function DashboardHeader() {
       <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Create New Template</DialogTitle>
+            <DialogTitle>Create New Region</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 mt-4">
             {/* Top Row: Name & Logo */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label>Template Name *</Label>
+                <Label>Region Name *</Label>
                 <Input
                   className="border-gray-300 focus:border-primary mt-1.5"
-                  placeholder="Enter template name"
+                  placeholder="Enter region name"
                   value={templateName}
                   onChange={(e) => setTemplateName(e.target.value)}
                 />
@@ -948,7 +948,7 @@ export function DashboardHeader() {
               Cancel
             </Button>
             <Button onClick={handleCreateTemplate} disabled={loading}>
-              {loading ? "Saving Template..." : "Save Template (All Types)"}
+              {loading ? "Saving Region..." : "Save Region (All Types)"}
             </Button>
           </div>
         </DialogContent>

@@ -29,7 +29,7 @@ const ALL_NAVIGATION_ITEMS: PageOption[] = [
   { icon: Users, label: "Team", path: "/team" },
   { icon: User, label: "Users", path: "/users" },
   { icon: Folder, label: "Report", path: "/report" },
-  { icon: LayoutList, label: "Template", path: "/template" },
+  { icon: LayoutList, label: "Region", path: "/template" },
   { icon: Languages, label: "Language", path: "/language" },
   { icon: LandPlot, label: "Area Of Intrest", path: "/areaofintrest" },
   { icon: Mail, label: "Email-opt in", path: "/opt-in" },

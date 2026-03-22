@@ -49,7 +49,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { EventOptInSelector } from "./EventOptInSelector"; // Ensure this path is correct
+import { EventOptInSelector } from "./EventOptInSelector";
 
 type EventDialogContextType = {
   openEventDialog: () => void;
@@ -73,7 +73,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
 
-  // New: Opt-In Configuration (Step 3)
+  // Opt-In Configuration (Step 3)
   const [optInConfig, setOptInConfig] = useState<any[]>([]);
 
   // Data Lists
@@ -88,7 +88,7 @@ export function EventDialogProvider({ children }: { children: ReactNode }) {
   const [isLocationOpen, setIsLocationOpen] = useState(false);
 
   const getEmailLocal = localStorage.getItem("userDetails") || "";
-const getEmail = getEmailLocal ? JSON.parse(getEmailLocal) : {};
+  const getEmail = getEmailLocal ? JSON.parse(getEmailLocal) : {};
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
 
   // Form Data
@@ -110,8 +110,6 @@ const getEmail = getEmailLocal ? JSON.parse(getEmailLocal) : {};
     opt_ins: [] as any[],
   });
 
-  console.log(optInConfig, "Opt-In Config Debug");
-
   // ================= API DATA FETCHING =================
   useEffect(() => {
     const fetchData = async () => {
@@ -119,7 +117,6 @@ const getEmail = getEmailLocal ? JSON.parse(getEmailLocal) : {};
         // 1. Fetch Teams
         const teamRes = await request("/get_all_teams", "GET");
         if (teamRes?.length > 0) {
-          // Filter out nulls and duplicates
           const names = Array.from(new Set(teamRes.map((t: any) => t.team_name).filter(Boolean)));
           setTeams(names as string[]);
         }
@@ -189,7 +186,6 @@ const getEmail = getEmailLocal ? JSON.parse(getEmailLocal) : {};
     );
   };
 
-  // Generic Array Toggle for Lead Type, Capture Type, and AoI
   const toggleArrayItem = (field: "lead_type" | "capture_type" | "area_of_interest", value: string) => {
     setFormData((prev) => {
       const current = prev[field];
@@ -198,7 +194,6 @@ const getEmail = getEmailLocal ? JSON.parse(getEmailLocal) : {};
     });
   };
 
-  // Generic Select All / Deselect All
   const handleSelectAll = (field: "capture_type" | "area_of_interest", allItems: string[]) => {
     setFormData(prev => {
         const currentList = prev[field];
@@ -268,25 +263,18 @@ const getEmail = getEmailLocal ? JSON.parse(getEmailLocal) : {};
     };
     
     try {
-      // 1. Create the Event
       const res = await request("/create_events", "POST", payload);
       
-      // Check for various success responses depending on your API wrapper
       if (res?.success || res?.message === "Event created successfully") {
-        
-        // 2. Get the new Event ID
         const newEventId = res.id || res.data?.id || res.insertId;
 
-        // 3. Save Opt-In Configuration (If any selected)
         if (newEventId && optInConfig.length > 0) {
-            console.log(`Saving opt-ins for event ${newEventId}...`);
             await request(`/events/${newEventId}/optins`, "POST", { optIns: optInConfig });
         }
 
         toast({ title: "✅ Event Created Successfully" });
         closeEventDialog();
-        // window.location.reload();
-        window.location.href = `/events`; // Redirect to the new event's page
+        window.location.href = `/events`; 
       } else {
         toast({ 
             variant: "destructive", 
@@ -306,7 +294,7 @@ const getEmail = getEmailLocal ? JSON.parse(getEmailLocal) : {};
     setIsOpen(true);
     setStep(1);
     setSelectedTeams([]);
-    setOptInConfig([]); // Reset Opt-Ins
+    setOptInConfig([]);
     setFormData({
       eventName: "", eventType: "Tradeshow", template_id: "", status: "Upcoming",
       location: "", startDate: "", endDate: "", budget: "", currency: "USD",
@@ -321,7 +309,6 @@ const getEmail = getEmailLocal ? JSON.parse(getEmailLocal) : {};
   const isAllAoiSelected = allAoiNames.length > 0 && formData.area_of_interest.length === allAoiNames.length;
   const isAllCaptureSelected = formData.capture_type.length === CAPTURE_TYPES.length;
   
-  // Progress Bar Calculation
   const progressValue = step === 1 ? 33 : step === 2 ? 66 : 100;
 
   return (
@@ -336,7 +323,6 @@ const getEmail = getEmailLocal ? JSON.parse(getEmailLocal) : {};
                 <span className="text-xs text-muted-foreground">Owner: {getEmail.user_name}</span>
             </div>
             
-            {/* Progress Bar */}
             <div className="flex items-center gap-3 mt-4">
               <Progress value={progressValue} className="h-2 flex-1" />
               <span className="text-sm font-medium whitespace-nowrap text-muted-foreground">
@@ -362,7 +348,7 @@ const getEmail = getEmailLocal ? JSON.parse(getEmailLocal) : {};
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-semibold">Region Template <span className="text-red-500">*</span></Label>
+                  <Label className="text-sm font-semibold">Region <span className="text-red-500">*</span></Label>
                   <Select value={formData.template_id} onValueChange={(v) => handleSelectChange("template_id", v)}>
                     <SelectTrigger className="border-gray-200"><SelectValue placeholder="Select Region" /></SelectTrigger>
                     <SelectContent>
@@ -384,7 +370,67 @@ const getEmail = getEmailLocal ? JSON.parse(getEmailLocal) : {};
                     </SelectContent>
                   </Select>
                 </div>
+ {/* 2. Area of Interest */}
+                <div className="col-span-2 space-y-2">
+                    <div className="flex justify-between items-center">
+                        <Label className="text-sm font-semibold">Area of Interest</Label>
+                        {aoiList.length > 0 && (
+                            <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => handleSelectAll("area_of_interest", allAoiNames)}
+                                className="h-6 text-xs border-dashed px-2"
+                            >
+                                {isAllAoiSelected ? "Deselect All" : "Select All"}
+                            </Button>
+                        )}
+                    </div>
 
+                    <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-between border-gray-200 font-normal">
+                        {formData.area_of_interest.length > 0 
+                            ? `${formData.area_of_interest.length} selected` 
+                            : "Select Area of Interest..."}
+                        <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[400px] p-0">
+                        <Command>
+                        <CommandInput placeholder="Search areas..." />
+                        <CommandList className="max-h-48 overflow-y-auto">
+                            <CommandEmpty>No area found.</CommandEmpty>
+                            <CommandGroup>
+                            {aoiList.map((area) => (
+                                <CommandItem 
+                                    key={area.id} 
+                                    value={area.name}
+                                    onSelect={() => toggleArrayItem("area_of_interest", area.name)}
+                                >
+                                <Check className={`mr-2 h-4 w-4 ${formData.area_of_interest.includes(area.name) ? "opacity-100" : "opacity-0"}`} />
+                                {area.name}
+                                </CommandItem>
+                            ))}
+                            </CommandGroup>
+                        </CommandList>
+                        </Command>
+                    </PopoverContent>
+                    </Popover>
+                    
+                    <div className="flex flex-wrap gap-1 mt-2 max-h-[60px] overflow-y-auto">
+                        {formData.area_of_interest.map((item) => (
+                            <Badge 
+                                key={item} 
+                                variant="outline" 
+                                className="cursor-pointer bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-800"
+                                onClick={() => toggleArrayItem("area_of_interest", item)}
+                            >
+                                {item} ×
+                            </Badge>
+                        ))}
+                    </div>
+                </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold">Status <span className="text-red-500">*</span></Label>
                   <Select value={formData.status} onValueChange={(v) => handleSelectChange("status", v)}>
@@ -396,6 +442,7 @@ const getEmail = getEmailLocal ? JSON.parse(getEmailLocal) : {};
                     </SelectContent>
                   </Select>
                 </div>
+                
 
                 <div className="col-span-2 sm:col-span-1 space-y-2">
                   <Label className="text-sm font-semibold">Location <span className="text-red-500">*</span></Label>
@@ -422,7 +469,7 @@ const getEmail = getEmailLocal ? JSON.parse(getEmailLocal) : {};
                           value={locationSearch}
                           onValueChange={setLocationSearch}
                         />
-                        <CommandList>
+                        <CommandList className="max-h-60 overflow-y-auto">
                           <CommandEmpty>
                             {isLocationLoading ? (
                               <div className="flex items-center justify-center py-6">
@@ -456,82 +503,20 @@ const getEmail = getEmailLocal ? JSON.parse(getEmailLocal) : {};
                   </Popover>
                 </div>
 
-                {/* 2. Area of Interest */}
-                <div className="col-span-2 space-y-2">
-                    <div className="flex justify-between items-center">
-                        <Label className="text-sm font-semibold">Area of Interest</Label>
-                        {aoiList.length > 0 && (
-                            <Button 
-                                type="button" 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => handleSelectAll("area_of_interest", allAoiNames)}
-                                className="h-6 text-xs border-dashed px-2"
-                            >
-                                {isAllAoiSelected ? "Deselect All" : "Select All"}
-                            </Button>
-                        )}
-                    </div>
+               
 
-                    <Popover>
-                    <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-between border-gray-200 font-normal">
-                        {formData.area_of_interest.length > 0 
-                            ? `${formData.area_of_interest.length} selected` 
-                            : "Select Area of Interest..."}
-                        <ChevronsUpDown className="h-4 w-4 opacity-50" />
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[400px] p-0">
-                        <Command>
-                        <CommandInput placeholder="Search areas..." />
-                        <CommandList>
-                            <CommandEmpty>No area found.</CommandEmpty>
-                            <CommandGroup className="max-h-48 overflow-auto">
-                            {aoiList.map((area) => (
-                                <CommandItem 
-                                    key={area.id} 
-                                    value={area.name}
-                                    onSelect={() => toggleArrayItem("area_of_interest", area.name)}
-                                >
-                                <Check className={`mr-2 h-4 w-4 ${formData.area_of_interest.includes(area.name) ? "opacity-100" : "opacity-0"}`} />
-                                {area.name}
-                                </CommandItem>
-                            ))}
-                            </CommandGroup>
-                        </CommandList>
-                        </Command>
-                    </PopoverContent>
-                    </Popover>
-                    
-                    <div className="flex flex-wrap gap-1 mt-2 max-h-[60px] overflow-y-auto">
-                        {formData.area_of_interest.map((item) => (
-                            <Badge 
-                                key={item} 
-                                variant="outline" 
-                                className="cursor-pointer bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-800"
-                                onClick={() => toggleArrayItem("area_of_interest", item)}
-                            >
-                                {item} ×
-                            </Badge>
-                        ))}
-                    </div>
-                </div>
-
-                {/* <div className="col-span-2 sm:col-span-1 grid grid-cols-2 gap-2"> */}
-                    <DateInput 
-                        label="Start Date" 
-                        value={formData.startDate} 
-                        required 
-                        onChange={(v) => handleSelectChange("startDate", v)} 
-                    />
-                    <DateInput 
-                        label="End Date" 
-                        value={formData.endDate} 
-                        required 
-                        onChange={(v) => handleSelectChange("endDate", v)} 
-                    />
-                {/* </div> */}
+                <DateInput 
+                    label="Start Date" 
+                    value={formData.startDate} 
+                    required 
+                    onChange={(v) => handleSelectChange("startDate", v)} 
+                />
+                <DateInput 
+                    label="End Date" 
+                    value={formData.endDate} 
+                    required 
+                    onChange={(v) => handleSelectChange("endDate", v)} 
+                />
               </div>
             )}
 
@@ -552,8 +537,8 @@ const getEmail = getEmailLocal ? JSON.parse(getEmailLocal) : {};
                     <PopoverContent className="w-[400px] p-0">
                       <Command>
                         <CommandInput placeholder="Search teams..." />
-                        <CommandList>
-                          <CommandGroup className="max-h-48 overflow-auto">
+                        <CommandList className="max-h-48 overflow-y-auto">
+                          <CommandGroup>
                             {teams.map((t) => (
                               <CommandItem key={t} onSelect={() => handleTeamSelection(t)}>
                                 <Check className={`mr-2 h-4 w-4 ${selectedTeams.includes(t) ? "opacity-100" : "opacity-0"}`} />
@@ -573,8 +558,6 @@ const getEmail = getEmailLocal ? JSON.parse(getEmailLocal) : {};
                     ))}
                   </div>
                 </div>
-
-                
 
                 {/* 3. Budget & Size */}
                 <div className="space-y-2">
@@ -677,7 +660,6 @@ const getEmail = getEmailLocal ? JSON.parse(getEmailLocal) : {};
                     </div>
 
                     <div className="border-t pt-2">
-                        {/* THE NEW OPT-IN SELECTOR COMPONENT */}
                         <EventOptInSelector 
                             value={optInConfig}
                             onChange={(val) => setOptInConfig(val)} 

@@ -455,12 +455,12 @@ function Templates() {
         <DashboardHeader />
 
         <main className="flex-1 overflow-auto p-6 space-y-6">
-          <h2 className="text-2xl font-semibold">Form Templates</h2>
+          <h2 className="text-2xl font-semibold">Regions</h2>
 
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Template Name</TableHead>
+                <TableHead>Region Name</TableHead>
                 <TableHead>Description</TableHead>
                 {/* <TableHead>Image</TableHead> */}
                 <TableHead>Created At</TableHead>
@@ -571,7 +571,7 @@ function Templates() {
           >
             <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto w-[95vw]">
               <DialogHeader>
-                <DialogTitle className="text-xl">Edit Template</DialogTitle>
+                <DialogTitle className="text-xl">Edit Region</DialogTitle>
               </DialogHeader>
 
               <div className="space-y-5 mt-2">
@@ -580,7 +580,7 @@ function Templates() {
                   <div className="space-y-4">
                     <div>
                       <Label className="text-sm font-medium">
-                        Template Name
+                        Region Name
                       </Label>
                       <Input
                         className="border-gray-300 focus:border-primary mt-1.5"
@@ -600,7 +600,7 @@ function Templates() {
 
                   <div>
                     <Label className="text-sm font-medium">
-                      Template Image
+                      Region Image
                     </Label>
                     <Input
                       type="file"

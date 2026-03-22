@@ -461,7 +461,7 @@ export default function Analytics() {
                 </Card>
                 <Card>
                   <CardHeader>
-                    <CardTitle>Template Usage Analytics</CardTitle>
+                    <CardTitle>Region Usage Analytics</CardTitle>
                   </CardHeader>
                   <div className="flex gap-6 items-end justify-between p-6">
                     <div className="flex flex-col">

@@ -115,9 +115,9 @@ const ACTION_OPTIONS: Record<string, ActionOption[]> = {
     { label: "User Filter", action: "filter" },
   ],
   "/template": [
-    { label: "Create Template", action: "create_template" },
-    { label: "Edit Template", action: "edit_template" },
-    { label: "Delete Template", action: "delete_template" },
+    { label: "Create Region", action: "create_template" },
+    { label: "Edit Region", action: "edit_template" },
+    { label: "Delete Region", action: "delete_template" },
   ],
   "/language": [
     { label: "Create Language", action: "create_language" },

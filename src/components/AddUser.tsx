@@ -298,7 +298,7 @@ const AddUser = ({
         <CardContent className="space-y-4 pt-4 px-1">
           {/* Standard Fields */}
           <div>
-            <Label htmlFor="user_name">Username</Label>
+            <Label htmlFor="user_name">Name</Label>
             <Input
               id="user_name"
               placeholder="Enter username"

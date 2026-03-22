@@ -290,7 +290,7 @@ function UpdateEventPopup({
               </div>
 
               <div>
-                <Label>Lead Capture Template *</Label>
+                <Label>Lead Capture Region *</Label>
                 <Select value={formData.template_id} onValueChange={(v) => handleChange("template_id", v)}>
                   <SelectTrigger className="border-gray"><SelectValue placeholder="Select Template" /></SelectTrigger>
                   <SelectContent>
@@ -882,10 +882,10 @@ export default function Events() {
                   onValueChange={(v) => setSelectedTemplateId(v)}
                 >
                   <SelectTrigger className="w-44 border border-gray-300 rounded">
-                    <SelectValue placeholder="Filter Template" />
+                    <SelectValue placeholder="Filter Regions" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="All">All Templates</SelectItem>
+                    <SelectItem value="All">All Regions</SelectItem>
                     {templates.map((tpl: any) => (
                       <SelectItem key={tpl.id} value={String(tpl.id)}>
                         {tpl.template_name}
